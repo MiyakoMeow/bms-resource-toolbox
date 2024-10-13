@@ -12,13 +12,19 @@ if __name__ == "__main__":
     root_dir = input(f"Input root dir of bms dirs (Default: {BOFTT_DIR}):")
     if len(root_dir.strip()) == 0:
         root_dir = BOFTT_DIR
+
+    folder_count = input(f"Input folder count (Default: {FOLDER_COUNT}):").strip()
+    if len(folder_count) == 0 or not folder_count.isdigit():
+        folder_count = FOLDER_COUNT
+    folder_count = int(folder_count)
+
     existing_elements = os.listdir(root_dir)
     for element_name in existing_elements:
         path = f"{root_dir}/{element_name}"
         if not os.path.isdir(path):
             existing_elements.remove(element_name)
 
-    for id in range(1, FOLDER_COUNT + 1):
+    for id in range(1, folder_count + 1):
         new_dir_name = f"{id}"
         id_exists = False
         for element_name in existing_elements:

@@ -1,0 +1,43 @@
+import os
+
+import openpyxl
+
+from bms import get_dir_bms_info
+
+BOFTT_DIR = os.environ.get("BOFTT_DIR")
+if BOFTT_DIR is None:
+    BOFTT_DIR = os.path.abspath(".")
+
+if __name__ == "__main__":
+    print("Set default dir by env BOFTT_DIR")
+
+    root_dir = input(f"Input root dir of bms dirs (Default: {BOFTT_DIR}):")
+    if len(root_dir.strip()) == 0:
+        root_dir = BOFTT_DIR
+
+    # 创建一个 workbook
+    workbook = openpyxl.Workbook()
+    workbook.create_sheet("BMS List")
+
+    worksheet = workbook["BMS List"]
+
+    for dir_name in os.listdir(root_dir):
+        if not os.path.isdir(dir_name):
+            continue
+        dir_path = f"{root_dir}/{dir_name}"
+        # 获得BMS信息
+        info = get_dir_bms_info(dir_path)
+        if info is None:
+            continue
+        # 获得目录编号
+        id = dir_name.split(".")[0]
+        # 填充信息
+        worksheet[f"A{id}"] = id
+        worksheet[f"B{id}"] = info.title
+        worksheet[f"C{id}"] = info.artist
+        worksheet[f"D{id}"] = info.genre
+        
+    # 保存 Excel 文件
+    table_path = f"{root_dir}/bms_list.xlsx"
+    print(f"Saving table to {table_path}")
+    workbook.save(table_path)

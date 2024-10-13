@@ -1,75 +1,46 @@
-import json
 import os
 import os.path
 import shutil
+from typing import Optional
 
+from bms import get_dir_bms_info, BMSInfo
 
 BOFTT_DIR = os.environ.get("BOFTT_DIR")
 if BOFTT_DIR is None:
     BOFTT_DIR = os.path.abspath(".")
 
-ENCODING = "shift-jis"
+def get_vaild_fs_name(ori_name: str) -> str:
+    return ori_name \
+        .replace(":", "：") \
+        .replace("/", "←") \
+        .replace("\\", "→") \
+        .replace(" & ", " and ") \
+        .replace("&", " and ") \
+        .replace(" | ", " or ") \
+        .replace("|", " or ") \
+        .replace("?", "？") \
+        .replace("!", "！") \
+        .replace(",", "，") \
+        .replace("<", "《") \
+        .replace(">", "》") \
+        .replace("*", "☆") \
+        .replace("\"", "“") \
 
 
-class BMSInfo:
-    def __init__(self, title: str, artist: str) -> None:
-        self.title = title
-        self.artist = artist
-
-
-def parse_bms_file(file_path: str) -> BMSInfo:
-    title = ""
-    artist = ""
-    with open(file_path, "rb") as file:
-        file_bytes = file.read()
-        file_str = file_bytes.decode(ENCODING)
-
-        for line in file_str.splitlines():
-            line = line.strip()
-            if line.startswith("#ARTIST"):
-                artist = line.replace("#ARTIST", "").strip()
-            elif line.startswith("#TITLE"):
-                title = line.replace("#TITLE", "").strip()
-    return BMSInfo(title, artist)
-
-
-def parse_bmson_file(file_path: str) -> BMSInfo:
-    title = ""
-    artist = ""
-    with open(file_path, "rb") as file:
-        file_bytes = file.read()
-        file_str = file_bytes.decode(ENCODING)
-        bmson_info = json.loads(file_str)
-        # Get info
-        title = bmson_info["info"]["title"]
-        artist = bmson_info["info"]["artist"]
-
-    return BMSInfo(title, artist)
-
-
-def rename_dir(dir_path: str):
+def deal_with_dir(dir_path: str):
     if not dir_path.split("/")[-1].split("\\")[-1].strip().isdigit():
         # print(f"{dir_path} has been renamed! Skipping...")
         return
-    info = None
-    for root, _, files in os.walk(dir_path):
-        if info is not None:
-            break
-        for file_name in files:
-            if info is not None:
-                break
-            file_path = f"{root}/{file_name}"
-            if file_name.endswith((".bms", ".bme", ".bml", ".pms")):
-                info = parse_bms_file(file_path)
-            elif file_name.endswith((".bmson")):
-                info = parse_bmson_file(file_path)
+    info: Optional[BMSInfo] = get_dir_bms_info(dir_path)
     if info is None:
-        # print(f"{dir_path} has no bms/bmson files!")
+        print(f"{dir_path} has no bms/bmson files!")
         return
+
     # Rename
     print(f"{dir_path} found bms title: {info.title} artist: {info.artist}")
-    new_dir_path = f"{dir_path}. {info.title} [{info.artist}]"
+    new_dir_path = f"{dir_path}. {get_vaild_fs_name(info.title)} [{get_vaild_fs_name(info.artist)}]"
     shutil.move(dir_path, new_dir_path)
+
     # Move out files
     dir_path = new_dir_path
     dir_inner_list = os.listdir(dir_path)
@@ -89,8 +60,8 @@ if __name__ == "__main__":
     root_dir = input(f"Input root dir of bms dirs (Default: {BOFTT_DIR}):")
     if len(root_dir.strip()) == 0:
         root_dir = BOFTT_DIR
-    for id, dir_name in enumerate(os.listdir(root_dir)):
-        if not os.path.isdir(dir_name):
-            continue
+    for dir_name in os.listdir(root_dir):
         dir_path = f"{root_dir}/{dir_name}"
-        rename_dir(dir_path)
+        if not os.path.isdir(dir_path):
+            continue
+        deal_with_dir(dir_path)
