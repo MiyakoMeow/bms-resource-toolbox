@@ -4,27 +4,11 @@ import shutil
 from typing import Optional
 
 from bms import get_dir_bms_info, BMSInfo
+from bms_fs import get_vaild_fs_name, move_files_across_dir
 
 BOFTT_DIR = os.environ.get("BOFTT_DIR")
 if BOFTT_DIR is None:
     BOFTT_DIR = os.path.abspath(".")
-
-def get_vaild_fs_name(ori_name: str) -> str:
-    return ori_name \
-        .replace(":", "：") \
-        .replace("/", "←") \
-        .replace("\\", "→") \
-        .replace(" & ", " and ") \
-        .replace("&", " and ") \
-        .replace(" | ", " or ") \
-        .replace("|", " or ") \
-        .replace("?", "？") \
-        .replace("!", "！") \
-        .replace(",", "，") \
-        .replace("<", "《") \
-        .replace(">", "》") \
-        .replace("*", "☆") \
-        .replace("\"", "“") \
 
 
 def deal_with_dir(dir_path: str):
@@ -48,10 +32,7 @@ def deal_with_dir(dir_path: str):
         return
     dir_inner_path = f"{dir_path}/{dir_inner_list[0]}"
     print(f"Moving files in {dir_inner_path} to parent folder")
-    for file_name in os.listdir(dir_inner_path):
-        ori_path = f"{dir_inner_path}/{file_name}"
-        dst_path = f"{dir_path}/{file_name}"
-        shutil.move(ori_path, dst_path)
+    move_files_across_dir(dir_inner_path, dir_path)
     os.rmdir(dir_inner_path)
 
 

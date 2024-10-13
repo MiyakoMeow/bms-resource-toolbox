@@ -18,7 +18,11 @@ def parse_bms_file(file_path: str) -> BMSInfo:
     genre = ""
     with open(file_path, "rb") as file:
         file_bytes = file.read()
-        file_str = file_bytes.decode(ENCODING)
+        file_str = ""
+        try:
+            file_str = file_bytes.decode(ENCODING)
+        except UnicodeDecodeError:
+            file_str = file_bytes.decode("utf-8", "replace")
 
         for line in file_str.splitlines():
             line = line.strip()
