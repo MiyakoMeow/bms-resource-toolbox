@@ -5,6 +5,22 @@ from typing import Optional
 ENCODING = "shift-jis"
 
 
+def get_bms_file_str(file_bytes: bytes) -> str:
+    file_str = ""
+    try:
+        file_str = file_bytes.decode(ENCODING, "strict")
+    except UnicodeDecodeError:
+        try:
+            file_str = file_bytes.decode("utf-8", "strict")
+        except UnicodeDecodeError:
+            try:
+                file_str = file_bytes.decode("gb18030", "strict")
+            except UnicodeDecodeError:
+                file_str = file_bytes.decode(ENCODING, "replace")
+
+    return file_str
+
+
 class BMSInfo:
     def __init__(self, title: str, artist: str, genre: str) -> None:
         self.title = title
@@ -18,18 +34,7 @@ def parse_bms_file(file_path: str) -> BMSInfo:
     genre = ""
     with open(file_path, "rb") as file:
         file_bytes = file.read()
-
-        file_str = ""
-        try:
-            file_str = file_bytes.decode(ENCODING, "strict")
-        except UnicodeDecodeError:
-            try:
-                file_str = file_bytes.decode("gb18030", "strict")
-            except UnicodeDecodeError:
-                try:
-                    file_str = file_bytes.decode("utf-8", "strict")
-                except UnicodeDecodeError:
-                    file_str = file_bytes.decode(ENCODING, "replace")
+        file_str = get_bms_file_str(file_bytes)
 
         for line in file_str.splitlines():
             line = line.strip()
@@ -48,18 +53,7 @@ def parse_bmson_file(file_path: str) -> BMSInfo:
     genre = ""
     with open(file_path, "rb") as file:
         file_bytes = file.read()
-
-        file_str = ""
-        try:
-            file_str = file_bytes.decode(ENCODING, "strict")
-        except UnicodeDecodeError:
-            try:
-                file_str = file_bytes.decode("gb18030", "strict")
-            except UnicodeDecodeError:
-                try:
-                    file_str = file_bytes.decode("utf-8", "strict")
-                except UnicodeDecodeError:
-                    file_str = file_bytes.decode(ENCODING, "replace")
+        file_str = get_bms_file_str(file_bytes)
 
         bmson_info = json.loads(file_str)
         # Get info
@@ -71,16 +65,16 @@ def parse_bmson_file(file_path: str) -> BMSInfo:
 
 
 def get_dir_bms_info(dir_path: str) -> Optional[BMSInfo]:
+    """仅寻找该目录第一层的文件"""
     info: Optional[BMSInfo] = None
-    for root, _, files in os.walk(dir_path):
+    for file_name in os.listdir(dir_path):
         if info is not None:
             break
-        for file_name in files:
-            if info is not None:
-                break
-            file_path = f"{root}/{file_name}"
-            if file_name.endswith((".bms", ".bme", ".bml", ".pms")):
-                info = parse_bms_file(file_path)
-            elif file_name.endswith((".bmson")):
-                info = parse_bmson_file(file_path)
+        file_path = f"{dir_path}/{file_name}"
+        if not os.path.isfile(file_path):
+            continue
+        if file_name.endswith((".bms", ".bme", ".bml", ".pms")):
+            info = parse_bms_file(file_path)
+        elif file_name.endswith((".bmson")):
+            info = parse_bmson_file(file_path)
     return info
