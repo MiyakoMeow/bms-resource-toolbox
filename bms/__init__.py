@@ -18,11 +18,18 @@ def parse_bms_file(file_path: str) -> BMSInfo:
     genre = ""
     with open(file_path, "rb") as file:
         file_bytes = file.read()
+
         file_str = ""
         try:
-            file_str = file_bytes.decode(ENCODING)
+            file_str = file_bytes.decode(ENCODING, "strict")
         except UnicodeDecodeError:
-            file_str = file_bytes.decode("utf-8", "replace")
+            try:
+                file_str = file_bytes.decode("gb18030", "strict")
+            except UnicodeDecodeError:
+                try:
+                    file_str = file_bytes.decode("utf-8", "strict")
+                except UnicodeDecodeError:
+                    file_str = file_bytes.decode(ENCODING, "replace")
 
         for line in file_str.splitlines():
             line = line.strip()
@@ -41,7 +48,19 @@ def parse_bmson_file(file_path: str) -> BMSInfo:
     genre = ""
     with open(file_path, "rb") as file:
         file_bytes = file.read()
-        file_str = file_bytes.decode(ENCODING)
+
+        file_str = ""
+        try:
+            file_str = file_bytes.decode(ENCODING, "strict")
+        except UnicodeDecodeError:
+            try:
+                file_str = file_bytes.decode("gb18030", "strict")
+            except UnicodeDecodeError:
+                try:
+                    file_str = file_bytes.decode("utf-8", "strict")
+                except UnicodeDecodeError:
+                    file_str = file_bytes.decode(ENCODING, "replace")
+
         bmson_info = json.loads(file_str)
         # Get info
         title = bmson_info["info"]["title"]
