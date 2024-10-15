@@ -2,21 +2,29 @@ import json
 import os
 from typing import Optional
 
-ENCODING = "shift-jis"
+ENCODINGS = [
+    "shift-jis",
+    "shift-jis-2004",
+    "shift-jisx0213",
+    "gb2312",
+    "utf-8",
+    "gb18030",
+]
 
 
 def get_bms_file_str(file_bytes: bytes) -> str:
     file_str = ""
-    try:
-        file_str = file_bytes.decode(ENCODING, "strict")
-    except UnicodeDecodeError:
+    done = False
+    for encoding in ENCODINGS:
         try:
-            file_str = file_bytes.decode("utf-8", "strict")
+            file_str = file_bytes.decode(encoding, "strict")
+            done = True
         except UnicodeDecodeError:
-            try:
-                file_str = file_bytes.decode("gb18030", "strict")
-            except UnicodeDecodeError:
-                file_str = file_bytes.decode(ENCODING, "replace")
+            pass
+        if done:
+            break
+    if not done:
+        file_str = file_bytes.decode("utf-8", "replace")
 
     return file_str
 
