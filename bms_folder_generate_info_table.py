@@ -21,10 +21,11 @@ if __name__ == "__main__":
 
     worksheet = workbook["BMS List"]
 
+    # 访问目录下的BMS文件夹
     for dir_name in os.listdir(root_dir):
-        if not os.path.isdir(dir_name):
-            continue
         dir_path = f"{root_dir}/{dir_name}"
+        if not os.path.isdir(dir_path):
+            continue
         # 获得BMS信息
         info = get_dir_bms_info(dir_path)
         if info is None:
@@ -36,7 +37,7 @@ if __name__ == "__main__":
         worksheet[f"B{id}"] = info.title
         worksheet[f"C{id}"] = info.artist
         worksheet[f"D{id}"] = info.genre
-        
+
     # 保存 Excel 文件
     table_path = f"{root_dir}/bms_list.xlsx"
     print(f"Saving table to {table_path}")
