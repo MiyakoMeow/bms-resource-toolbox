@@ -1,17 +1,13 @@
 import os
 import os.path
 
+from bms_fs import get_bms_folder_dir
+
 FOLDER_COUNT = 300
 
-BOFTT_DIR = os.environ.get("BOFTT_DIR")
-if BOFTT_DIR is None:
-    BOFTT_DIR = os.path.abspath(".")
 
 if __name__ == "__main__":
-    print("Set default dir by env BOFTT_DIR")
-    root_dir = input(f"Input root dir of bms dirs (Default: {BOFTT_DIR}):")
-    if len(root_dir.strip()) == 0:
-        root_dir = BOFTT_DIR
+    root_dir = get_bms_folder_dir()
 
     folder_count = input(f"Input folder count (Default: {FOLDER_COUNT}):").strip()
     if len(folder_count) == 0 or not folder_count.isdigit():

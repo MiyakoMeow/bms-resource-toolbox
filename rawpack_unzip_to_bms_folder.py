@@ -6,26 +6,11 @@ import zipfile
 import py7zr
 import rarfile
 
-from bms_fs import move_files_across_dir
-
-BOFTT_PACK_DIR = os.environ.get("BOFTT_PACK_DIR")
-if BOFTT_PACK_DIR is None:
-    BOFTT_PACK_DIR = os.path.abspath(".")
-
-BOFTT_DIR = os.environ.get("BOFTT_DIR")
-if BOFTT_DIR is None:
-    BOFTT_DIR = os.path.abspath(".")
+from bms_fs import get_bms_folder_dir, get_bms_pack_dir, move_files_across_dir
 
 if __name__ == "__main__":
-    print("Set default pack dir by env BOFTT_PACK_DIR")
-    pack_dir = input(f"Input root dir of bms pack dirs (Default: {BOFTT_PACK_DIR}):")
-    if len(pack_dir.strip()) == 0:
-        pack_dir = BOFTT_PACK_DIR
-
-    print("Set default dir by env BOFTT_DIR")
-    root_dir = input(f"Input root dir of bms dirs (Default: {BOFTT_DIR}):")
-    if len(root_dir.strip()) == 0:
-        root_dir = BOFTT_DIR
+    root_dir = get_bms_folder_dir()
+    pack_dir = get_bms_pack_dir()
 
     for file_name in os.listdir(pack_dir):
         file_path = f"{pack_dir}/{file_name}"
