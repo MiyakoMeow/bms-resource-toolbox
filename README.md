@@ -12,3 +12,6 @@ Time Zone: UTC+8
 - 2024.10.16 02:00 update no.1-no.220
 
 - 2024.10.17 21:28 updated from update list.
+
+- 2024.10.18 15:00 updated from update list.
+- Ver2 Release
