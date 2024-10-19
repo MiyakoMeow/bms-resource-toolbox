@@ -122,29 +122,37 @@ Audio
 """
 
 
+class AudioPreset:
+    def __init__(self, output_format: str, arg: Optional[str] = None) -> None:
+        self.output_format = output_format
+        self.arg = arg
+
+    def __str__(self) -> str:
+        return f"AudioPreset: output_format: {self.output_format} arg: {self.arg}"
+
+
+AUDIO_PRESET_OGG = AudioPreset("ogg", None)
+AUDIO_PRESET_OGG_320K = AudioPreset("ogg", "-ab 320k")
+AUDIO_PRESET_WAV = AudioPreset("wav", None)
+AUDIO_PRESET_FLAC = AudioPreset("flac", None)
+
+
 def _get_audio_precess_cmd(
     file_path: str,
-    input_ext: str,
-    output_ext: str,
+    output_file_path: str,
     audio_format: str,
     extra_args: Optional[str] = None,
 ) -> str:
-    output_path = file_path[: -len(input_ext)] + output_ext
-    if os.path.isfile(output_path):
-        print(f"File {output_path} exists! Skipping...")
-        return ""
     # Execute
     extra_args = extra_args if extra_args is not None else ""
-    cmd = f'ffmpeg -hide_banner -loglevel panic -i "{file_path}" -f {audio_format} {extra_args} "{output_path}"'
+    cmd = f'ffmpeg -hide_banner -loglevel panic -i "{file_path}" -f {audio_format} {extra_args} "{output_file_path}"'
     return cmd
 
 
 def transfer_audio_by_format_in_dir(
     dir: str,
-    input_ext: str,
-    output_ext: str,
-    audio_format: str,
-    extra_args: Optional[str] = None,
+    input_exts: List[str],
+    presets: List[AudioPreset],
     remove_origin_file: bool = True,
 ) -> bool:
     """
@@ -153,60 +161,104 @@ def transfer_audio_by_format_in_dir(
     wav ogg ogg -ab 320k
     """
     # Spawn Tasks
-    processes: List[Tuple[str, Optional[subprocess.Popen]]] = []
+    # (file, output_file, running_preset_index, precess)
+    processes: List[Tuple[str, Optional[str], int, Optional[subprocess.Popen]]] = []
     for file_name in os.listdir(dir):
         file_path = f"{dir}/{file_name}"
         if not os.path.isfile(file_path):
             continue
-        # Check ext
-        if not file_name.lower().endswith("." + input_ext):
-            continue
-        cmd = _get_audio_precess_cmd(
-            file_path,
-            input_ext,
-            output_ext,
-            audio_format,
-            extra_args,
-        )
-        if len(cmd) == 0:
-            processes.append((file_path, None))
-            continue
-        process = subprocess.Popen(
-            cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
-        processes.append((file_path, process))
+        processes.append((file_path, None, -1, None))
 
     # Check Tasks
     has_error = False
     while len(processes) > 0:
-        processes_waiting: List[Tuple[str, Optional[subprocess.Popen]]] = []
-        for i, (file_path, process) in enumerate(processes):
-            # Empty Process
-            if process is None:
+        processes_waiting: List[
+            Tuple[str, Optional[str], int, Optional[subprocess.Popen]]
+        ] = []
+        for i, (file_path, output_file_path, preset_index, process) in enumerate(
+            processes
+        ):
+            switch_required = False
+            # Empty Process?
+            if 0 <= preset_index < len(presets) and process is None:
                 if remove_origin_file and os.path.isfile(file_path):
                     os.remove(file_path)
                 continue
+
             # Get status
-            stdout, stderr = process.communicate()
-            # Not Finished?
-            poll_result = process.poll()
-            if poll_result is None:
-                processes_waiting.append((file_path, process))
-                continue
-            # Has Error?
-            if poll_result != 0:
-                has_error = True
-                print(" - Has error!", file_path, stderr, "->", i)
-            # Normal End: Print
+            stdout = b""
+            stderr = b""
+            if process is None:
+                if output_file_path is not None and os.path.isfile(output_file_path):
+                    os.remove(output_file_path)
+                switch_required = True
             else:
-                # print(f" - Finished: {file_path} -> {i}")
-                if len(stdout) > 0:
-                    print(stdout)
-                if len(stderr) > 0:
-                    print(stderr)
-                # Normal End: Remove File
-                if remove_origin_file and os.path.isfile(file_path):
-                    os.remove(file_path)
+                stdout, stderr = process.communicate()
+                # Not Finished?
+                poll_result = process.poll()
+                if poll_result is None:
+                    processes_waiting.append(
+                        (file_path, output_file_path, preset_index, process)
+                    )
+                    continue
+                # Has Error?
+                if poll_result != 0:
+                    if output_file_path is not None and os.path.isfile(
+                        output_file_path
+                    ):
+                        os.remove(output_file_path)
+                    switch_required = True
+
+            # Need switch?
+            if switch_required:
+                # Check ext
+                ext_found: Optional[str] = None
+                for ext in input_exts:
+                    if file_path.lower().endswith("." + ext):
+                        ext_found = ext
+                if ext_found is None:
+                    continue
+                # get preset
+                next_preset_index = preset_index + 1
+                if next_preset_index >= len(presets):
+                    has_error = True
+                    continue
+                next_preset = presets[next_preset_index]
+                # New cmd
+                new_output_file_path = (
+                    file_path[: -len(ext_found)] + next_preset.output_format
+                )
+                if os.path.isfile(new_output_file_path):
+                    print(f"File {new_output_file_path} exists! Skipping...")
+                    continue
+                cmd = _get_audio_precess_cmd(
+                    file_path,
+                    new_output_file_path,
+                    next_preset.output_format,
+                    next_preset.arg,
+                )
+                if len(cmd) == 0:
+                    processes_waiting.append(
+                        (file_path, new_output_file_path, next_preset_index, None)
+                    )
+                    continue
+                process = subprocess.Popen(
+                    cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                )
+                processes_waiting.append(
+                    (file_path, new_output_file_path, next_preset_index, process)
+                )
+                continue
+
+            # Normal End: Print
+            # print(f" - Finished: {file_path} -> {i}")
+            if len(stdout) > 0:
+                print(stdout)
+            if len(stderr) > 0:
+                print(stderr)
+            # Normal End: Remove File
+            if remove_origin_file and os.path.isfile(file_path):
+                os.remove(file_path)
 
         processes = processes_waiting
 
