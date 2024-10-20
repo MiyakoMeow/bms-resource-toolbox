@@ -6,6 +6,7 @@ from bms_media import (
     AUDIO_PRESET_FLAC,
     AUDIO_PRESET_OGG_Q10,
     AUDIO_PRESET_WAV,
+    AUDIO_PRESET_WAV_FROM_FLAC,
     AudioPreset,
     transfer_audio_by_format_in_dir,
 )
@@ -13,14 +14,9 @@ from bms_media import (
 
 MODES: List[Tuple[str, List[str], List[AudioPreset]]] = [
     ("Convert: WAV to FLAC", ["wav"], [AUDIO_PRESET_FLAC]),
-    (
-        "Compress: WAV to OGG Q10",
-        ["wav"],
-        [
-            AUDIO_PRESET_OGG_Q10,
-        ],
-    ),
-    ("Reverse: FLAC to WAV", ["flac"], [AUDIO_PRESET_WAV]),
+    ("Compress: WAV to OGG Q10", ["wav"], [AUDIO_PRESET_OGG_Q10]),
+    ("Compress: FLAC to WAV Q10", ["flac"], [AUDIO_PRESET_OGG_Q10]),
+    ("Reverse: FLAC to WAV", ["flac"], [AUDIO_PRESET_WAV_FROM_FLAC]),
     ("Reverse: OGG to WAV", ["ogg"], [AUDIO_PRESET_WAV]),
 ]
 

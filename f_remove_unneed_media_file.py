@@ -10,7 +10,7 @@ def remove_unneed_media_files(bms_dir_path: str):
         if not os.path.isfile(file_path):
             continue
 
-        # MP4 -> WMV/MPG
+        # MP4 -> WMV/MPG/MPEG
         if file_name.endswith(".mp4"):
             replacing_file_path = f"{bms_dir_path}/{file_name[:-len(".mp4")] + ".wmv"}"
             if os.path.isfile(replacing_file_path):
@@ -24,8 +24,14 @@ def remove_unneed_media_files(bms_dir_path: str):
                     f"- Remove file {replacing_file_path}, because {file_path} exists."
                 )
                 os.remove(replacing_file_path)
+            replacing_file_path = f"{bms_dir_path}/{file_name[:-len(".mp4")] + ".mpeg"}"
+            if os.path.isfile(replacing_file_path):
+                print(
+                    f"- Remove file {replacing_file_path}, because {file_path} exists."
+                )
+                os.remove(replacing_file_path)
 
-        # AVI -> WMV/MPG
+        # AVI -> WMV/MPG/MPEG
         if file_name.endswith(".avi"):
             replacing_file_path = f"{bms_dir_path}/{file_name[:-len(".avi")] + ".wmv"}"
             if os.path.isfile(replacing_file_path):
@@ -34,6 +40,12 @@ def remove_unneed_media_files(bms_dir_path: str):
                 )
                 os.remove(replacing_file_path)
             replacing_file_path = f"{bms_dir_path}/{file_name[:-len(".avi")] + ".mpg"}"
+            if os.path.isfile(replacing_file_path):
+                print(
+                    f"- Remove file {replacing_file_path}, because {file_path} exists."
+                )
+                os.remove(replacing_file_path)
+            replacing_file_path = f"{bms_dir_path}/{file_name[:-len(".mp4")] + ".mpeg"}"
             if os.path.isfile(replacing_file_path):
                 print(
                     f"- Remove file {replacing_file_path}, because {file_path} exists."

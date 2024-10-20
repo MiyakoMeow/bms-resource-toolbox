@@ -1,40 +1,55 @@
 import os
-from typing import Optional
+from typing import List, Tuple
 
 from bms_fs import get_bms_folder_dir
 from bms_media import (
-    VIDEO_PRESET_WMV_480P,
-    VIDEO_PRESET_WMV_512X512,
+    VIDEO_PRESET_MPEG1VIDEO_480P,
+    VIDEO_PRESET_MPEG1VIDEO_512X512,
+    VIDEO_PRESET_WMV1_480P,
+    VIDEO_PRESET_WMV1_512X512,
+    VideoPreset,
     process_video_in_dir,
 )
 
 
-PRESETS = [
-    ("MP4/AVI -> WMV 512x512", VIDEO_PRESET_WMV_512X512),
-    ("MP4/AVI -> WMV 480p", VIDEO_PRESET_WMV_480P),
+PRESETS: List[Tuple[str, VideoPreset]] = [
+    ("MP4/AVI -> MPEG1VIDEO 480p", VIDEO_PRESET_MPEG1VIDEO_480P),
+    ("MP4/AVI -> MPEG1VIDEO 512x512", VIDEO_PRESET_MPEG1VIDEO_512X512),
+    ("MP4/AVI -> WMV1 480p", VIDEO_PRESET_WMV1_480P),
+    ("MP4/AVI -> WMV1 512x512", VIDEO_PRESET_WMV1_512X512),
 ]
 
 
 def main(
-    preset: Optional[int] = None,
+    presets: List[VideoPreset] = [],
     remove_origin_file: bool = True,
+    use_prefered: bool = True,
 ):
     root_dir = get_bms_folder_dir()
 
-    if preset is None:
+    if len(presets) == 0:
         for i, (mode_str, mode_args) in enumerate(PRESETS):
             print(f"- {i}: {mode_str} ({mode_args})")
-        selection = int(input("Select Mode (Type numbers above):"))
-        preset = PRESETS[selection][1]
+        selection_str = input(
+            "Select Modes (Type numbers above, split with space, then will exec in order):"
+        )
+        selections = selection_str.split()
+        for selection in selections:
+            presets.append(PRESETS[int(selection)][1])
 
     for bms_dir_name in os.listdir(root_dir):
         bms_dir_path = f"{root_dir}/{bms_dir_name}"
-        print("Entering dir:", bms_dir_path)
         if not os.path.isdir(bms_dir_path):
             continue
-        if not process_video_in_dir(
-            bms_dir_path, preset, remove_origin_file=remove_origin_file
-        ):
+        print("Entering dir:", bms_dir_path)
+
+        is_success = process_video_in_dir(
+            bms_dir_path,
+            presets,
+            remove_origin_file=remove_origin_file,
+            use_prefered=use_prefered,
+        )
+        if not is_success:
             print("Error occured!")
             break
 

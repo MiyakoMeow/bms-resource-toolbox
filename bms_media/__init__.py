@@ -1,3 +1,4 @@
+import copy
 import json
 import os
 import subprocess
@@ -42,6 +43,7 @@ class VideoInfo:
 def get_video_info(file_path: str) -> Optional[VideoInfo]:
     probe = get_media_file_probe(file_path)
     for stream in probe["streams"]:
+        stream: Dict[Any, Any] = stream
         if stream["codec_type"] != "video":
             continue
         return VideoInfo(
@@ -53,70 +55,155 @@ def get_video_info(file_path: str) -> Optional[VideoInfo]:
     return None
 
 
+def get_video_size(file_path: str) -> Optional[Tuple[int, int]]:
+    probe = get_media_file_probe(file_path)
+    for stream in probe["streams"]:
+        stream: Dict[Any, Any] = stream
+        if stream["codec_type"] != "video":
+            continue
+        return (
+            int(stream["width"]),
+            int(stream["height"]),
+        )
+
+    return None
+
+
 """
 Video
 """
 
-VIDEO_PRESET_WMV_480P = 0
-VIDEO_PRESET_WMV_512X512 = 1
+
+class VideoPreset:
+    def __init__(
+        self,
+        exec: str,
+        input_arg: Optional[str],
+        fliter_arg: Optional[str],
+        output_file_ext: str,
+        output_codec: str,
+        arg: Optional[str] = None,
+    ) -> None:
+        self.exec = exec
+        self.input_arg = input_arg
+        self.fliter_arg = fliter_arg
+        self.output_file_ext = output_file_ext
+        self.output_codec = output_codec
+        self.arg = arg
+
+    def __str__(self) -> str:
+        return (
+            f"VideoPreset {{ exec: {self.exec}, output_format: {self.output_codec} }}"
+        )
+
+    def __repr__(self) -> str:
+        return self.__str__()
+
+    def get_output_file_path(self, input_file_path: str) -> str:
+        return (
+            input_file_path[: -len(input_file_path.rsplit(".", 1)[-1])]
+            + self.output_file_ext
+        )
+
+    def get_video_process_cmd(self, input_file_path: str, output_file_path: str) -> str:
+        input_arg = self.input_arg if self.input_arg is not None else ""
+        fliter_arg = self.fliter_arg if self.fliter_arg is not None else ""
+        return f'{self.exec} {input_arg} "{input_file_path}" {fliter_arg} -c:v {self.output_codec} {self.arg} "{output_file_path}" '
 
 
-def _get_video_precess_cmd(file_path: str, preset: int) -> str:
-    """
-    .\ffmpeg.exe -i raw_video.mkv -filter_complex "[0:v]scale=512:512:force_original_aspect_ratio=increase,crop=512:512:(ow-iw)/2:(oh-ih)/2,boxblur=20[v1];[0:v]scale=512:512:force_original_aspect_ratio=decrease[v2];[v1][v2]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2[vid]" -map [vid] -an -c:v wmv2 -q:v 8 _bga.wmv
-    """
-    output_ext = "wmv"
-    output_path = file_path[: -len(file_path.rsplit(".", 1)[-1])] + output_ext
-    if preset == VIDEO_PRESET_WMV_480P:
-        return (
-            r'ffmpeg -i "'
-            + file_path
-            + r'" -filter_complex "[0:v]scale=640:480:force_original_aspect_ratio=increase,crop=640:480:(ow-iw)/2:(oh-ih)/2,boxblur=20[v1];[0:v]scale=640:480:force_original_aspect_ratio=decrease[v2];[v1][v2]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2[vid]" -map [vid] -an -c:v wmv2 -q:v 8 "'
-            + output_path
-            + '"'
-        )
-    if preset == VIDEO_PRESET_WMV_512X512:
-        return (
-            r'ffmpeg -i "'
-            + file_path
-            + r'" -filter_complex "[0:v]scale=512:512:force_original_aspect_ratio=increase,crop=512:512:(ow-iw)/2:(oh-ih)/2,boxblur=20[v1];[0:v]scale=512:512:force_original_aspect_ratio=decrease[v2];[v1][v2]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2[vid]" -map [vid] -an -c:v wmv2 -q:v 8 "'
-            + output_path
-            + '"'
-        )
-    return ""
+FLITER_512X512 = '-filter_complex "[0:v]scale=512:512:force_original_aspect_ratio=increase,crop=512:512:(ow-iw)/2:(oh-ih)/2,boxblur=20[v1];[0:v]scale=512:512:force_original_aspect_ratio=decrease[v2];[v1][v2]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2[vid]" -map [vid]'
+FLITER_480P = '-filter_complex "[0:v]scale=640:480:force_original_aspect_ratio=increase,crop=640:480:(ow-iw)/2:(oh-ih)/2,boxblur=20[v1];[0:v]scale=640:480:force_original_aspect_ratio=decrease[v2];[v1][v2]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2[vid]" -map [vid]'
+
+VIDEO_PRESET_MPEG1VIDEO_480P = VideoPreset(
+    "ffmpeg", "-hide_banner -i", FLITER_480P, "mpg", "mpeg1video", "-an -b:v 1500k"
+)
+VIDEO_PRESET_MPEG1VIDEO_512X512 = VideoPreset(
+    "ffmpeg", "-hide_banner -i", FLITER_512X512, "mpg", "mpeg1video", "-an -b:v 1500k"
+)
+VIDEO_PRESET_WMV1_480P = VideoPreset(
+    "ffmpeg", "-hide_banner -i", FLITER_480P, "wmv", "wmv1", "-an -b:v 1500k"
+)
+VIDEO_PRESET_WMV1_512X512 = VideoPreset(
+    "ffmpeg", "-hide_banner -i", FLITER_512X512, "wmv", "wmv1", "-an -b:v 1500k"
+)
+VIDEO_PRESET_WMV2_480P = VideoPreset(
+    "ffmpeg", "-hide_banner -i", FLITER_480P, "wmv", "wmv2", "-an -b:v 1500k"
+)
+VIDEO_PRESET_WMV2_512X512 = VideoPreset(
+    "ffmpeg", "-hide_banner -i", FLITER_512X512, "wmv", "wmv2", "-an -b:v 1500k"
+)
+
+
+def get_prefered_preset_list(file_path: str) -> List[VideoPreset]:
+    video_size = get_video_size(file_path)
+    if video_size is None:
+        return []
+    width, height = video_size
+    if width / height > 640 / 480:
+        return [VIDEO_PRESET_MPEG1VIDEO_480P, VIDEO_PRESET_WMV1_480P]
+    else:
+        return [VIDEO_PRESET_MPEG1VIDEO_512X512, VIDEO_PRESET_WMV1_512X512]
 
 
 def process_video_in_dir(
     dir: str,
-    preset: int = VIDEO_PRESET_WMV_512X512,
+    presets: List[VideoPreset] = [VIDEO_PRESET_MPEG1VIDEO_480P, VIDEO_PRESET_WMV1_480P],
     remove_origin_file: bool = True,
+    use_prefered: bool = True,
 ) -> bool:
     video_extes = ["mp4", "avi"]
+    has_error = False
     for file_name in os.listdir(dir):
         file_path = f"{dir}/{file_name}"
         if not os.path.isfile(file_path):
             continue
-        # Check ext
-        ext_checked = False
-        for ext in video_extes:
-            if file_name.lower().endswith("." + ext):
-                ext_checked = True
-        if not ext_checked:
-            continue
-        # Process
-        cmd = _get_video_precess_cmd(file_path, preset)
-        print("Process Video:", cmd)
-        result = subprocess.run(
-            cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
-        if result.returncode != 0:
-            print("Stdout:", result.stdout)
-            print("Stderr:", result.stderr)
-            return False
-        if remove_origin_file and os.path.isfile(file_path):
-            os.remove(file_path)
+        # Get prefered
+        presets_for_file = copy.deepcopy(presets)
+        if use_prefered:
+            presets_new = get_prefered_preset_list(file_path)
+            presets_new.extend(presets_for_file)
+            presets_for_file = presets_new
+        # Check With Presets:
+        for preset in presets_for_file:
+            output_file_path = preset.get_output_file_path(file_path)
+            if file_path == output_file_path:
+                # This file is the preset's output.
+                break
+            if os.path.isfile(output_file_path):
+                print(f"File exists: {output_file_path}")
+                continue
+            # Check ext
+            ext_checked = False
+            for ext in video_extes:
+                if file_name.lower().endswith("." + ext):
+                    ext_checked = True
+            if not ext_checked:
+                continue
+            # Process
+            cmd = preset.get_video_process_cmd(file_path, output_file_path)
+            print(f"Processing Video: {file_path} Preset: {preset}")
+            result = subprocess.run(
+                cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
+            if result.returncode != 0:
+                if os.path.isfile(output_file_path):
+                    os.remove(output_file_path)
+                if preset is presets[-1]:
+                    print("Has Error!")
+                    print("Cmd: ", cmd)
+                    print("Stdout:", result.stdout)
+                    print("Stderr:", result.stderr)
+                    has_error = True
+                    break
+                continue
 
-    return True
+            # Normal End: Success
+            if remove_origin_file and os.path.isfile(file_path):
+                os.remove(file_path)
+            # No need to exec next ctrl.
+            break
+
+    return not has_error
 
 
 """
@@ -141,7 +228,8 @@ class AudioPreset:
 
 AUDIO_PRESET_OGG_Q10 = AudioPreset("oggenc", "ogg", "-q10")
 AUDIO_PRESET_WAV = AudioPreset("ffmpeg", "wav", None)
-AUDIO_PRESET_FLAC = AudioPreset("ffmpeg", "flac", None)
+AUDIO_PRESET_WAV_FROM_FLAC = AudioPreset("flac", "wav", "-d --keep-foreign-metadata")
+AUDIO_PRESET_FLAC = AudioPreset("ffmpeg", "flac", "--keep-foreign-metadata --best")
 
 
 def _get_audio_precess_cmd(
@@ -156,6 +244,8 @@ def _get_audio_precess_cmd(
         cmd = f'ffmpeg -hide_banner -loglevel panic -i "{file_path}" -f {preset.output_format} -map_metadata 0 {arg} "{output_file_path}"'
     elif preset.exec == "oggenc":
         cmd = f'oggenc {arg} "{file_path}" -o "{output_file_path}"'
+    elif preset.exec == "flac":
+        cmd = f'flac {arg} "{file_path}" -o "{output_file_path}"'
     return cmd
 
 
@@ -187,9 +277,7 @@ def transfer_audio_by_format_in_dir(
         processes_waiting: List[
             Tuple[str, Optional[str], int, Optional[subprocess.Popen]]
         ] = []
-        for i, (file_path, output_file_path, preset_index, process) in enumerate(
-            processes
-        ):
+        for file_path, output_file_path, preset_index, process in processes:
             switch_required = False
             # Empty Process?
             if 0 <= preset_index < len(presets) and process is None:

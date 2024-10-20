@@ -1,4 +1,8 @@
-from bms_media import VIDEO_PRESET_WMV_512X512
+from bms_media import (
+    AUDIO_PRESET_OGG_Q10,
+    VIDEO_PRESET_MPEG1VIDEO_480P,
+    VIDEO_PRESET_WMV1_480P,
+)
 import f_transfer_audio
 import f_transfer_video
 
@@ -7,25 +11,14 @@ def main():
     print("This file is for parsing HQ version to LQ version. Just for LR2 players.")
     # Parse Audio
     print("Parsing Audio... Phase 1:")
-    audio_tran_mode = f_transfer_audio.MODES[2]
-    if not audio_tran_mode[0].startswith("Reverse:"):
-        print("LQ Mode Not Found!")
-        return
-    f_transfer_audio.main(
-        audio_tran_mode[1], audio_tran_mode[2], remove_origin_file=True
-    )
-    print("Parsing Audio... Phase 1:")
-    audio_tran_mode = f_transfer_audio.MODES[1]
-    if not audio_tran_mode[0].startswith("Compress:"):
-        print("LQ Mode Not Found!")
-        return
-    f_transfer_audio.main(
-        audio_tran_mode[1], audio_tran_mode[2], remove_origin_file=True
-    )
+    f_transfer_audio.main(["flac"], [AUDIO_PRESET_OGG_Q10], remove_origin_file=True)
     # Parse Audio
     print("Parsing Video...")
-    video_preset = VIDEO_PRESET_WMV_512X512
-    f_transfer_video.main(video_preset, remove_origin_file=True)
+    f_transfer_video.main(
+        [VIDEO_PRESET_MPEG1VIDEO_480P, VIDEO_PRESET_WMV1_480P],
+        remove_origin_file=True,
+        use_prefered=True,
+    )
 
 
 if __name__ == "__main__":
