@@ -1,8 +1,10 @@
 import json
 import os
 import subprocess
-import time
+import multiprocessing
 from typing import Any, Dict, List, Optional, Tuple
+
+import time
 
 
 """
@@ -123,29 +125,37 @@ Audio
 
 
 class AudioPreset:
-    def __init__(self, output_format: str, arg: Optional[str] = None) -> None:
+    def __init__(
+        self, exec: str, output_format: str, arg: Optional[str] = None
+    ) -> None:
+        self.exec = exec
         self.output_format = output_format
         self.arg = arg
 
     def __str__(self) -> str:
-        return f"AudioPreset: output_format: {self.output_format} arg: {self.arg}"
+        return f"AudioPreset {{ exec: {self.exec}, output_format: {self.output_format} arg: {self.arg} }}"
+
+    def __repr__(self) -> str:
+        return self.__str__()
 
 
-AUDIO_PRESET_OGG = AudioPreset("ogg", None)
-AUDIO_PRESET_OGG_320K = AudioPreset("ogg", "-ab 320k")
-AUDIO_PRESET_WAV = AudioPreset("wav", None)
-AUDIO_PRESET_FLAC = AudioPreset("flac", None)
+AUDIO_PRESET_OGG_Q10 = AudioPreset("oggenc", "ogg", "-q10")
+AUDIO_PRESET_WAV = AudioPreset("ffmpeg", "wav", None)
+AUDIO_PRESET_FLAC = AudioPreset("ffmpeg", "flac", None)
 
 
 def _get_audio_precess_cmd(
     file_path: str,
     output_file_path: str,
-    audio_format: str,
-    extra_args: Optional[str] = None,
+    preset: AudioPreset,
 ) -> str:
     # Execute
-    extra_args = extra_args if extra_args is not None else ""
-    cmd = f'ffmpeg -hide_banner -loglevel panic -i "{file_path}" -f {audio_format} {extra_args} "{output_file_path}"'
+    arg = preset.arg if preset.arg is not None else ""
+    cmd = ""
+    if preset.exec == "ffmpeg":
+        cmd = f'ffmpeg -hide_banner -loglevel panic -i "{file_path}" -f {preset.output_format} -map_metadata 0 {arg} "{output_file_path}"'
+    elif preset.exec == "oggenc":
+        cmd = f'oggenc {arg} "{file_path}" -o "{output_file_path}"'
     return cmd
 
 
@@ -171,6 +181,8 @@ def transfer_audio_by_format_in_dir(
 
     # Check Tasks
     has_error = False
+    err_err_example = b""
+    err_out_example = b""
     while len(processes) > 0:
         processes_waiting: List[
             Tuple[str, Optional[str], int, Optional[subprocess.Popen]]
@@ -185,13 +197,22 @@ def transfer_audio_by_format_in_dir(
                     os.remove(file_path)
                 continue
 
+            # Process count limit
+            max_process_count = os.cpu_count()
+            if max_process_count is None:
+                max_process_count = multiprocessing.cpu_count()
+            now_process_count = 0
+
             # Get status
             stdout = b""
             stderr = b""
             if process is None:
+                # Empty Process?
                 if output_file_path is not None and os.path.isfile(output_file_path):
                     os.remove(output_file_path)
                 switch_required = True
+                # Decrease process count
+                now_process_count -= 1
             else:
                 stdout, stderr = process.communicate()
                 # Not Finished?
@@ -208,9 +229,21 @@ def transfer_audio_by_format_in_dir(
                     ):
                         os.remove(output_file_path)
                     switch_required = True
+                    err_err_example = stderr
+                    err_out_example = stdout
+                # Finished
+                # Decrease process count
+                now_process_count -= 1
+                # No error? Do nothing, go next.
 
             # Need switch?
             if switch_required:
+                # check process count limit
+                if now_process_count >= max_process_count:
+                    processes_waiting.append(
+                        (file_path, output_file_path, preset_index, process)
+                    )
+                    continue
                 # Check ext
                 ext_found: Optional[str] = None
                 for ext in input_exts:
@@ -234,9 +267,10 @@ def transfer_audio_by_format_in_dir(
                 cmd = _get_audio_precess_cmd(
                     file_path,
                     new_output_file_path,
-                    next_preset.output_format,
-                    next_preset.arg,
+                    next_preset,
                 )
+                # count process
+                now_process_count += 1
                 if len(cmd) == 0:
                     processes_waiting.append(
                         (file_path, new_output_file_path, next_preset_index, None)
@@ -252,16 +286,16 @@ def transfer_audio_by_format_in_dir(
 
             # Normal End: Print
             # print(f" - Finished: {file_path} -> {i}")
-            if len(stdout) > 0:
-                print(stdout)
-            if len(stderr) > 0:
-                print(stderr)
             # Normal End: Remove File
             if remove_origin_file and os.path.isfile(file_path):
                 os.remove(file_path)
 
         processes = processes_waiting
 
-        time.sleep(0.001)
+        time.sleep(0.000_001)
 
+    if len(err_err_example) > 0:
+        print(f"Err: {err_err_example}")
+    if len(err_out_example) > 0:
+        print(f"ErrOut: {err_out_example}")
     return not has_error

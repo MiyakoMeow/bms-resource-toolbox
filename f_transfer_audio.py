@@ -4,8 +4,7 @@ from typing import Tuple, List
 from bms_fs import get_bms_folder_dir
 from bms_media import (
     AUDIO_PRESET_FLAC,
-    AUDIO_PRESET_OGG,
-    AUDIO_PRESET_OGG_320K,
+    AUDIO_PRESET_OGG_Q10,
     AUDIO_PRESET_WAV,
     AudioPreset,
     transfer_audio_by_format_in_dir,
@@ -13,14 +12,14 @@ from bms_media import (
 
 
 MODES: List[Tuple[str, List[str], List[AudioPreset]]] = [
-    ("For HQ: WAV to FLAC", ["wav"], [AUDIO_PRESET_FLAC]),
+    ("Convert: WAV to FLAC", ["wav"], [AUDIO_PRESET_FLAC]),
     (
-        "For LQ: FLAC/WAV to OGG 320k/default",
-        ["wav", "flac"],
-        [AUDIO_PRESET_OGG_320K, AUDIO_PRESET_OGG],
+        "Compress: WAV to OGG Q10",
+        ["wav"],
+        [
+            AUDIO_PRESET_OGG_Q10,
+        ],
     ),
-    ("Compress: FLAC to OGG 320k", ["flac"], [AUDIO_PRESET_OGG_320K]),
-    ("Compress: FLAC to OGG", ["flac"], [AUDIO_PRESET_OGG_320K]),
     ("Reverse: FLAC to WAV", ["flac"], [AUDIO_PRESET_WAV]),
     ("Reverse: OGG to WAV", ["ogg"], [AUDIO_PRESET_WAV]),
 ]
@@ -43,6 +42,8 @@ def main(
 
     for bms_dir_name in os.listdir(root_dir):
         bms_dir_path = f"{root_dir}/{bms_dir_name}"
+        if not os.path.isdir(bms_dir_path):
+            continue
         print(
             "Entering dir:",
             bms_dir_path,
@@ -51,14 +52,13 @@ def main(
             "Preset:",
             transfer_mode,
         )
-        if not os.path.isdir(bms_dir_path):
-            continue
-        if not transfer_audio_by_format_in_dir(
+        is_success = transfer_audio_by_format_in_dir(
             bms_dir_path,
             input_ext,
             transfer_mode,
             remove_origin_file=remove_origin_file,
-        ):
+        )
+        if not is_success:
             print("Error occured!")
             break
 
