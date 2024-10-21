@@ -1,6 +1,7 @@
 import os
 import os.path
 import shutil
+import time
 import zipfile
 
 import py7zr
@@ -8,7 +9,92 @@ import rarfile
 
 from bms_fs import get_bms_folder_dir, get_bms_pack_dir, move_files_across_dir
 
-if __name__ == "__main__":
+
+def unzip_file_to_cache_dir(file_path: str, cache_dir_path: str):
+    file_name = file_path.rsplit("/")[-1].rsplit("\\")[-1]
+    if file_path.endswith(".zip"):
+        print(f"Extracting {file_path} to {cache_dir_path} (zip)")
+        zip_file = zipfile.ZipFile(file_path)
+        # 解压
+        # zip_file.extractall(cache_dir_path)
+        for file in zip_file.infolist():
+            # 先获取原文件的时间
+            d_time = file.date_time
+            d_gettime = "%s/%s/%s %s:%s" % (
+                d_time[0],
+                d_time[1],
+                d_time[2],
+                d_time[3],
+                d_time[4],
+            )
+            # 先解压文件
+            zip_file.extract(file, cache_dir_path)
+            # 获取解压后文件的绝对路径
+            filep = os.path.join(cache_dir_path, file.filename)
+            d_timearry = time.mktime(time.strptime(d_gettime, "%Y/%m/%d %H:%M"))
+            # 设置解压后的修改时间(这里把修改时间与访问时间设为一样了,windows系统)
+            os.utime(filep, (d_timearry, d_timearry))
+        zip_file.close()
+    elif file_path.endswith(".7z"):
+        print(f"Extracting {file_path} to {cache_dir_path} (7z)")
+        zip_file = py7zr.SevenZipFile(file_path)
+        # zip_file.extractall(cache_dir_path)
+        for file in zip_file.list():
+            # 先获取原文件的时间
+            d_time = file.creationtime
+            d_gettime = "%s/%s/%s %s:%s" % (
+                d_time[0],
+                d_time[1],
+                d_time[2],
+                d_time[3],
+                d_time[4],
+            )
+            # 先解压文件
+            zip_file.extract(file, cache_dir_path)
+            # 获取解压后文件的绝对路径
+            filep = os.path.join(cache_dir_path, file.filename)
+            d_timearry = time.mktime(time.strptime(d_gettime, "%Y/%m/%d %H:%M"))
+            # 设置解压后的修改时间(这里把修改时间与访问时间设为一样了,windows系统)
+            os.utime(filep, (d_timearry, d_timearry))
+        zip_file.close()
+    elif file_path.endswith(".rar"):
+        print(f"Extracting {file_path} to {cache_dir_path} (RAR)")
+        zip_file = rarfile.RarFile(file_path)
+        # zip_file.extractall(cache_dir_path)
+        for file in zip_file.infolist():
+            # 先获取原文件的时间
+            d_time = file.date_time
+            m_time = file.mtime
+            d_gettime = "%s/%s/%s %s:%s" % (
+                d_time[0],
+                d_time[1],
+                d_time[2],
+                d_time[3],
+                d_time[4],
+            )
+            m_gettime = "%s/%s/%s %s:%s" % (
+                m_time[0],
+                m_time[1],
+                m_time[2],
+                m_time[3],
+                m_time[4],
+            )
+            # 先解压文件
+            zip_file.extract(file, cache_dir_path)
+            # 获取解压后文件的绝对路径
+            filep = os.path.join(cache_dir_path, file.filename)
+            d_timearry = time.mktime(time.strptime(d_gettime, "%Y/%m/%d %H:%M"))
+            m_timearry = time.mktime(time.strptime(m_gettime, "%Y/%m/%d %H:%M"))
+            # 设置解压后的修改时间(这里把修改时间与访问时间设为一样了,windows系统)
+            os.utime(filep, (d_timearry, m_timearry))
+        zip_file.close()
+    else:
+        target_file_path = f"{cache_dir_path}/{"".join(file_name.split(" ")[1:])}"
+        print(f"Coping {file_path} to {target_file_path}")
+        shutil.copy(file_path, target_file_path)
+
+
+def main():
     root_dir = get_bms_folder_dir()
     pack_dir = get_bms_pack_dir()
 
@@ -25,25 +111,7 @@ if __name__ == "__main__":
         os.mkdir(cache_dir_path)
 
         # Unpack & Copy
-        if file_name.endswith(".zip"):
-            print(f"Extracting {file_path} to {cache_dir_path} (zip)")
-            zip_file = zipfile.ZipFile(file_path)
-            zip_file.extractall(cache_dir_path)
-            zip_file.close()
-        elif file_name.endswith(".7z"):
-            print(f"Extracting {file_path} to {cache_dir_path} (7z)")
-            zip_file = py7zr.SevenZipFile(file_path)
-            zip_file.extractall(cache_dir_path)
-            zip_file.close()
-        elif file_name.endswith(".rar"):
-            print(f"Extracting {file_path} to {cache_dir_path} (RAR)")
-            zip_file = rarfile.RarFile(file_path)
-            zip_file.extractall(cache_dir_path)
-            zip_file.close()
-        else:
-            target_file_path = f"{cache_dir_path}/{"".join(file_name.split(" ")[1:])}"
-            print(f"Coping {file_path} to {target_file_path}")
-            shutil.copy(file_path, target_file_path)
+        unzip_file_to_cache_dir(file_path, cache_dir_path)
 
         # Unwrap dirs
         cache_dir_root_path = cache_dir_path
@@ -128,3 +196,7 @@ if __name__ == "__main__":
         # Move File to Another dir
         print(f"Finish dealing with file: {file_name}")
         shutil.move(file_path, f"{pack_dir}/BOFTTPacks/{file_name}")
+
+
+if __name__ == "__main__":
+    main()

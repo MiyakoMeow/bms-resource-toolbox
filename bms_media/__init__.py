@@ -108,7 +108,8 @@ class VideoPreset:
     def get_video_process_cmd(self, input_file_path: str, output_file_path: str) -> str:
         input_arg = self.input_arg if self.input_arg is not None else ""
         fliter_arg = self.fliter_arg if self.fliter_arg is not None else ""
-        return f'{self.exec} {input_arg} "{input_file_path}" {fliter_arg} -c:v {self.output_codec} {self.arg} "{output_file_path}" '
+        inner_arg = "-map_metadata 0" if self.exec == "ffmpeg" else ""
+        return f'{self.exec} {input_arg} "{input_file_path}" {fliter_arg} {inner_arg} -c:v {self.output_codec} {self.arg} "{output_file_path}" '
 
 
 FLITER_512X512 = '-filter_complex "[0:v]scale=512:512:force_original_aspect_ratio=increase,crop=512:512:(ow-iw)/2:(oh-ih)/2,boxblur=20[v1];[0:v]scale=512:512:force_original_aspect_ratio=decrease[v2];[v1][v2]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2[vid]" -map [vid]'
@@ -147,15 +148,22 @@ def get_prefered_preset_list(file_path: str) -> List[VideoPreset]:
 
 def process_video_in_dir(
     dir: str,
+    input_exts: List[str] = ["mp4", "avi"],
     presets: List[VideoPreset] = [VIDEO_PRESET_MPEG1VIDEO_480P, VIDEO_PRESET_WMV1_480P],
     remove_origin_file: bool = True,
-    use_prefered: bool = True,
+    use_prefered: bool = False,
 ) -> bool:
-    video_extes = ["mp4", "avi"]
     has_error = False
     for file_name in os.listdir(dir):
         file_path = f"{dir}/{file_name}"
         if not os.path.isfile(file_path):
+            continue
+        # Check ext
+        ext_checked = False
+        for ext in input_exts:
+            if file_name.lower().endswith("." + ext):
+                ext_checked = True
+        if not ext_checked:
             continue
         # Get prefered
         presets_for_file = copy.deepcopy(presets)
@@ -171,13 +179,6 @@ def process_video_in_dir(
                 break
             if os.path.isfile(output_file_path):
                 print(f"File exists: {output_file_path}")
-                continue
-            # Check ext
-            ext_checked = False
-            for ext in video_extes:
-                if file_name.lower().endswith("." + ext):
-                    ext_checked = True
-            if not ext_checked:
                 continue
             # Process
             cmd = preset.get_video_process_cmd(file_path, output_file_path)

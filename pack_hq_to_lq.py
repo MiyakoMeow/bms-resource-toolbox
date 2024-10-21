@@ -15,9 +15,10 @@ def main():
     # Parse Audio
     print("Parsing Video...")
     f_transfer_video.main(
+        ["mp4", "avi"],
         [VIDEO_PRESET_MPEG1VIDEO_480P, VIDEO_PRESET_WMV1_480P],
         remove_origin_file=True,
-        use_prefered=True,
+        use_prefered=False,
     )
 
 

@@ -21,9 +21,10 @@ PRESETS: List[Tuple[str, VideoPreset]] = [
 
 
 def main(
+    input_exts: List[str] = ["mp4", "avi"],
     presets: List[VideoPreset] = [],
     remove_origin_file: bool = True,
-    use_prefered: bool = True,
+    use_prefered: bool = False,
 ):
     root_dir = get_bms_folder_dir()
 
@@ -45,7 +46,7 @@ def main(
 
         is_success = process_video_in_dir(
             bms_dir_path,
-            presets,
+            presets=presets,
             remove_origin_file=remove_origin_file,
             use_prefered=use_prefered,
         )
