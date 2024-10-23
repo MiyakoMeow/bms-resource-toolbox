@@ -7,39 +7,6 @@ from bms import get_dir_bms_info, BMSInfo
 from bms_fs import get_bms_folder_dir, get_vaild_fs_name
 
 
-def is_difficulty_sign(sign: str) -> bool:
-    """
-    SP ANOTHER
-    EZ
-    HD
-    IN
-    AT
-    """
-    sign = sign.strip().upper()
-    sign_models = [
-        "SP",
-        "DP",
-        "7k",
-        "14k",
-        "9k",
-        "beginner",
-        "normal",
-        "hyper",
-        "another",
-        "light",
-        "main",
-        "hard",
-        "EZ",
-        "HD",
-        "IN",
-        "AT",
-    ]
-    for model in sign_models:
-        if sign.startswith(model.upper()):
-            return True
-    return False
-
-
 def deal_with_dir(dir_path: str):
     if not dir_path.split("/")[-1].split("\\")[-1].strip().isdigit():
         # print(f"{dir_path} has been renamed! Skipping...")
@@ -85,16 +52,6 @@ def deal_with_dir(dir_path: str):
     print(f"{dir_path} found bms title: {info.title} artist: {info.artist}")
     title = info.title
     artist = info.artist
-    if title.rstrip().endswith("]"):
-        pairs_start_index = title.rfind("[")
-        pairs_end_index = title.rfind("]")
-        if is_difficulty_sign(title[pairs_start_index + 1 : pairs_end_index]):
-            title = title[:pairs_start_index] + title[pairs_end_index + 1 :]
-    if title.rstrip().endswith(")"):
-        pairs_start_index = title.rfind("(")
-        pairs_end_index = title.rfind(")")
-        if is_difficulty_sign(title[pairs_start_index + 1 : pairs_end_index]):
-            title = title[:pairs_start_index] + title[pairs_end_index + 1 :]
 
     # Rename
     new_dir_path = (

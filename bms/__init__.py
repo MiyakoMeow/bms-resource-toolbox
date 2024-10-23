@@ -38,6 +38,53 @@ def get_bms_file_str(file_bytes: bytes, encoding: Optional[str] = None) -> str:
     return file_str
 
 
+def is_difficulty_sign(sign: str) -> bool:
+    """
+    SP ANOTHER
+    EZ
+    HD
+    IN
+    AT
+    """
+    sign = sign.strip().upper()
+    sign_models = [
+        "SP",
+        "DP",
+        "7k",
+        "14k",
+        "9k",
+        "beginner",
+        "normal",
+        "hyper",
+        "another",
+        "light",
+        "main",
+        "hard",
+        "EZ",
+        "HD",
+        "IN",
+        "AT",
+    ]
+    for model in sign_models:
+        if sign.startswith(model.upper()):
+            return True
+    return False
+
+
+def deal_with_bms_title(title: str) -> str:
+    if title.rstrip().endswith("]"):
+        pairs_start_index = title.rfind("[")
+        pairs_end_index = title.rfind("]")
+        if is_difficulty_sign(title[pairs_start_index + 1 : pairs_end_index]):
+            title = title[:pairs_start_index] + title[pairs_end_index + 1 :]
+    if title.rstrip().endswith(")"):
+        pairs_start_index = title.rfind("(")
+        pairs_end_index = title.rfind(")")
+        if is_difficulty_sign(title[pairs_start_index + 1 : pairs_end_index]):
+            title = title[:pairs_start_index] + title[pairs_end_index + 1 :]
+    return title
+
+
 class BMSInfo:
     def __init__(self, title: str, artist: str, genre: str) -> None:
         self.title = title
@@ -61,6 +108,9 @@ def parse_bms_file(file_path: str, encoding: Optional[str] = None) -> BMSInfo:
                 title = line.replace("#TITLE", "").strip()
             elif line.startswith("#GENRE"):
                 genre = line.replace("#GENRE", "").strip()
+
+        title = deal_with_bms_title(title)
+
     return BMSInfo(title, artist, genre)
 
 
