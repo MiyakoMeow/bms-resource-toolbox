@@ -17,3 +17,12 @@ Time Zone: UTC+8
 
 - 2024.10.18 15:00 updated from update list.
 - Version 20241018 Release
+
+- 2024.10.23 Redownload all.
+Because of mega.nz, 221, 224, 239, 267 need to wait.
+until 2024.10.24 00:15, downloaded to no.270.
+
+## 特殊情况列表
+
+- no.198 不兼容LR2
+- no.239 NSFW作品，提供了可供替换的安全BGI。已包含在大包中，但不默认启用，文件名为*_censored。

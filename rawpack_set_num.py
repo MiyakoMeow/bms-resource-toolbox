@@ -2,14 +2,14 @@ import os
 import shutil
 from typing import List
 
-from bms_fs import get_bms_pack_dir
-
 
 def rename_file(dir: str, file_name: str, input_num: int):
     file_path = os.path.join(dir, file_name)
     new_file_name = f"{input_num} {file_name}"
     new_file_path = os.path.join(dir, new_file_name)
     shutil.move(file_path, new_file_path)
+    print(f"Rename {file_name} to {new_file_name}.")
+    print()
 
 
 def cycle(
@@ -26,6 +26,13 @@ def cycle(
             continue
         # Has been numbered?
         if file_name.split()[0].isdigit():
+            continue
+        # Linux: Has Partial File?
+        part_file_path = f"{file_path}.part"
+        if os.path.isfile(part_file_path):
+            continue
+        # Linux: Empty File?
+        if os.path.getsize(file_path) == 0:
             continue
         # Is Allowed?
         file_ext = file_name.rsplit(".", 1)[-1]
@@ -61,9 +68,9 @@ def cycle(
 
 
 def main():
-    dir = input(f"Input dir (Default: {get_bms_pack_dir()}):")
+    dir = input(f"Input dir (Default: {os.path.abspath(".")}):")
     if len(dir.strip()) == 0:
-        dir = get_bms_pack_dir()
+        dir = "."
     while True:
         cycle(
             dir,
