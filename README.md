@@ -19,10 +19,14 @@ Time Zone: UTC+8
 - Version 20241018 Release
 
 - 2024.10.23 Redownload all.
-Because of mega.nz, 221, 224, 239, 267 need to wait.
-until 2024.10.24 00:15, downloaded to no.270.
+Until 2024.10.24 00:15, downloaded to no.270.
+Until 2024.10.24 05:00, downloaded all 483 works.
 
 ## 特殊情况列表
 
-- no.198 不兼容LR2
+- no.198 不兼容LR2。
+- no.283, 286, 287 使用了62进制BMS，不兼容LR2和beatoraja 0.8.7之前的版本。
+
+对于LR2玩家，如果导入作品时出现问题，请优先移除以上作品。
+
 - no.239 NSFW作品，提供了可供替换的安全BGI。已包含在大包中，但不默认启用，文件名为*_censored。
