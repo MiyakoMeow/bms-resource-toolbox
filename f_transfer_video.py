@@ -46,6 +46,7 @@ def main(
 
         is_success = process_video_in_dir(
             bms_dir_path,
+            input_exts=input_exts,
             presets=presets,
             remove_origin_file=remove_origin_file,
             use_prefered=use_prefered,
