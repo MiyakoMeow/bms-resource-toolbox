@@ -2,7 +2,7 @@ import os
 from typing import Tuple, List
 
 from bms_fs import get_bms_folder_dir
-from bms_media import (
+from bms_media.audio import (
     AUDIO_PRESET_FLAC,
     AUDIO_PRESET_OGG_Q10,
     AUDIO_PRESET_WAV,

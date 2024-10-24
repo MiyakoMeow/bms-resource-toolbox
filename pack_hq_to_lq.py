@@ -1,5 +1,5 @@
-from bms_media import (
-    AUDIO_PRESET_OGG_Q10,
+from bms_media.audio import AUDIO_PRESET_OGG_Q10
+from bms_media.video import (
     VIDEO_PRESET_MPEG1VIDEO_480P,
     VIDEO_PRESET_WMV1_480P,
 )

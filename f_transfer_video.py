@@ -2,7 +2,7 @@ import os
 from typing import List, Tuple
 
 from bms_fs import get_bms_folder_dir
-from bms_media import (
+from bms_media.video import (
     VIDEO_PRESET_MPEG1VIDEO_480P,
     VIDEO_PRESET_MPEG1VIDEO_512X512,
     VIDEO_PRESET_WMV1_480P,

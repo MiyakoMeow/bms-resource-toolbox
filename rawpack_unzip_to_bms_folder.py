@@ -41,7 +41,9 @@ def unzip_file_to_cache_dir(file_path: str, cache_dir_path: str):
             os.utime(filep, (d_timearry, d_timearry))
 
         # 创建线程池
-        with ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
+        hdd = True
+        max_workers = 2 if hdd else multiprocessing.cpu_count()
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
             # 提交任务
             futures = [
                 executor.submit(unzip_single_file, zip_file, file, cache_dir_path)
