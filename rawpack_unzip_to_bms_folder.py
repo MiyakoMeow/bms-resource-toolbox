@@ -4,6 +4,7 @@ import os
 import os.path
 import shutil
 import time
+from typing import Dict, List
 import zipfile
 
 import py7zr
@@ -92,9 +93,11 @@ def main():
         cache_folder_count = 0
         cache_file_count = 0
         inner_dir_name = None
+        file_ext_count: Dict[str, List[str]] = dict()
         done = False
         error = False
         while True:
+            file_ext_count = dict()
             cache_folder_count = 0
             cache_file_count = 0
             inner_dir_name = None
@@ -110,6 +113,12 @@ def main():
                     inner_dir_name = cache_name
                 if os.path.isfile(cache_path):
                     cache_file_count += 1
+                    # Count ext
+                    file_ext = file_name.rsplit(".")[-1]
+                    if file_ext_count.get(file_ext) is None:
+                        file_ext_count.update({file_ext: [cache_name]})
+                    else:
+                        file_ext_count[file_ext].append(cache_name)
 
             if cache_folder_count == 0:
                 done = True
@@ -145,6 +154,11 @@ def main():
             print(f"{cache_dir_path}: Cache is Empty!")
             os.rmdir(cache_dir_path)
             continue
+
+        # Has More Than 1 mp4?!
+        mp4_count = file_ext_count.get("mp4")
+        if mp4_count is not None and len(mp4_count) > 1:
+            print(f" - Tips: {cache_dir_path} has more than 1 mp4 files!", mp4_count)
 
         # Find Target dir
         target_dir_path = None
