@@ -229,8 +229,12 @@ class AudioPreset:
 
 AUDIO_PRESET_OGG_Q10 = AudioPreset("oggenc", "ogg", "-q10")
 AUDIO_PRESET_WAV = AudioPreset("ffmpeg", "wav", None)
-AUDIO_PRESET_WAV_FROM_FLAC = AudioPreset("flac", "wav", "-d --keep-foreign-metadata")
-AUDIO_PRESET_FLAC = AudioPreset("ffmpeg", "flac", "--keep-foreign-metadata --best")
+AUDIO_PRESET_WAV_FROM_FLAC = AudioPreset(
+    "flac", "wav", "-d --keep-foreign-metadata-if-present -f"
+)
+AUDIO_PRESET_FLAC = AudioPreset(
+    "flac", "flac", "--keep-foreign-metadata-if-present --best -f"
+)
 
 
 def _get_audio_precess_cmd(
@@ -240,14 +244,14 @@ def _get_audio_precess_cmd(
 ) -> str:
     # Execute
     arg = preset.arg if preset.arg is not None else ""
-    cmd = ""
     if preset.exec == "ffmpeg":
-        cmd = f'ffmpeg -hide_banner -loglevel panic -i "{file_path}" -f {preset.output_format} -map_metadata 0 {arg} "{output_file_path}"'
+        return f'ffmpeg -hide_banner -loglevel panic -i "{file_path}" -f {preset.output_format} -map_metadata 0 {arg} "{output_file_path}"'
     elif preset.exec == "oggenc":
-        cmd = f'oggenc {arg} "{file_path}" -o "{output_file_path}"'
+        return f'oggenc {arg} "{file_path}" -o "{output_file_path}"'
     elif preset.exec == "flac":
-        cmd = f'flac {arg} "{file_path}" -o "{output_file_path}"'
-    return cmd
+        return f'flac {arg} "{file_path}" -o "{output_file_path}"'
+    else:
+        return ""
 
 
 def transfer_audio_by_format_in_dir(
@@ -358,6 +362,7 @@ def transfer_audio_by_format_in_dir(
                     new_output_file_path,
                     next_preset,
                 )
+                # print("Audio Process: Exec:", cmd)
                 # count process
                 now_process_count += 1
                 if len(cmd) == 0:

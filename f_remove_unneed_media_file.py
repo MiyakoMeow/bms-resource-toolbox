@@ -1,14 +1,23 @@
 import os
+from typing import Dict
 
 from bms_fs import get_bms_folder_dir
 
 
 def remove_unneed_media_files(bms_dir_path: str):
     print(f"Scaning: {bms_dir_path}")
+    ext_count: Dict[str, int] = dict()
     for file_name in os.listdir(bms_dir_path):
         file_path = f"{bms_dir_path}/{file_name}"
         if not os.path.isfile(file_path):
             continue
+
+        # Count ext
+        file_ext = file_name.rsplit(".")[-1]
+        if ext_count.get(file_ext) is None:
+            ext_count.update({file_ext: 1})
+        else:
+            ext_count[file_ext] += 1
 
         # MP4 -> WMV/MPG/MPEG
         if file_name.endswith(".mp4"):
@@ -75,6 +84,11 @@ def remove_unneed_media_files(bms_dir_path: str):
                     f"- Remove file {replacing_file_path}, because {file_path} exists."
                 )
                 os.remove(replacing_file_path)
+
+    # Do With Ext Count
+    mp4_count = ext_count.get("mp4")
+    if mp4_count is not None and mp4_count > 1:
+        print(f" - Tips: {bms_dir_path} has more than 1 mp4 files!")
 
 
 if __name__ == "__main__":
