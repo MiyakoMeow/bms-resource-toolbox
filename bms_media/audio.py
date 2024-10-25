@@ -36,7 +36,6 @@ AUDIO_PRESET_WAV_FROM_FLAC_NOKEEP_METADATA = AudioPreset("flac", "wav", "-d -f")
 AUDIO_PRESET_FLAC = AudioPreset(
     "flac", "flac", "--keep-foreign-metadata-if-present --best -f"
 )
-AUDIO_PRESET_FLAC_NOKEEP_METADATA = AudioPreset("flac", "flac", "--best -f")
 AUDIO_PRESET_FLAC_FFMPEG = AudioPreset("ffmpeg", "flac", "")
 
 
@@ -91,13 +90,15 @@ def transfer_audio_by_format_in_dir(
         returncode = process.wait()
         # Failed
         if returncode != 0:
-            return (file_path, preset_index), process.communicate()
+            stdout, stderr = process.communicate()
+            return (file_path, preset_index), (stdout, stderr)
         # Success
         if remove_origin_file and os.path.isfile(file_path):
             os.remove(file_path)
         return (file_path, preset_index), returncode
 
     has_error = False
+    err_file_path = ""
     err_stdout = b""
     err_stderr = b""
 
@@ -106,9 +107,6 @@ def transfer_audio_by_format_in_dir(
     max_workers = (
         min(multiprocessing.cpu_count(), 24) if hdd else multiprocessing.cpu_count()
     )
-
-    # 记录任务个数
-    remain_count = 0
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         # 提交任务
@@ -130,20 +128,17 @@ def transfer_audio_by_format_in_dir(
             # Submit
             future = executor.submit(parse_audio, file_path, 0, presets[0])
             futures.append(future)
-            remain_count += 1
 
         # 等待任务完成
-        while remain_count > 0:
+        while len(futures) > 0:
             new_futures: List[
                 Future[Tuple[Tuple[str, int], Union[int, Tuple[bytes, bytes]]]]
             ] = []
             for future in as_completed(futures):
                 (file_path, preset_index), result = future.result()
-                if isinstance(result, int):
-                    # Success
-                    remain_count -= 1
-                else:
+                if not isinstance(result, int):
                     # Failed
+                    err_file_path = file_path
                     err_stdout, err_stderr = result
                     new_preset_index = preset_index + 1
                     if new_preset_index in range(0, len(presets)):
@@ -158,11 +153,11 @@ def transfer_audio_by_format_in_dir(
                     else:
                         # Last, Return
                         has_error = True
-                        remain_count -= 1
             futures = new_futures
 
     if has_error:
         print("Has Error!")
+        print("- Err file_path: ", err_file_path)
         print("- Err stdout: ", err_stdout)
         print("- Err stderr: ", err_stderr)
 
