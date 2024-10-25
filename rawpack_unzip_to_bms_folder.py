@@ -20,9 +20,10 @@ def unzip_file_to_cache_dir(file_path: str, cache_dir_path: str):
         zip_file = zipfile.ZipFile(file_path)
 
         # 解压
-        def unzip_single_file(
-            zip_file: zipfile.ZipFile, file: zipfile.ZipInfo, cache_dir_path: str
-        ):
+        zip_file.extractall(cache_dir_path)
+
+        # 设置文件信息
+        def set_file_info(file: zipfile.ZipInfo, cache_dir_path: str):
             # 先获取原文件的时间
             d_time = file.date_time
             d_gettime = "%s/%s/%s %s:%s" % (
@@ -32,21 +33,20 @@ def unzip_file_to_cache_dir(file_path: str, cache_dir_path: str):
                 d_time[3],
                 d_time[4],
             )
-            # 先解压文件
-            zip_file.extract(file, cache_dir_path)
             # 获取解压后文件的绝对路径
             filep = os.path.join(cache_dir_path, file.filename)
             d_timearry = time.mktime(time.strptime(d_gettime, "%Y/%m/%d %H:%M"))
             # 设置解压后的修改时间(这里把修改时间与访问时间设为一样了,windows系统)
             os.utime(filep, (d_timearry, d_timearry))
 
-        # 创建线程池
         hdd = True
-        max_workers = 2 if hdd else multiprocessing.cpu_count()
+        max_workers = (
+            min(multiprocessing.cpu_count(), 16) if hdd else multiprocessing.cpu_count()
+        )
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             # 提交任务
             futures = [
-                executor.submit(unzip_single_file, zip_file, file, cache_dir_path)
+                executor.submit(set_file_info, file, cache_dir_path)
                 for file in zip_file.infolist()
             ]
             # 等待任务完成
