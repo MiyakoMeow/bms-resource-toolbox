@@ -49,17 +49,37 @@ def remove_unneed_media_files(
         print(f" - Tips: {bms_dir_path} has more than 1 mp4 files! {mp4_count}")
 
 
+PRESET_NORMAL: List[Tuple[List[str], List[str]]] = [
+    (["mp4", "avi"], ["wmv", "mpg", "mpeg"]),
+    (["flac", "wav"], ["ogg"]),
+    (["flac"], ["wav"]),
+]
+PRESET_UPDATE_FIRST: List[Tuple[List[str], List[str]]] = [
+    (["wav"], ["flac"]),
+]
+PRESETS: List[List[Tuple[List[str], List[str]]]] = [
+    PRESET_NORMAL,
+    PRESET_UPDATE_FIRST,
+]
+
 if __name__ == "__main__":
     root_dir = get_bms_folder_dir()
+    # Select Preset
+    for i, preset in enumerate(PRESETS):
+        print(f"- {i}: {PRESETS[i]}")
+    selection_str = input("Select Preset (Default: 0):")
+    selection = 0
+    if len(selection_str) > 0:
+        selection = int(selection_str)
+    preset = PRESETS[selection]
+    print(f"Selected: {preset}")
+
+    # Do
     for bms_dir_name in os.listdir(root_dir):
         bms_dir_path = f"{root_dir}/{bms_dir_name}"
         if not os.path.isdir(bms_dir_path):
             continue
         remove_unneed_media_files(
             bms_dir_path,
-            [
-                (["mp4", "avi"], ["wmv", "mpg", "mpeg"]),
-                (["flac", "wav"], ["ogg"]),
-                (["flac"], ["wav"]),
-            ],
+            preset,
         )
