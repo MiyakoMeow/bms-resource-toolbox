@@ -89,7 +89,8 @@ def transfer_audio_by_format_in_dir(
                 continue
 
             # Process count limit
-            max_process_count = os.cpu_count()
+            hdd = True
+            max_process_count = 2 if hdd else os.cpu_count()
             if max_process_count is None:
                 max_process_count = multiprocessing.cpu_count()
             now_process_count = 0
