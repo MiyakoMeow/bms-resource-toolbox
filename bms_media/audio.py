@@ -1,8 +1,8 @@
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 import os
 import subprocess
 import multiprocessing
-import time
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 
 """
@@ -26,13 +26,18 @@ class AudioPreset:
 
 
 AUDIO_PRESET_OGG_Q10 = AudioPreset("oggenc", "ogg", "-q10")
+
 AUDIO_PRESET_WAV = AudioPreset("ffmpeg", "wav", None)
 AUDIO_PRESET_WAV_FROM_FLAC = AudioPreset(
     "flac", "wav", "-d --keep-foreign-metadata-if-present -f"
 )
+AUDIO_PRESET_WAV_FROM_FLAC_NOKEEP_METADATA = AudioPreset("flac", "wav", "-d -f")
+
 AUDIO_PRESET_FLAC = AudioPreset(
     "flac", "flac", "--keep-foreign-metadata-if-present --best -f"
 )
+AUDIO_PRESET_FLAC_NOKEEP_METADATA = AudioPreset("flac", "flac", "--best -f")
+AUDIO_PRESET_FLAC_FFMPEG = AudioPreset("ffmpeg", "flac", "")
 
 
 def _get_audio_precess_cmd(
@@ -63,132 +68,102 @@ def transfer_audio_by_format_in_dir(
     wav flac flac
     wav ogg ogg -ab 320k
     """
-    # Spawn Tasks
-    # (file, output_file, running_preset_index, precess)
-    processes: List[Tuple[str, Optional[str], int, Optional[subprocess.Popen]]] = []
-    for file_name in os.listdir(dir):
-        file_path = f"{dir}/{file_name}"
-        if not os.path.isfile(file_path):
-            continue
-        processes.append((file_path, None, -1, None))
 
-    # Check Tasks
+    # 解压
+    def parse_audio(
+        file_path: str, preset_index: int, preset: AudioPreset
+    ) -> Tuple[Tuple[str, int], Union[int, Tuple[bytes, bytes]]]:
+        # New cmd
+        output_file_path = (
+            file_path[: -len(file_path.rsplit(".")[-1])] + preset.output_format
+        )
+        if os.path.isfile(output_file_path) and os.path.getsize(output_file_path) > 0:
+            print(f"File {output_file_path} exists! Skipping...")
+            return (file_path, preset_index), 0
+        cmd = _get_audio_precess_cmd(
+            file_path,
+            output_file_path,
+            preset,
+        )
+        process = subprocess.Popen(
+            cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        returncode = process.wait()
+        # Failed
+        if returncode != 0:
+            return (file_path, preset_index), process.communicate()
+        # Success
+        if remove_origin_file and os.path.isfile(file_path):
+            os.remove(file_path)
+        return (file_path, preset_index), returncode
+
     has_error = False
-    err_err_example = b""
-    err_out_example = b""
-    while len(processes) > 0:
-        processes_waiting: List[
-            Tuple[str, Optional[str], int, Optional[subprocess.Popen]]
+    err_stdout = b""
+    err_stderr = b""
+
+    # 创建线程池
+    hdd = True
+    max_workers = (
+        min(multiprocessing.cpu_count(), 24) if hdd else multiprocessing.cpu_count()
+    )
+
+    # 记录任务个数
+    remain_count = 0
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # 提交任务
+        futures: List[
+            Future[Tuple[Tuple[str, int], Union[int, Tuple[bytes, bytes]]]]
         ] = []
-        for file_path, output_file_path, preset_index, process in processes:
-            switch_required = False
-            # Empty Process?
-            if 0 <= preset_index < len(presets) and process is None:
-                if remove_origin_file and os.path.isfile(file_path):
-                    os.remove(file_path)
+        # Spawn Tasks
+        for file_name in os.listdir(dir):
+            file_path = f"{dir}/{file_name}"
+            if not os.path.isfile(file_path):
                 continue
-
-            # Process count limit
-            hdd = True
-            max_process_count = 2 if hdd else os.cpu_count()
-            if max_process_count is None:
-                max_process_count = multiprocessing.cpu_count()
-            now_process_count = 0
-
-            # Get status
-            stdout = b""
-            stderr = b""
-            if process is None:
-                # Empty Process?
-                if output_file_path is not None and os.path.isfile(output_file_path):
-                    os.remove(output_file_path)
-                switch_required = True
-                # Decrease process count
-                now_process_count -= 1
-            else:
-                stdout, stderr = process.communicate()
-                # Not Finished?
-                poll_result = process.poll()
-                if poll_result is None:
-                    processes_waiting.append(
-                        (file_path, output_file_path, preset_index, process)
-                    )
-                    continue
-                # Has Error?
-                if poll_result != 0:
-                    if output_file_path is not None and os.path.isfile(
-                        output_file_path
-                    ):
-                        os.remove(output_file_path)
-                    switch_required = True
-                    err_err_example = stderr
-                    err_out_example = stdout
-                # Finished
-                # Decrease process count
-                now_process_count -= 1
-                # No error? Do nothing, go next.
-
-            # Need switch?
-            if switch_required:
-                # check process count limit
-                if now_process_count >= max_process_count:
-                    processes_waiting.append(
-                        (file_path, output_file_path, preset_index, process)
-                    )
-                    continue
-                # Check ext
-                ext_found: Optional[str] = None
-                for ext in input_exts:
-                    if file_path.lower().endswith("." + ext):
-                        ext_found = ext
-                if ext_found is None:
-                    continue
-                # get preset
-                next_preset_index = preset_index + 1
-                if next_preset_index >= len(presets):
-                    has_error = True
-                    continue
-                next_preset = presets[next_preset_index]
-                # New cmd
-                new_output_file_path = (
-                    file_path[: -len(ext_found)] + next_preset.output_format
-                )
-                if os.path.isfile(new_output_file_path):
-                    print(f"File {new_output_file_path} exists! Skipping...")
-                    continue
-                cmd = _get_audio_precess_cmd(
-                    file_path,
-                    new_output_file_path,
-                    next_preset,
-                )
-                # print("Audio Process: Exec:", cmd)
-                # count process
-                now_process_count += 1
-                if len(cmd) == 0:
-                    processes_waiting.append(
-                        (file_path, new_output_file_path, next_preset_index, None)
-                    )
-                    continue
-                process = subprocess.Popen(
-                    cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-                )
-                processes_waiting.append(
-                    (file_path, new_output_file_path, next_preset_index, process)
-                )
+            # Check ext
+            ext_found: Optional[str] = None
+            for ext in input_exts:
+                if file_path.lower().endswith("." + ext):
+                    ext_found = ext
+            if ext_found is None:
                 continue
+            # Submit
+            future = executor.submit(parse_audio, file_path, 0, presets[0])
+            futures.append(future)
+            remain_count += 1
 
-            # Normal End: Print
-            # print(f" - Finished: {file_path} -> {i}")
-            # Normal End: Remove File
-            if remove_origin_file and os.path.isfile(file_path):
-                os.remove(file_path)
+        # 等待任务完成
+        while remain_count > 0:
+            new_futures: List[
+                Future[Tuple[Tuple[str, int], Union[int, Tuple[bytes, bytes]]]]
+            ] = []
+            for future in as_completed(futures):
+                (file_path, preset_index), result = future.result()
+                if isinstance(result, int):
+                    # Success
+                    remain_count -= 1
+                else:
+                    # Failed
+                    err_stdout, err_stderr = result
+                    new_preset_index = preset_index + 1
+                    if new_preset_index in range(0, len(presets)):
+                        # Try Next
+                        new_future = executor.submit(
+                            parse_audio,
+                            file_path,
+                            new_preset_index,
+                            presets[new_preset_index],
+                        )
+                        new_futures.append(new_future)
+                    else:
+                        # Last, Return
+                        has_error = True
+                        remain_count -= 1
+            futures = new_futures
 
-        processes = processes_waiting
+    if has_error:
+        print("Has Error!")
+        print("- Err stdout: ", err_stdout)
+        print("- Err stderr: ", err_stderr)
 
-        time.sleep(0.000_001)
-
-    if len(err_err_example) > 0:
-        print(f"Err: {err_err_example}")
-    if len(err_out_example) > 0:
-        print(f"ErrOut: {err_out_example}")
     return not has_error

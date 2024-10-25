@@ -70,10 +70,11 @@ def unzip_file_to_cache_dir(file_path: str, cache_dir_path: str):
         shutil.copy(file_path, target_file_path)
 
 
-def main():
-    root_dir = get_bms_folder_dir()
-    pack_dir = get_bms_pack_dir()
-
+def main(pack_dir: str, cache_dir: str, root_dir: str):
+    if not os.path.isdir(cache_dir):
+        os.mkdir(cache_dir)
+    if not os.path.isdir(root_dir):
+        os.mkdir(root_dir)
     for file_name in os.listdir(pack_dir):
         file_path = f"{pack_dir}/{file_name}"
         if not os.path.isfile(file_path):
@@ -83,7 +84,7 @@ def main():
             continue
 
         # Create a cache dir
-        cache_dir_path = f"{pack_dir}/{id_str}"
+        cache_dir_path = f"{cache_dir}/{id_str}"
         if not os.path.isdir(cache_dir_path):
             os.mkdir(cache_dir_path)
 
@@ -202,4 +203,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    root_dir = get_bms_folder_dir()
+    pack_dir = get_bms_pack_dir()
+    main(root_dir=root_dir, pack_dir=pack_dir, cache_dir="E:\\BMSCache")

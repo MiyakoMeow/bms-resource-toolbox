@@ -57,5 +57,9 @@ if __name__ == "__main__":
             continue
         remove_unneed_media_files(
             bms_dir_path,
-            [(["mp4", "avi"], ["wmv", "mpg", "mpeg"]), (["flac", "wav"], ["ogg"])],
+            [
+                (["mp4", "avi"], ["wmv", "mpg", "mpeg"]),
+                (["flac", "wav"], ["ogg"]),
+                (["flac"], ["wav"]),
+            ],
         )
