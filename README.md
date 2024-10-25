@@ -1,33 +1,50 @@
 # BOF:TT Pack Generator Scripts
 
-## 下载记录
+## HQ版和LQ版怎么选？
 
-Time Zone: UTC+8
+- LR2玩家选LQ版。
 
-- 2024.10.13 19:00 no.1-no.10
-- 2024.10.13 23:00 no.11-no.70
-- 2024.10.14 01:00 no.71-no.135
-- 2024.10.14 09:00 no.135-no.220
-- Version 20241015 Release
+- 希望获得更高的音频质量和BGA质量，选HQ版。
 
-- 2024.10.16 01:00 no.221-no.239
-- 2024.10.16 02:00 update no.1-no.220
+- 希望占用空间更小的玩家，选LQ版。
 
-- 2024.10.17 21:28 updated from update list.
+## 第一手下载链接
 
-- 2024.10.18 15:00 updated from update list.
-- Version 20241018 Release
+### 123云盘
 
-- 2024.10.23 Redownloaded all.
-Until 2024.10.24 00:15, downloaded to no.270.
-Until 2024.10.24 05:00, downloaded all 483 works.
+- [123盘链接](https://www.123pan.com/s/Sn7lVv-Mhzm)
+提取码：ORtY
+
+### 度盘
+
+- [度盘链接](https://pan.baidu.com/s/17seD5TCAlquX2rJ6CS4ZDg?pwd=6i8t)
+提取码：6i8t
+
+## 镜像下载链接
+
+- [bms.iidx.ca](https://bms.iidx.ca/bms/BMS/BMS%20%E6%B4%BB%E5%8A%A8%E5%8C%85/BOF%20G2R/%5B2024%5D%20BOFTT/)
 
 ## 特殊情况列表
 
-- no.198, 245, 258, 283, 286, 287, 301 使用了62进制BMS，不兼容LR2和beatoraja 0.8.7之前的版本。
+- no.198, 199, 245, 258, 283, 286, 287, 301 使用了62进制BMS，不兼容LR2和beatoraja 0.8.7之前的版本。
 
 对于LR2玩家，如果导入作品时出现问题，请优先移除以上作品。
 
 - no.239 NSFW作品，提供了可供替换的安全BGI。已包含在大包中，但不默认启用，文件名为*_censored。
 
 - no.155, 312, 452 包含空wav文件，已删除，基本不影响游玩。
+
+- no.472 BMSON文件解析错误（第19行少了一个逗号），已补齐（BMS文件修改注意）。未经修改的文件以_ori为后缀。
+经过实测，在beatoraja 0.8.7中，未经修改的谱面文件无法被读取。
+
+## 下载记录
+
+时区：GMT+8（中国标准时间）
+
+- 2024.10.23 开始重新下载所有包。
+
+- 截至 2024.10.24 00:15, 下载至no.270。
+
+- 截至 2024.10.24 05:00, 下载了全部483个作品。
+
+- 2024.10.26 06:00 更新所有登陆情报修正作品。
