@@ -6,8 +6,8 @@ from typing import Optional
 def _sync(
     src_dir: str,
     dst_dir: str,
-    allow_exts: list[str],
-    disallow_exts: list[str],
+    allow_src_exts: list[str],
+    disallow_src_exts: list[str],
     allow_others: bool,
 ):
     src_list = os.listdir(src_dir)
@@ -18,12 +18,25 @@ def _sync(
         if os.path.isdir(src_path):
             # Src: Dir
             if os.path.isdir(dst_path):
-                _sync(src_path, dst_path, allow_exts, disallow_exts, allow_others)
+                _sync(
+                    src_path, dst_path, allow_src_exts, disallow_src_exts, allow_others
+                )
             else:
                 os.mkdir(dst_path)
-                _sync(src_path, dst_path, allow_exts, disallow_exts, allow_others)
+                _sync(
+                    src_path, dst_path, allow_src_exts, disallow_src_exts, allow_others
+                )
         elif os.path.isfile(src_path):
             # Src: File
+            # Check Ext
+            ext_check_passed = allow_others
+            ext = dst_element.rsplit(".")[-1]
+            if ext in allow_src_exts:
+                ext_check_passed = True
+            if ext in disallow_src_exts:
+                ext_check_passed = False
+            if not ext_check_passed:
+                continue
             # Check modify time
             if not os.path.isfile(dst_path) or os.path.getmtime(
                 src_path

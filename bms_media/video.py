@@ -118,17 +118,11 @@ VIDEO_PRESET_MPEG1VIDEO_480P = VideoPreset(
 VIDEO_PRESET_MPEG1VIDEO_512X512 = VideoPreset(
     "ffmpeg", "-hide_banner -i", FLITER_512X512, "mpg", "mpeg1video", "-an -b:v 1500k"
 )
-VIDEO_PRESET_WMV1_480P = VideoPreset(
-    "ffmpeg", "-hide_banner -i", FLITER_480P, "wmv", "wmv1", "-an -b:v 1500k"
-)
-VIDEO_PRESET_WMV1_512X512 = VideoPreset(
-    "ffmpeg", "-hide_banner -i", FLITER_512X512, "wmv", "wmv1", "-an -b:v 1500k"
-)
 VIDEO_PRESET_WMV2_480P = VideoPreset(
-    "ffmpeg", "-hide_banner -i", FLITER_480P, "wmv", "wmv2", "-an -b:v 1500k"
+    "ffmpeg", "-hide_banner -i", FLITER_480P, "wmv", "wmv2", "-an -q:v 8"
 )
 VIDEO_PRESET_WMV2_512X512 = VideoPreset(
-    "ffmpeg", "-hide_banner -i", FLITER_512X512, "wmv", "wmv2", "-an -b:v 1500k"
+    "ffmpeg", "-hide_banner -i", FLITER_512X512, "wmv", "wmv2", "-an -q:v 8"
 )
 
 
@@ -138,15 +132,18 @@ def get_prefered_preset_list(file_path: str) -> List[VideoPreset]:
         return []
     width, height = video_size
     if width / height > 640 / 480:
-        return [VIDEO_PRESET_MPEG1VIDEO_480P, VIDEO_PRESET_WMV1_480P]
+        return [VIDEO_PRESET_MPEG1VIDEO_480P, VIDEO_PRESET_WMV2_480P]
     else:
-        return [VIDEO_PRESET_MPEG1VIDEO_512X512, VIDEO_PRESET_WMV1_512X512]
+        return [VIDEO_PRESET_MPEG1VIDEO_512X512, VIDEO_PRESET_WMV2_512X512]
 
 
 def process_video_in_dir(
     dir: str,
     input_exts: List[str] = ["mp4", "avi"],
-    presets: List[VideoPreset] = [VIDEO_PRESET_MPEG1VIDEO_480P, VIDEO_PRESET_WMV1_480P],
+    presets: List[VideoPreset] = [
+        VIDEO_PRESET_WMV2_512X512,
+        VIDEO_PRESET_MPEG1VIDEO_512X512,
+    ],
     remove_origin_file: bool = True,
     use_prefered: bool = False,
 ) -> bool:
