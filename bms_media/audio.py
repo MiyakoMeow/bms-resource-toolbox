@@ -27,11 +27,10 @@ class AudioPreset:
 
 AUDIO_PRESET_OGG_Q10 = AudioPreset("oggenc", "ogg", "-q10")
 
-AUDIO_PRESET_WAV = AudioPreset("ffmpeg", "wav", None)
+AUDIO_PRESET_WAV_FFMPEG = AudioPreset("ffmpeg", "wav", None)
 AUDIO_PRESET_WAV_FROM_FLAC = AudioPreset(
     "flac", "wav", "-d --keep-foreign-metadata-if-present -f"
 )
-AUDIO_PRESET_WAV_FROM_FLAC_NOKEEP_METADATA = AudioPreset("flac", "wav", "-d -f")
 
 AUDIO_PRESET_FLAC = AudioPreset(
     "flac", "flac", "--keep-foreign-metadata-if-present --best -f"
