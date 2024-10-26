@@ -16,38 +16,6 @@ def deal_with_dir(dir_path: str):
         print(f"{dir_path} has no bms/bmson files!")
         return
 
-    # # Scan folder
-    # file_count = 0
-    # folder_count = 0
-    # only_folder_name = None
-    # for inner_element_name in os.listdir(dir_path):
-    #     inner_path = f"{dir_path}/{inner_element_name}"
-    #     if os.path.isfile(inner_path):
-    #         file_count += 1
-    #     elif os.path.isdir(inner_path):
-    #         folder_count += 1
-    #         only_folder_name = inner_element_name
-    #
-    # # Check folder
-    # if folder_count == 0 and file_count == 0:
-    #     print(f"{dir_path} is empty!")
-    #     return
-    # if (folder_count == 0 or folder_count == 1) and 1 < file_count <= 10:
-    #     print(
-    #         f"{dir_path} has no enough files, is likely not a bms folder, or not arranged!"
-    #     )
-    #     return
-    # if folder_count > 1:
-    #     print(f"{dir_path} has extra folders!")
-    #     return
-    #
-    # # Move out files
-    # if only_folder_name is not None:
-    #     dir_inner_path = f"{dir_path}/{only_folder_name}"
-    #     print(f"Moving files in {dir_inner_path} to parent folder")
-    #     move_files_across_dir(dir_inner_path, dir_path)
-    #     os.rmdir(dir_inner_path)
-
     # Deal with info
     print(f"{dir_path} found bms title: {info.title} artist: {info.artist}")
     title = info.title

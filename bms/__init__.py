@@ -14,6 +14,8 @@ ENCODINGS = [
 ID_SPECIFIC_ENCODING_TABLE: Dict[str, str] = {
     "134": "utf-8",
     "191": "gbk",
+    "435": "gbk",
+    "439": "gbk",
     # 159 bms文件本身有编码问题
 }
 
@@ -46,13 +48,18 @@ def is_difficulty_sign(sign: str) -> bool:
     IN
     AT
     """
-    sign = sign.strip().upper()
-    sign_models = [
+    prefix_signs = [
         "SP",
         "DP",
+        "PM",
+        "5k",
         "7k",
-        "14k",
         "9k",
+        "14k",
+        "5b",
+        "7b",
+        "9b",
+        "14b",
         "beginner",
         "normal",
         "hyper",
@@ -65,8 +72,12 @@ def is_difficulty_sign(sign: str) -> bool:
         "IN",
         "AT",
     ]
-    for model in sign_models:
-        if sign.startswith(model.upper()):
+    exact_signs = ["B", "N", "H", "A", "I", "SH"]
+    for model in prefix_signs:
+        if sign.strip().upper().startswith(model.upper()):
+            return True
+    for model in exact_signs:
+        if sign.strip().upper() == model.upper():
             return True
     return False
 
@@ -74,13 +85,24 @@ def is_difficulty_sign(sign: str) -> bool:
 def deal_with_bms_title(title: str) -> str:
     if title.rstrip().endswith("]"):
         pairs_start_index = title.rfind("[")
-        pairs_end_index = title.rfind("]")
-        if is_difficulty_sign(title[pairs_start_index + 1 : pairs_end_index]):
+        pairs_end_index = pairs_start_index + title[pairs_start_index:].rfind("]")
+        if 0 < pairs_start_index < pairs_end_index and is_difficulty_sign(
+            title[pairs_start_index + 1 : pairs_end_index]
+        ):
             title = title[:pairs_start_index] + title[pairs_end_index + 1 :]
     if title.rstrip().endswith(")"):
         pairs_start_index = title.rfind("(")
-        pairs_end_index = title.rfind(")")
-        if is_difficulty_sign(title[pairs_start_index + 1 : pairs_end_index]):
+        pairs_end_index = pairs_start_index + title[pairs_start_index:].rfind(")")
+        if 0 < pairs_start_index < pairs_end_index and is_difficulty_sign(
+            title[pairs_start_index + 1 : pairs_end_index]
+        ):
+            title = title[:pairs_start_index] + title[pairs_end_index + 1 :]
+    if title.rstrip().endswith("-"):
+        pairs_end_index = title.rfind("-")
+        pairs_start_index = title[:pairs_end_index].rfind("-")
+        if 0 < pairs_start_index < pairs_end_index and is_difficulty_sign(
+            title[pairs_start_index + 1 : pairs_end_index]
+        ):
             title = title[:pairs_start_index] + title[pairs_end_index + 1 :]
     return title
 
