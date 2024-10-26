@@ -1,5 +1,7 @@
 # [BOF:TT大包生成脚本](https://gitee.com/MiyakoMeow/boftt-pack-generator-scripts)
 
+脚本地址：Gitee上搜MiyakoMeow/boftt-pack-generator-scripts
+
 ## HQ版和LQ版怎么选？
 
 1. HQ版：FLAC/OGG音频，同文件名下只保留一种视频格式，优先MP4/AVI，其次WMV/MPG/MPEG。
