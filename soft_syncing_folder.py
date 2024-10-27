@@ -189,7 +189,11 @@ def _sync(
 
 SYNC_PRESET_DEFAULT = SoftSyncPreset()
 SYNC_PRESET_FOR_APPEND = SoftSyncPreset(
-    name="同步预设（用于更新包）", check_file_sha512=True, remove_src_same_files=True
+    name="同步预设（用于更新包）",
+    check_file_size=True,
+    check_file_mtime=False,
+    check_file_sha512=True,
+    remove_src_same_files=True,
 )
 SYNC_PRESET_FLAC = SoftSyncPreset(
     allow_src_exts=["flac"], allow_other_exts=False, remove_dst_extra_files=False
