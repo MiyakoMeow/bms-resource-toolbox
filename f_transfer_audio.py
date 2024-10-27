@@ -33,12 +33,14 @@ MODES: List[Tuple[str, List[str], List[AudioPreset]]] = [
 
 
 def main(
+    root_dir: str = "",
     input_ext: List[str] = [],
     transfer_mode: List[AudioPreset] = [],
     remove_origin_file: bool = True,
     skip_on_fail: bool = False,
 ):
-    root_dir = get_bms_folder_dir()
+    if len(root_dir) == 0:
+        root_dir = get_bms_folder_dir()
 
     # Select Modes
     if len(transfer_mode) == 0 or len(input_ext) == 0:

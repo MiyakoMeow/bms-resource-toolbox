@@ -21,12 +21,14 @@ PRESETS: List[Tuple[str, VideoPreset]] = [
 
 
 def main(
+    root_dir: str = "",
     input_exts: List[str] = ["mp4", "avi"],
     presets: List[VideoPreset] = [],
     remove_origin_file: bool = True,
     use_prefered: bool = False,
 ):
-    root_dir = get_bms_folder_dir()
+    if len(root_dir) == 0:
+        root_dir = get_bms_folder_dir()
 
     if len(presets) == 0:
         for i, (mode_str, mode_args) in enumerate(PRESETS):

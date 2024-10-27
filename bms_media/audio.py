@@ -1,5 +1,6 @@
 import os
 import subprocess
+import time
 import multiprocessing
 from typing import List, Optional, Tuple
 
@@ -25,6 +26,7 @@ class AudioPreset:
 
 
 AUDIO_PRESET_OGG_Q10 = AudioPreset("oggenc", "ogg", "-q10")
+AUDIO_PRESET_OGG_FFMPEG = AudioPreset("ffmpeg", "ogg", "")
 
 AUDIO_PRESET_WAV_FFMPEG = AudioPreset("ffmpeg", "wav", None)
 AUDIO_PRESET_WAV_FROM_FLAC = AudioPreset(
@@ -189,6 +191,9 @@ def transfer_audio_by_format_in_dir(
         task_args = task_args[running_count_delta:]
 
         processes = new_processes
+
+        # 休眠一阵子
+        time.sleep(0.001)
 
     if has_error:
         print("Has Error!")
