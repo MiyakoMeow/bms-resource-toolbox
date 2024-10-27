@@ -39,7 +39,7 @@ def unzip_file_to_cache_dir(file_path: str, cache_dir_path: str):
             # 设置解压后的修改时间(这里把修改时间与访问时间设为一样了,windows系统)
             os.utime(filep, (d_timearry, d_timearry))
 
-        hdd = True
+        hdd = not file_path.upper().startswith("C:")
         max_workers = (
             min(multiprocessing.cpu_count(), 16) if hdd else multiprocessing.cpu_count()
         )
