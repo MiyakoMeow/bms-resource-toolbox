@@ -5,6 +5,8 @@ from bms_fs import get_bms_folder_dir
 from bms_media.video import (
     VIDEO_PRESET_MPEG1VIDEO_480P,
     VIDEO_PRESET_MPEG1VIDEO_512X512,
+    VIDEO_PRESET_AVI_480P,
+    VIDEO_PRESET_AVI_512X512,
     VIDEO_PRESET_WMV2_480P,
     VIDEO_PRESET_WMV2_512X512,
     VideoPreset,
@@ -13,16 +15,18 @@ from bms_media.video import (
 
 
 PRESETS: List[Tuple[str, VideoPreset]] = [
-    ("MP4/AVI -> WMV2 512x512", VIDEO_PRESET_WMV2_512X512),
-    ("MP4/AVI -> WMV2 480p", VIDEO_PRESET_WMV2_480P),
-    ("MP4/AVI -> MPEG1VIDEO 512x512", VIDEO_PRESET_MPEG1VIDEO_512X512),
-    ("MP4/AVI -> MPEG1VIDEO 480p", VIDEO_PRESET_MPEG1VIDEO_480P),
+    ("MP4 -> AVI 512x512", VIDEO_PRESET_AVI_512X512),
+    ("MP4 -> AVI 480p", VIDEO_PRESET_AVI_480P),
+    ("MP4 -> WMV2 512x512", VIDEO_PRESET_WMV2_512X512),
+    ("MP4 -> WMV2 480p", VIDEO_PRESET_WMV2_480P),
+    ("MP4 -> MPEG1VIDEO 512x512", VIDEO_PRESET_MPEG1VIDEO_512X512),
+    ("MP4 -> MPEG1VIDEO 480p", VIDEO_PRESET_MPEG1VIDEO_480P),
 ]
 
 
 def main(
     root_dir: str = "",
-    input_exts: List[str] = ["mp4", "avi"],
+    input_exts: List[str] = ["mp4"],
     presets: List[VideoPreset] = [],
     remove_origin_file: bool = True,
     remove_existing_target_file: bool = True,

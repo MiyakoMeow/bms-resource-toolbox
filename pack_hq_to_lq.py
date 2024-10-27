@@ -3,6 +3,7 @@ from bms_media.audio import (
 )
 from bms_media.video import (
     VIDEO_PRESET_MPEG1VIDEO_512X512,
+    VIDEO_PRESET_AVI_512X512,
     VIDEO_PRESET_WMV2_512X512,
 )
 import f_transfer_audio
@@ -25,8 +26,12 @@ def main():
     print("Parsing Video...")
     f_transfer_video.main(
         root_dir=root_dir,
-        input_exts=["mp4", "avi"],
-        presets=[VIDEO_PRESET_MPEG1VIDEO_512X512, VIDEO_PRESET_WMV2_512X512],
+        input_exts=["mp4"],
+        presets=[
+            VIDEO_PRESET_MPEG1VIDEO_512X512,
+            VIDEO_PRESET_WMV2_512X512,
+            VIDEO_PRESET_AVI_512X512,
+        ],
         remove_origin_file=True,
         use_prefered=False,
     )

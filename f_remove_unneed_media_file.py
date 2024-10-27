@@ -50,16 +50,23 @@ def remove_unneed_media_files(
 
 
 PRESET_NORMAL: List[Tuple[List[str], List[str]]] = [
-    (["mp4", "avi"], ["wmv", "mpg", "mpeg"]),
+    (["mp4"], ["avi", "wmv", "mpg", "mpeg"]),
+    (["avi"], ["wmv", "mpg", "mpeg"]),
     (["flac", "wav"], ["ogg"]),
     (["flac"], ["wav"]),
+    (["mpg"], ["wmv"]),
 ]
 PRESET_UPDATE_FIRST: List[Tuple[List[str], List[str]]] = [
     (["wav"], ["flac"]),
 ]
+PRESET_MPG_WMV: List[Tuple[List[str], List[str]]] = [
+    (["mpg"], ["wmv"]),
+]
+
 PRESETS: List[List[Tuple[List[str], List[str]]]] = [
     PRESET_NORMAL,
     PRESET_UPDATE_FIRST,
+    PRESET_MPG_WMV,
 ]
 
 if __name__ == "__main__":
