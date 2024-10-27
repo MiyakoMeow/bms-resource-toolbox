@@ -38,11 +38,16 @@ def _sync(
             if not ext_check_passed:
                 continue
             # Check modify time
-            if not os.path.isfile(dst_path) or os.path.getmtime(
-                src_path
-            ) != os.path.getmtime(dst_path):
+            src_mtime = os.path.getmtime(src_path)
+            src_size = os.path.getsize(src_path)
+            if (
+                not os.path.isfile(dst_path)
+                or src_size != os.path.getsize(dst_path)
+                or src_mtime != os.path.getmtime(dst_path)
+            ):
                 print(f"Src Round: Copy {src_path} to {dst_path}")
                 shutil.copy(src_path, dst_path)
+                os.utime(dst_path, (src_mtime, src_mtime))
 
     for dst_element in dst_list:
         src_path = f"{src_dir}/{dst_element}"
