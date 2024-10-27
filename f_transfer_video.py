@@ -25,6 +25,7 @@ def main(
     input_exts: List[str] = ["mp4", "avi"],
     presets: List[VideoPreset] = [],
     remove_origin_file: bool = True,
+    remove_existing_target_file: bool = True,
     use_prefered: bool = False,
 ):
     if len(root_dir) == 0:
@@ -51,6 +52,7 @@ def main(
             input_exts=input_exts,
             presets=presets,
             remove_origin_file=remove_origin_file,
+            remove_existing_target_file=remove_existing_target_file,
             use_prefered=use_prefered,
         )
         if not is_success:

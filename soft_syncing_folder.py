@@ -9,6 +9,7 @@ def _sync(
     allow_src_exts: list[str],
     disallow_src_exts: list[str],
     allow_others: bool,
+    remove_dst_files: bool,
 ):
     src_list = os.listdir(src_dir)
     dst_list = os.listdir(dst_dir)
@@ -19,12 +20,22 @@ def _sync(
             # Src: Dir
             if os.path.isdir(dst_path):
                 _sync(
-                    src_path, dst_path, allow_src_exts, disallow_src_exts, allow_others
+                    src_path,
+                    dst_path,
+                    allow_src_exts,
+                    disallow_src_exts,
+                    allow_others,
+                    remove_dst_files,
                 )
             else:
                 os.mkdir(dst_path)
                 _sync(
-                    src_path, dst_path, allow_src_exts, disallow_src_exts, allow_others
+                    src_path,
+                    dst_path,
+                    allow_src_exts,
+                    disallow_src_exts,
+                    allow_others,
+                    remove_dst_files,
                 )
         elif os.path.isfile(src_path):
             # Src: File
@@ -49,6 +60,9 @@ def _sync(
                 shutil.copy(src_path, dst_path)
                 os.utime(dst_path, (src_mtime, src_mtime))
 
+    if not remove_dst_files:
+        return
+
     for dst_element in dst_list:
         src_path = f"{src_dir}/{dst_element}"
         dst_path = f"{dst_dir}/{dst_element}"
@@ -62,6 +76,19 @@ def _sync(
             if not os.path.isfile(src_path):
                 print(f"Dst Round: RMFILE: {dst_path}")
                 os.remove(dst_path)
+
+
+SYNC_PRESET_DEFAULT = [[], [], True, True]
+SYNC_PRESET_FLAC = [["flac"], [], False, False]
+SYNC_PRESET_MP4_AVI = [["mp4", "avi"], [], False, False]
+SYNC_PRESET_CACHE = [["mp4", "avi", "flac"], [], False, False]
+
+SYNC_PRESETS = [
+    SYNC_PRESET_DEFAULT,
+    SYNC_PRESET_FLAC,
+    SYNC_PRESET_MP4_AVI,
+    SYNC_PRESET_CACHE,
+]
 
 
 def main(
@@ -81,7 +108,16 @@ def main(
     if src_dir.strip() == dst_dir.strip():
         print("Src dir and Dst dir is same!")
         return
-    _sync(src_dir, dst_dir, [], [], True)
+    # Select Preset
+    print("Sync selections: ")
+    for i, preset in enumerate(SYNC_PRESETS):
+        print(f"  {i} - {preset}")
+    selection_str = input("Input Selection (default=0):").strip()
+    selection = 0
+    if len(selection_str) > 0:
+        selection = int(selection_str)
+
+    _sync(src_dir, dst_dir, *SYNC_PRESETS[selection])
 
 
 if __name__ == "__main__":

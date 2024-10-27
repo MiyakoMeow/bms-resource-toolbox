@@ -35,7 +35,7 @@ def main():
     f_transfer_video.main(
         root_dir=root_dir,
         input_exts=["mp4", "avi"],
-        presets=[VIDEO_PRESET_WMV2_512X512, VIDEO_PRESET_MPEG1VIDEO_512X512],
+        presets=[VIDEO_PRESET_MPEG1VIDEO_512X512, VIDEO_PRESET_WMV2_512X512],
         remove_origin_file=True,
         use_prefered=False,
     )

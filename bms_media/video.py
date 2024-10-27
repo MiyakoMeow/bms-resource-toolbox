@@ -145,6 +145,7 @@ def process_video_in_dir(
         VIDEO_PRESET_MPEG1VIDEO_512X512,
     ],
     remove_origin_file: bool = True,
+    remove_existing_target_file: bool = True,
     use_prefered: bool = False,
 ) -> bool:
     has_error = False
@@ -172,8 +173,11 @@ def process_video_in_dir(
                 # This file is the preset's output.
                 break
             if os.path.isfile(output_file_path):
-                print(f"File exists: {output_file_path}")
-                continue
+                if remove_existing_target_file:
+                    os.remove(output_file_path)
+                else:
+                    print(f"File exists: {output_file_path}")
+                    continue
             # Process
             cmd = preset.get_video_process_cmd(file_path, output_file_path)
             print(f"Processing Video: {file_path} Preset: {preset}")
