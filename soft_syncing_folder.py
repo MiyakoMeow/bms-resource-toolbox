@@ -1,16 +1,17 @@
 import hashlib
 import os
 import shutil
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 
 class SoftSyncPreset:
     def __init__(
         self,
         name: str = "本地文件同步预设",
-        allow_src_exts: list[str] = [],
-        disallow_src_exts: list[str] = [],
+        allow_src_exts: List[str] = [],
+        disallow_src_exts: List[str] = [],
         allow_other_exts: bool = True,
+        no_activate_ext_bound_pairs: List[Tuple[List[str], List[str]]] = [],
         remove_dst_extra_files: bool = True,
         check_file_size: bool = True,
         check_file_mtime: bool = True,
@@ -23,6 +24,7 @@ class SoftSyncPreset:
         self.disallow_src_exts = disallow_src_exts
         self.allow_other_exts = allow_other_exts
         self.remove_dst_extra_files = remove_dst_extra_files
+        self.no_activate_ext_bound_pairs = no_activate_ext_bound_pairs
         self.check_file_size = check_file_size
         self.check_file_mtime = check_file_mtime
         self.check_file_sha512 = check_file_sha512
@@ -115,6 +117,26 @@ def _sync(
             if ext in preset.disallow_src_exts:
                 ext_check_passed = False
             if not ext_check_passed:
+                continue
+            # Check Ext Bound
+            ext_in_bound = False
+            for (
+                ext_bound_from_list,
+                ext_bound_to_list,
+            ) in preset.no_activate_ext_bound_pairs:
+                if ext not in ext_bound_from_list:
+                    continue
+                # Found: Bound From
+                for ext_bound_to in ext_bound_to_list:
+                    bound_file_path = dst_path[: -len(ext)] + ext_bound_to
+                    if not os.path.isfile(bound_file_path):
+                        continue
+                    # Found: Bound To
+                    ext_in_bound = True
+                    break
+                if ext_in_bound:
+                    break
+            if ext_in_bound:
                 continue
             # Replace: Check
             replace_needed = not os.path.isfile(dst_path)
