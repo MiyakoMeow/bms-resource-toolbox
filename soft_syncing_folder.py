@@ -1,15 +1,89 @@
+import hashlib
 import os
 import shutil
-from typing import Optional
+from typing import List, Optional
+
+
+class SoftSyncPreset:
+    def __init__(
+        self,
+        name: str = "本地文件同步预设",
+        allow_src_exts: list[str] = [],
+        disallow_src_exts: list[str] = [],
+        allow_other_exts: bool = True,
+        remove_dst_extra_files: bool = True,
+        check_file_size: bool = True,
+        check_file_mtime: bool = True,
+        check_file_sha512: bool = False,
+        remove_src_same_files: bool = False,
+        exec_move_instead_of_copy: bool = False,
+    ) -> None:
+        self.name = name
+        self.allow_src_exts = allow_src_exts
+        self.disallow_src_exts = disallow_src_exts
+        self.allow_other_exts = allow_other_exts
+        self.remove_dst_extra_files = remove_dst_extra_files
+        self.check_file_size = check_file_size
+        self.check_file_mtime = check_file_mtime
+        self.check_file_sha512 = check_file_sha512
+        self.remove_src_same_files = remove_src_same_files
+        self.exec_move_instead_of_copy = exec_move_instead_of_copy
+
+    def __str__(self) -> str:
+        ret = f"{self.name}："
+        # Copy/Move
+        if self.exec_move_instead_of_copy:
+            ret += "使用移动命令"
+            ret += " "
+        else:
+            ret += "使用复制命令"
+            ret += " "
+        # Ext
+        if self.allow_other_exts:
+            ret += "允许同步未定义扩展名"
+            ret += " "
+        if len(self.allow_src_exts):
+            ret += f"允许扩展名：{self.allow_src_exts}"
+            ret += " "
+        if len(self.disallow_src_exts):
+            ret += f"拒绝扩展名：{self.disallow_src_exts}"
+            ret += " "
+        # Remove Src
+        if self.remove_src_same_files:
+            ret += "移除源中相对于目标，不需要同步的文件"
+            ret += " "
+        # Remove Dst
+        if self.remove_dst_extra_files:
+            ret += "移除目标文件夹相对源文件夹的多余文件"
+            ret += " "
+        # Check
+        if self.check_file_mtime:
+            ret += "检查修改时间"
+            ret += " "
+        if self.check_file_size:
+            ret += "检查大小"
+            ret += " "
+        if self.check_file_sha512:
+            ret += "检查SHA-512"
+            ret += " "
+        return ret
+
+
+def get_file_sha512(file_path: str) -> str:
+    if not os.path.isfile(file_path):
+        print(f"{file_path}：文件不存在。")
+        return ""
+    h = hashlib.sha512()
+    with open(file_path, "rb") as f:
+        while b := f.read(8192):
+            h.update(b)
+    return h.hexdigest()
 
 
 def _sync(
     src_dir: str,
     dst_dir: str,
-    allow_src_exts: list[str],
-    disallow_src_exts: list[str],
-    allow_others: bool,
-    remove_dst_files: bool,
+    preset: SoftSyncPreset,
 ):
     src_list = os.listdir(src_dir)
     dst_list = os.listdir(dst_dir)
@@ -22,45 +96,58 @@ def _sync(
                 _sync(
                     src_path,
                     dst_path,
-                    allow_src_exts,
-                    disallow_src_exts,
-                    allow_others,
-                    remove_dst_files,
+                    preset,
                 )
             else:
                 os.mkdir(dst_path)
                 _sync(
                     src_path,
                     dst_path,
-                    allow_src_exts,
-                    disallow_src_exts,
-                    allow_others,
-                    remove_dst_files,
+                    preset,
                 )
         elif os.path.isfile(src_path):
             # Src: File
             # Check Ext
-            ext_check_passed = allow_others
+            ext_check_passed = preset.allow_other_exts
             ext = dst_element.rsplit(".")[-1]
-            if ext in allow_src_exts:
+            if ext in preset.allow_src_exts:
                 ext_check_passed = True
-            if ext in disallow_src_exts:
+            if ext in preset.disallow_src_exts:
                 ext_check_passed = False
             if not ext_check_passed:
                 continue
-            # Check modify time
+            # Replace: Check
+            replace_needed = not os.path.isfile(dst_path)
+            if preset.check_file_size:
+                replace_needed = replace_needed or os.path.getsize(
+                    src_path
+                ) != os.path.getsize(dst_path)
             src_mtime = os.path.getmtime(src_path)
-            src_size = os.path.getsize(src_path)
-            if (
-                not os.path.isfile(dst_path)
-                or src_size != os.path.getsize(dst_path)
-                or src_mtime != os.path.getmtime(dst_path)
-            ):
-                print(f"Src Round: Copy {src_path} to {dst_path}")
-                shutil.copy(src_path, dst_path)
+            if preset.check_file_mtime:
+                replace_needed = replace_needed or src_mtime != os.path.getmtime(
+                    dst_path
+                )
+            if preset.check_file_sha512:
+                replace_needed = replace_needed or get_file_sha512(
+                    src_path
+                ) != get_file_sha512(dst_path)
+            # Replace
+            if replace_needed:
+                # Exec
+                if preset.exec_move_instead_of_copy:
+                    print(f"Src Round: Move {src_path} to {dst_path}")
+                    shutil.move(src_path, dst_path)
+                else:
+                    print(f"Src Round: Copy {src_path} to {dst_path}")
+                    shutil.copy(src_path, dst_path)
+                # Set atime/mtime
                 os.utime(dst_path, (src_mtime, src_mtime))
+                # Remove ori
+                if preset.remove_src_same_files:
+                    print(f"Src Round: RMFILE {src_path}")
+                    os.remove(src_path)
 
-    if not remove_dst_files:
+    if not preset.remove_dst_extra_files:
         return
 
     for dst_element in dst_list:
@@ -78,13 +165,25 @@ def _sync(
                 os.remove(dst_path)
 
 
-SYNC_PRESET_DEFAULT = [[], [], True, True]
-SYNC_PRESET_FLAC = [["flac"], [], False, False]
-SYNC_PRESET_MP4_AVI = [["mp4", "avi"], [], False, False]
-SYNC_PRESET_CACHE = [["mp4", "avi", "flac"], [], False, False]
+SYNC_PRESET_DEFAULT = SoftSyncPreset()
+SYNC_PRESET_FOR_APPEND = SoftSyncPreset(
+    name="同步预设（用于更新包）", check_file_sha512=True, remove_src_same_files=True
+)
+SYNC_PRESET_FLAC = SoftSyncPreset(
+    allow_src_exts=["flac"], allow_other_exts=False, remove_dst_extra_files=False
+)
+SYNC_PRESET_MP4_AVI = SoftSyncPreset(
+    allow_src_exts=["mp4", "avi"], allow_other_exts=False, remove_dst_extra_files=False
+)
+SYNC_PRESET_CACHE = SoftSyncPreset(
+    allow_src_exts=["mp4", "avi", "flac"],
+    allow_other_exts=False,
+    remove_dst_extra_files=False,
+)
 
-SYNC_PRESETS = [
+SYNC_PRESETS: List[SoftSyncPreset] = [
     SYNC_PRESET_DEFAULT,
+    SYNC_PRESET_FOR_APPEND,
     SYNC_PRESET_FLAC,
     SYNC_PRESET_MP4_AVI,
     SYNC_PRESET_CACHE,
