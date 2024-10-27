@@ -1,4 +1,8 @@
-from bms_media.audio import AUDIO_PRESET_OGG_Q10
+from bms_media.audio import (
+    AUDIO_PRESET_OGG_Q10,
+    AUDIO_PRESET_WAV_FFMPEG,
+    AUDIO_PRESET_WAV_FROM_FLAC,
+)
 from bms_media.video import (
     VIDEO_PRESET_MPEG1VIDEO_512X512,
     VIDEO_PRESET_WMV2_512X512,
@@ -11,6 +15,13 @@ def main():
     print("This file is for parsing HQ version to LQ version. Just for LR2 players.")
     # Parse Audio
     print("Parsing Audio... Phase 1:")
+    f_transfer_audio.main(
+        ["flac"],
+        [AUDIO_PRESET_WAV_FROM_FLAC, AUDIO_PRESET_WAV_FFMPEG],
+        remove_origin_file=True,
+    )
+    # Parse Audio
+    print("Parsing Audio... Phase 2:")
     f_transfer_audio.main(["flac"], [AUDIO_PRESET_OGG_Q10], remove_origin_file=True)
     # Parse Audio
     print("Parsing Video...")
