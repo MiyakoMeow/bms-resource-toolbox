@@ -1,7 +1,26 @@
+from enum import Enum
 import hashlib
 import os
 import shutil
 from typing import List, Optional, Tuple
+
+
+class SoftSyncExec(Enum):
+    NONE = 0
+    COPY = 1
+    MOVE = 2
+
+    def __str__(self) -> str:
+        match self:
+            case SoftSyncExec.NONE:
+                return "无操作"
+            case SoftSyncExec.COPY:
+                return "使用复制命令"
+            case SoftSyncExec.MOVE:
+                return "使用移动命令"
+
+    def __repr__(self) -> str:
+        return self.__str__()
 
 
 class SoftSyncPreset:
@@ -17,7 +36,7 @@ class SoftSyncPreset:
         check_file_mtime: bool = True,
         check_file_sha512: bool = False,
         remove_src_same_files: bool = False,
-        exec_move_instead_of_copy: bool = False,
+        exec: SoftSyncExec = SoftSyncExec.COPY,
     ) -> None:
         self.name = name
         self.allow_src_exts = allow_src_exts
@@ -29,17 +48,13 @@ class SoftSyncPreset:
         self.check_file_mtime = check_file_mtime
         self.check_file_sha512 = check_file_sha512
         self.remove_src_same_files = remove_src_same_files
-        self.exec_move_instead_of_copy = exec_move_instead_of_copy
+        self.exec = exec
 
     def __str__(self) -> str:
         ret = f"{self.name}："
         # Copy/Move
-        if self.exec_move_instead_of_copy:
-            ret += "使用移动命令"
-            ret += " "
-        else:
-            ret += "使用复制命令"
-            ret += " "
+        ret += f"{self.exec}"
+        ret += " "
         # Ext
         if self.allow_other_exts:
             ret += "允许同步未定义扩展名"
@@ -73,13 +88,15 @@ class SoftSyncPreset:
 
 def get_file_sha512(file_path: str) -> str:
     if not os.path.isfile(file_path):
-        print(f"{file_path}：文件不存在。")
+        # print(f"{file_path}：文件不存在。")
         return ""
     h = hashlib.sha512()
     with open(file_path, "rb") as f:
-        while b := f.read(8192):
-            h.update(b)
-    return h.hexdigest()
+        b = f.read()
+        h.update(b)
+    ret = h.hexdigest()
+    # print(f" - {file_path}: {ret}")
+    return ret
 
 
 def _sync(
@@ -139,35 +156,50 @@ def _sync(
             if ext_in_bound:
                 continue
             # Replace: Check
-            replace_needed = not os.path.isfile(dst_path)
-            if preset.check_file_size:
-                replace_needed = replace_needed or os.path.getsize(
-                    src_path
-                ) != os.path.getsize(dst_path)
-            src_mtime = os.path.getmtime(src_path)
-            if preset.check_file_mtime:
-                replace_needed = replace_needed or src_mtime != os.path.getmtime(
-                    dst_path
-                )
-            if preset.check_file_sha512:
-                replace_needed = replace_needed or get_file_sha512(
-                    src_path
-                ) != get_file_sha512(dst_path)
-            # Replace
-            if replace_needed:
-                # Exec
-                if preset.exec_move_instead_of_copy:
-                    print(f"Src Round: Move {src_path} to {dst_path}")
-                    shutil.move(src_path, dst_path)
-                else:
-                    print(f"Src Round: Copy {src_path} to {dst_path}")
-                    shutil.copy(src_path, dst_path)
-                # Set atime/mtime
-                os.utime(dst_path, (src_mtime, src_mtime))
-                # Remove ori
-                if preset.remove_src_same_files:
-                    print(f"Src Round: RMFILE {src_path}")
-                    os.remove(src_path)
+            dst_file_exists = os.path.isfile(dst_path)
+            is_same_file = True
+            if is_same_file and dst_file_exists and preset.check_file_size:
+                src_size = os.path.getsize(src_path)
+                dst_size = os.path.getsize(dst_path)
+                if src_size != dst_size:
+                    print(f"{dst_element}: Size Differ!")
+                is_same_file = is_same_file and src_size == dst_size
+            if is_same_file and dst_file_exists and preset.check_file_mtime:
+                src_mtime = os.path.getmtime(src_path)
+                dst_mtime = os.path.getmtime(dst_path)
+                if src_mtime != dst_mtime:
+                    print(f"{dst_element}: MTime Differ!")
+                is_same_file = is_same_file and src_mtime == dst_mtime
+            if is_same_file and dst_file_exists and preset.check_file_sha512:
+                src_value = get_file_sha512(src_path)
+                dst_value = get_file_sha512(dst_path)
+                if src_value != dst_value:
+                    print(f"{dst_element}: Hash Differ!")
+                is_same_file = is_same_file and src_value == dst_value
+            # Replace: Exec
+            if not dst_file_exists or not is_same_file:
+                src_mtime = os.path.getmtime(src_path)
+                match preset.exec:
+                    case SoftSyncExec.NONE:
+                        pass
+                    case SoftSyncExec.COPY:
+                        print(f"Src Round: Copy {src_path} to {dst_path}")
+                        shutil.copy(src_path, dst_path)
+                        # Set atime/mtime
+                        os.utime(dst_path, (src_mtime, src_mtime))
+                    case SoftSyncExec.MOVE:
+                        print(f"Src Round: Move {src_path} to {dst_path}")
+                        shutil.move(src_path, dst_path)
+                        # Set atime/mtime
+                        os.utime(dst_path, (src_mtime, src_mtime))
+            # Remove same ori files
+            if (
+                is_same_file
+                and os.path.isfile(src_path)
+                and preset.remove_src_same_files
+            ):
+                print(f"Src Round: RMFILE {src_path}")
+                os.remove(src_path)
 
     if not preset.remove_dst_extra_files:
         return
@@ -194,6 +226,8 @@ SYNC_PRESET_FOR_APPEND = SoftSyncPreset(
     check_file_mtime=False,
     check_file_sha512=True,
     remove_src_same_files=True,
+    remove_dst_extra_files=False,
+    exec=SoftSyncExec.NONE,
 )
 SYNC_PRESET_FLAC = SoftSyncPreset(
     allow_src_exts=["flac"], allow_other_exts=False, remove_dst_extra_files=False
@@ -205,6 +239,7 @@ SYNC_PRESET_CACHE = SoftSyncPreset(
     allow_src_exts=["mp4", "avi", "flac"],
     allow_other_exts=False,
     remove_dst_extra_files=False,
+    exec=SoftSyncExec.NONE,
 )
 
 SYNC_PRESETS: List[SoftSyncPreset] = [
@@ -237,12 +272,15 @@ def main(
     print("Sync selections: ")
     for i, preset in enumerate(SYNC_PRESETS):
         print(f"  {i} - {preset}")
-    selection_str = input("Input Selection (default=0):").strip()
-    selection = 0
-    if len(selection_str) > 0:
-        selection = int(selection_str)
 
-    _sync(src_dir, dst_dir, *SYNC_PRESETS[selection])
+    while True:
+        selection_str = input("Input Selection (default=0):").strip()
+        selection = 0
+        if len(selection_str) > 0:
+            selection = int(selection_str)
+            break
+
+    _sync(src_dir, dst_dir, SYNC_PRESETS[selection])
 
 
 if __name__ == "__main__":
