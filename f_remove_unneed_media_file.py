@@ -69,16 +69,19 @@ PRESETS: List[List[Tuple[List[str], List[str]]]] = [
     PRESET_MPG_WMV,
 ]
 
-if __name__ == "__main__":
-    root_dir = get_bms_folder_dir()
+
+def main(root_dir: str = "", preset: List[Tuple[List[str], List[str]]] = []):
+    if len(root_dir) == 0:
+        root_dir = get_bms_folder_dir()
     # Select Preset
-    for i, preset in enumerate(PRESETS):
-        print(f"- {i}: {PRESETS[i]}")
-    selection_str = input("Select Preset (Default: 0):")
-    selection = 0
-    if len(selection_str) > 0:
-        selection = int(selection_str)
-    preset = PRESETS[selection]
+    if len(preset) == 0:
+        for i, preset in enumerate(PRESETS):
+            print(f"- {i}: {PRESETS[i]}")
+        selection_str = input("Select Preset (Default: 0):")
+        selection = 0
+        if len(selection_str) > 0:
+            selection = int(selection_str)
+        preset = PRESETS[selection]
     print(f"Selected: {preset}")
 
     # Do
@@ -90,3 +93,7 @@ if __name__ == "__main__":
             bms_dir_path,
             preset,
         )
+
+
+if __name__ == "__main__":
+    main()
