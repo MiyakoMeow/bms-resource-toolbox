@@ -5,9 +5,21 @@ tips = "Input id (default: Jump to List):"
 print("Press Ctrl+C to Quit.")
 
 while True:
-    num_str = input(tips).strip()
-    if len(num_str.split(" ")) == 2:
-        nums = num_str.split()
+    num_str = input(tips).strip().replace("[", "").replace("]", "")
+    nums_1 = num_str.split()
+    nums = []
+    for num_1 in nums_1:
+        for num in num_1.split(","):
+            if len(num) == 0:
+                continue
+            nums.append(int(num))
+    if len(nums) >= 2:
+        for num in nums:
+            id = int(num)
+            webbrowser.open_new_tab(
+                f"https://manbow.nothing.sh/event/event.cgi?action=More_def&num={id}&event=146"
+            )
+    elif len(nums) == 2:
         start, end = int(nums[0]), int(nums[1])
         if start > end:
             start, end = end, start
