@@ -7,7 +7,9 @@ import f_remove_unneed_media_file
 
 
 def main():
-    print("This file is for parsing HQ version to LQ version. Just for LR2 players.")
+    print(
+        "This file is for parsing Raw version to HQ version. Just for beatoraja/Qwilight players."
+    )
     root_dir = input("Input BMS Dir:")
     # Parse Audio
     print("Parsing Audio... Phase 1: WAV -> FLAC")
