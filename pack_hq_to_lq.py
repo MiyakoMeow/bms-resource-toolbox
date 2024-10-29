@@ -20,7 +20,7 @@ def main():
         input_ext=["flac"],
         transfer_mode=[AUDIO_PRESET_OGG_Q10],
         remove_origin_file=True,
-        skip_on_fail=True,
+        skip_on_fail=False,
     )
     # Parse Audio
     print("Parsing Video...")

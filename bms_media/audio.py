@@ -140,7 +140,7 @@ def transfer_audio_by_format_in_dir(
 
     # Count
     file_count = len(task_args)
-    fallback_files: List[Tuple[str, int]] = []
+    fallback_file_names: List[Tuple[str, int]] = []
 
     for task_arg in task_args:
         if len(processes) >= max_workers:
@@ -186,7 +186,7 @@ def transfer_audio_by_format_in_dir(
                 has_error = True
                 continue
             # Count
-            fallback_files.append((file_path, new_preset_index))
+            fallback_file_names.append((os.path.split(file_path)[-1], new_preset_index))
             # Try Next
             task_args.append((file_path, new_preset_index, presets[new_preset_index]))
 
@@ -212,7 +212,9 @@ def transfer_audio_by_format_in_dir(
 
     if file_count > 0:
         print(f" -v- Parsed {file_count} file(s).")
-    if len(fallback_files) > 0:
-        print(f" x_x Fallback: {fallback_files}.")
+    if len(fallback_file_names) > 0:
+        print(
+            f" x_x Fallback: {fallback_file_names}. Totally {len(fallback_file_names)} files."
+        )
 
     return not has_error

@@ -18,7 +18,7 @@ def main():
         input_ext=["wav"],
         transfer_mode=[AUDIO_PRESET_FLAC, AUDIO_PRESET_FLAC_FFMPEG],
         remove_origin_file=True,
-        skip_on_fail=True,
+        skip_on_fail=False,
     )
     # Remove Unneed Media File
     print("Removing Unneed Files")
