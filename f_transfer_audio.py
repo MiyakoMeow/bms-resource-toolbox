@@ -51,7 +51,7 @@ def main(
         transfer_mode = MODES[selection][2]
 
     for bms_dir_name in os.listdir(root_dir):
-        bms_dir_path = f"{root_dir}/{bms_dir_name}"
+        bms_dir_path = os.path.join(root_dir, bms_dir_name)
         if not os.path.isdir(bms_dir_path):
             continue
         print("Entering dir:", bms_dir_path, "Input ext:", input_ext)

@@ -14,7 +14,7 @@ from bms_fs import get_bms_folder_dir, get_bms_pack_dir, move_files_across_dir
 
 
 def unzip_file_to_cache_dir(file_path: str, cache_dir_path: str):
-    file_name = file_path.rsplit("/")[-1].rsplit("\\")[-1]
+    file_name = os.path.split(file_path)[-1]
     if file_path.endswith(".zip"):
         print(f"Extracting {file_path} to {cache_dir_path} (zip)")
         zip_file = zipfile.ZipFile(file_path)
@@ -65,7 +65,9 @@ def unzip_file_to_cache_dir(file_path: str, cache_dir_path: str):
         rar_file.extractall(cache_dir_path)
         rar_file.close()
     else:
-        target_file_path = f"{cache_dir_path}/{"".join(file_name.split(" ")[1:])}"
+        target_file_path = os.path.join(
+            cache_dir_path, "".join(file_name.split(" ")[1:])
+        )
         print(f"Coping {file_path} to {target_file_path}")
         shutil.copy(file_path, target_file_path)
 
@@ -76,7 +78,7 @@ def main(pack_dir: str, cache_dir: str, root_dir: str):
     if not os.path.isdir(root_dir):
         os.mkdir(root_dir)
     for file_name in os.listdir(pack_dir):
-        file_path = f"{pack_dir}/{file_name}"
+        file_path = os.path.join(pack_dir, file_name)
         if not os.path.isfile(file_path):
             continue
         id_str = file_name.split(" ")[0]
@@ -84,7 +86,7 @@ def main(pack_dir: str, cache_dir: str, root_dir: str):
             continue
 
         # Create a cache dir
-        cache_dir_path = f"{cache_dir}/{id_str}"
+        cache_dir_path = os.path.join(cache_dir, id_str)
         if not os.path.isdir(cache_dir_path):
             os.mkdir(cache_dir_path)
 
@@ -105,7 +107,7 @@ def main(pack_dir: str, cache_dir: str, root_dir: str):
             cache_file_count = 0
             inner_dir_name = None
             for cache_name in os.listdir(cache_dir_path):
-                cache_path = f"{cache_dir_path}/{cache_name}"
+                cache_path = os.path.join(cache_dir_path, cache_name)
                 if os.path.isdir(cache_path):
                     # Remove __MACOSX dir
                     if cache_name == "__MACOSX":
@@ -140,7 +142,7 @@ def main(pack_dir: str, cache_dir: str, root_dir: str):
 
             # move out files
             if inner_dir_name is not None:
-                inner_dir_path = f"{cache_dir_path}/{inner_dir_name}"
+                inner_dir_path = os.path.join(cache_dir_path, inner_dir_name)
                 # Avoid two floor same name
                 inner_inner_dir_path = os.path.join(inner_dir_path, inner_dir_name)
                 if os.path.isdir(inner_inner_dir_path):
@@ -166,7 +168,7 @@ def main(pack_dir: str, cache_dir: str, root_dir: str):
         # Find Target dir
         target_dir_path = None
         for dir_name in os.listdir(root_dir):
-            dir_path = f"{root_dir}/{dir_name}"
+            dir_path = os.path.join(root_dir, dir_name)
             if not os.path.isdir(dir_path):
                 continue
             if not (
@@ -180,7 +182,7 @@ def main(pack_dir: str, cache_dir: str, root_dir: str):
             target_dir_path = dir_path
 
         if target_dir_path is None:
-            target_dir_path = f"{root_dir}/{id_str}"
+            target_dir_path = os.path.join(root_dir, id_str)
 
         if not os.path.isdir(target_dir_path):
             os.mkdir(target_dir_path)
@@ -196,7 +198,7 @@ def main(pack_dir: str, cache_dir: str, root_dir: str):
 
         # Move File to Another dir
         print(f"Finish dealing with file: {file_name}")
-        used_pack_dir = f"{pack_dir}/BOFTTPacks"
+        used_pack_dir = os.path.join(pack_dir, "BOFTTPacks")
         if not os.path.isdir(used_pack_dir):
             os.mkdir(used_pack_dir)
         shutil.move(file_path, os.path.join(used_pack_dir, file_name))

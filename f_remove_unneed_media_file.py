@@ -9,7 +9,7 @@ def remove_unneed_media_files(
 ):
     print(f"Scaning: {bms_dir_path}")
     for file_name in os.listdir(bms_dir_path):
-        file_path = f"{bms_dir_path}/{file_name}"
+        file_path = os.path.join(bms_dir_path, file_name)
         if not os.path.isfile(file_path):
             continue
 
@@ -36,7 +36,7 @@ def remove_unneed_media_files(
     # Finished: Count Ext
     ext_count: Dict[str, List[str]] = dict()
     for file_name in os.listdir(bms_dir_path):
-        file_path = f"{bms_dir_path}/{file_name}"
+        file_path = os.path.join(bms_dir_path, file_name)
         if not os.path.isfile(file_path):
             continue
 
@@ -90,7 +90,7 @@ def main(root_dir: str = "", preset: List[Tuple[List[str], List[str]]] = []):
 
     # Do
     for bms_dir_name in os.listdir(root_dir):
-        bms_dir_path = f"{root_dir}/{bms_dir_name}"
+        bms_dir_path = os.path.join(root_dir, bms_dir_name)
         if not os.path.isdir(bms_dir_path):
             continue
         remove_unneed_media_files(

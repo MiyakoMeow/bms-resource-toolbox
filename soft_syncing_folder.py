@@ -107,8 +107,8 @@ def _sync(
     src_list = os.listdir(src_dir)
     dst_list = os.listdir(dst_dir)
     for dst_element in src_list:
-        src_path = f"{src_dir}/{dst_element}"
-        dst_path = f"{dst_dir}/{dst_element}"
+        src_path = os.path.join(src_dir, dst_element)
+        dst_path = os.path.join(dst_dir, dst_element)
         if os.path.isdir(src_path):
             # Src: Dir
             if os.path.isdir(dst_path):
@@ -205,8 +205,8 @@ def _sync(
         return
 
     for dst_element in dst_list:
-        src_path = f"{src_dir}/{dst_element}"
-        dst_path = f"{dst_dir}/{dst_element}"
+        src_path = os.path.join(src_dir, dst_element)
+        dst_path = os.path.join(dst_dir, dst_element)
         if os.path.isdir(dst_path):
             if os.path.isdir(src_path):
                 pass

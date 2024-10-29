@@ -156,7 +156,7 @@ def parse_bmson_file(file_path: str, encoding: Optional[str] = None) -> BMSInfo:
 def get_dir_bms_info(dir_path: str) -> Optional[BMSInfo]:
     """仅寻找该目录第一层的文件"""
     info: Optional[BMSInfo] = None
-    id = dir_path.split("/")[-1].split(".")[0]
+    id = os.path.split(dir_path)[-1].split(".")[0]
     encoding = ID_SPECIFIC_ENCODING_TABLE.get(id)
     for file_name in os.listdir(dir_path):
         if info is not None:

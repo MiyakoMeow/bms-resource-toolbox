@@ -165,7 +165,7 @@ def process_video_in_dir(
 ) -> bool:
     has_error = False
     for file_name in os.listdir(dir):
-        file_path = f"{dir}/{file_name}"
+        file_path = os.path.join(dir, file_name)
         if not os.path.isfile(file_path):
             continue
         # Check ext

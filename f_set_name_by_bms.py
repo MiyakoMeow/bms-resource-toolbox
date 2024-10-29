@@ -8,7 +8,7 @@ from bms_fs import get_bms_folder_dir, get_vaild_fs_name
 
 
 def deal_with_dir(dir_path: str):
-    if not dir_path.split("/")[-1].split("\\")[-1].strip().isdigit():
+    if not os.path.split(dir_path)[-1].strip().isdigit():
         # print(f"{dir_path} has been renamed! Skipping...")
         return
     info: Optional[BMSInfo] = get_dir_bms_info(dir_path)

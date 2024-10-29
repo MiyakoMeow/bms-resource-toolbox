@@ -72,7 +72,7 @@ def transfer_audio_by_format_in_dir(
     def check_input_file(
         dir: str, file_name: str, input_exts: List[str]
     ) -> Optional[str]:
-        file_path = f"{dir}/{file_name}"
+        file_path = os.path.join(dir, file_name)
         if not os.path.isfile(file_path):
             return None
         # Check ext
