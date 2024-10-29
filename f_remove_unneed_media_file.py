@@ -17,6 +17,10 @@ def remove_unneed_media_files(
         for upper_exts, lower_exts in rules:
             if file_ext not in upper_exts:
                 continue
+            # File is empty?
+            if os.path.getsize(file_path) == 0:
+                print(f" - !x!: File {file_path} is Empty! Skipping...")
+                continue
             # File is in upper_exts, search for file in lower_exts.
             for lower_ext in lower_exts:
                 replacing_file_path = f"{file_path[:-len(file_ext)] + lower_ext}"
