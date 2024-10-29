@@ -164,6 +164,7 @@ def process_video_in_dir(
     use_prefered: bool = False,
 ) -> bool:
     has_error = False
+    file_name_list: List[str] = []
     for file_name in os.listdir(dir):
         file_path = os.path.join(dir, file_name)
         if not os.path.isfile(file_path):
@@ -175,6 +176,14 @@ def process_video_in_dir(
                 ext_checked = True
         if not ext_checked:
             continue
+        # Add File
+        file_name_list.append(file_name)
+
+    if len(file_name_list) > 0:
+        print("Entering dir:", dir)
+
+    for file_name in file_name_list:
+        file_path = os.path.join(dir, file_name)
         # Get prefered
         presets_for_file = copy.deepcopy(presets)
         if use_prefered:

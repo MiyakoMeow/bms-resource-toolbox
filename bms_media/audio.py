@@ -134,6 +134,10 @@ def transfer_audio_by_format_in_dir(
         if check_input_file(dir, file_name, input_exts) is not None
     ]
 
+    if len(task_args) > 0:
+        print("Entering dir:", dir, "Input ext:", input_exts)
+        print("Preset:", presets)
+
     # Count
     file_count = len(task_args)
     fallback_files: List[Tuple[str, int]] = []

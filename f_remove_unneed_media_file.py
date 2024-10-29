@@ -7,7 +7,7 @@ from bms_fs import get_bms_folder_dir
 def remove_unneed_media_files(
     bms_dir_path: str, rules: List[Tuple[List[str], List[str]]]
 ):
-    print(f"Scaning: {bms_dir_path}")
+    remove_pairs: List[Tuple[str, str]] = []
     for file_name in os.listdir(bms_dir_path):
         file_path = os.path.join(bms_dir_path, file_name)
         if not os.path.isfile(file_path):
@@ -27,11 +27,17 @@ def remove_unneed_media_files(
                 # File not exist?
                 if not os.path.isfile(replacing_file_path):
                     continue
-                # Remove file
-                print(
-                    f"- Remove file {replacing_file_path}, because {file_path} exists."
-                )
-                os.remove(replacing_file_path)
+                remove_pairs.append((file_path, replacing_file_path))
+
+    if len(remove_pairs) > 0:
+        print(f"Entering: {bms_dir_path}")
+
+    # Remove file
+    for file_path, replacing_file_path in remove_pairs:
+        print(
+            f"- Remove file {os.path.split(replacing_file_path)[-1]}, because {os.path.split(file_path)[-1]} exists."
+        )
+        os.remove(replacing_file_path)
 
     # Finished: Count Ext
     ext_count: Dict[str, List[str]] = dict()

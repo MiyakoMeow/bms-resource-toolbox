@@ -54,8 +54,6 @@ def main(
         bms_dir_path = os.path.join(root_dir, bms_dir_name)
         if not os.path.isdir(bms_dir_path):
             continue
-        print("Entering dir:", bms_dir_path, "Input ext:", input_ext)
-        print("Preset:", transfer_mode)
         is_success = transfer_audio_by_format_in_dir(
             bms_dir_path,
             input_ext,
