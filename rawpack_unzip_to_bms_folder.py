@@ -10,7 +10,12 @@ import zipfile
 import py7zr
 import rarfile
 
-from bms_fs import get_bms_folder_dir, get_bms_pack_dir, move_files_across_dir
+from bms_fs import (
+    get_bms_folder_dir,
+    get_bms_pack_dir,
+    is_dir_having_file,
+    move_elements_across_dir,
+)
 
 
 def unzip_file_to_cache_dir(file_path: str, cache_dir_path: str):
@@ -85,8 +90,12 @@ def main(pack_dir: str, cache_dir: str, root_dir: str):
         if not id_str.isdigit():
             continue
 
-        # Create a cache dir
+        # Prepare an empty cache dir
         cache_dir_path = os.path.join(cache_dir, id_str)
+
+        if os.path.isdir(cache_dir_path) and is_dir_having_file(cache_dir_path):
+            shutil.rmtree(cache_dir_path)
+
         if not os.path.isdir(cache_dir_path):
             os.mkdir(cache_dir_path)
 
@@ -150,7 +159,7 @@ def main(pack_dir: str, cache_dir: str, root_dir: str):
                     shutil.move(inner_inner_dir_path, f"{inner_inner_dir_path}-rep")
                 # Move
                 print(f" - Moving inner files in {inner_dir_path} to {cache_dir_path}")
-                move_files_across_dir(inner_dir_path, cache_dir_path)
+                move_elements_across_dir(inner_dir_path, cache_dir_path)
                 os.rmdir(inner_dir_path)
 
         if error:
@@ -190,7 +199,9 @@ def main(pack_dir: str, cache_dir: str, root_dir: str):
 
         # Move cache to bms dir
         print(f" > Moving files in {cache_dir_path} to {target_dir_path}")
-        move_files_across_dir(cache_dir_path, target_dir_path, cache_file_count <= 10)
+        move_elements_across_dir(
+            cache_dir_path, target_dir_path, cache_file_count <= 10
+        )
         os.rmdir(cache_dir_path)
         try:
             os.rmdir(cache_dir_root_path)

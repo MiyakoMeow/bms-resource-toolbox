@@ -71,12 +71,37 @@ def get_folder_name(id: str, info: BMSInfo) -> str:
     return f"{id}. {get_vaild_fs_name(info.title)} [{get_vaild_fs_name(info.artist)}]"
 
 
-def move_files_across_dir(
-    dir_path_ori: str, dir_path_dst: str, print_info: bool = False
+def move_elements_across_dir(
+    dir_path_ori: str,
+    dir_path_dst: str,
+    print_info: bool = False,
+    replace: bool = True,
 ):
-    for file_name in os.listdir(dir_path_ori):
-        ori_path = f"{dir_path_ori}/{file_name}"
-        dst_path = f"{dir_path_dst}/{file_name}"
+    for element_name in os.listdir(dir_path_ori):
+        ori_path = f"{dir_path_ori}/{element_name}"
+        dst_path = f"{dir_path_dst}/{element_name}"
         if print_info:
             print(f" - Moving from {ori_path} to {dst_path}")
-        shutil.move(ori_path, dst_path)
+        # Move
+        if os.path.isfile(ori_path):
+            if os.path.isfile(dst_path) and replace:
+                os.remove(dst_path)
+            if not os.path.isfile(dst_path):
+                shutil.move(ori_path, dst_path)
+        elif os.path.isdir(ori_path):
+            move_elements_across_dir(ori_path, dst_path, print_info, replace)
+
+
+def is_dir_having_file(dir_path: str) -> bool:
+    has_file = False
+    for element_name in os.listdir(dir_path):
+        element_path = os.path.join(dir_path, element_name)
+        if os.path.isfile(element_path):
+            has_file = True
+        elif os.path.isdir(element_path):
+            has_file = has_file or is_dir_having_file(element_path)
+
+        if has_file:
+            break
+
+    return has_file
