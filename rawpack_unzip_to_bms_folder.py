@@ -133,7 +133,7 @@ def main(pack_dir: str, cache_dir: str, root_dir: str):
 
             if cache_folder_count > 1:
                 print(
-                    f"{cache_dir_path}: has more then 1 folders, please do it manually."
+                    f" !_! {cache_dir_path}: has more then 1 folders, please do it manually."
                 )
                 error = True
 
@@ -146,9 +146,10 @@ def main(pack_dir: str, cache_dir: str, root_dir: str):
                 # Avoid two floor same name
                 inner_inner_dir_path = os.path.join(inner_dir_path, inner_dir_name)
                 if os.path.isdir(inner_inner_dir_path):
+                    print(f" - Renaming inner inner dir name: {inner_inner_dir_path}")
                     shutil.move(inner_inner_dir_path, f"{inner_inner_dir_path}-rep")
                 # Move
-                print(f"Moving inner files in {inner_dir_path} to {cache_dir_path}")
+                print(f" - Moving inner files in {inner_dir_path} to {cache_dir_path}")
                 move_files_across_dir(inner_dir_path, cache_dir_path)
                 os.rmdir(inner_dir_path)
 
@@ -156,7 +157,7 @@ def main(pack_dir: str, cache_dir: str, root_dir: str):
             continue
 
         if cache_folder_count == 0 and cache_file_count == 0:
-            print(f"{cache_dir_path}: Cache is Empty!")
+            print(f" !_! {cache_dir_path}: Cache is Empty!")
             os.rmdir(cache_dir_path)
             continue
 
@@ -188,7 +189,7 @@ def main(pack_dir: str, cache_dir: str, root_dir: str):
             os.mkdir(target_dir_path)
 
         # Move cache to bms dir
-        print(f"Moving files in {cache_dir_path} to {target_dir_path}")
+        print(f" > Moving files in {cache_dir_path} to {target_dir_path}")
         move_files_across_dir(cache_dir_path, target_dir_path, cache_file_count <= 10)
         os.rmdir(cache_dir_path)
         try:
@@ -197,7 +198,7 @@ def main(pack_dir: str, cache_dir: str, root_dir: str):
             pass
 
         # Move File to Another dir
-        print(f"Finish dealing with file: {file_name}")
+        print(f" > Finish dealing with file: {file_name}")
         used_pack_dir = os.path.join(pack_dir, "BOFTTPacks")
         if not os.path.isdir(used_pack_dir):
             os.mkdir(used_pack_dir)
