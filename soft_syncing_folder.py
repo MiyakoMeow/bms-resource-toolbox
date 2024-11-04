@@ -106,9 +106,9 @@ def _sync(
 ):
     src_list = os.listdir(src_dir)
     dst_list = os.listdir(dst_dir)
-    for dst_element in src_list:
-        src_path = os.path.join(src_dir, dst_element)
-        dst_path = os.path.join(dst_dir, dst_element)
+    for src_element in src_list:
+        src_path = os.path.join(src_dir, src_element)
+        dst_path = os.path.join(dst_dir, src_element)
         if os.path.isdir(src_path):
             # Src: Dir
             if os.path.isdir(dst_path):
@@ -128,7 +128,7 @@ def _sync(
             # Src: File
             # Check Ext
             ext_check_passed = preset.allow_other_exts
-            ext = dst_element.rsplit(".")[-1]
+            ext = src_element.rsplit(".")[-1]
             if ext in preset.allow_src_exts:
                 ext_check_passed = True
             if ext in preset.disallow_src_exts:
@@ -162,19 +162,19 @@ def _sync(
                 src_size = os.path.getsize(src_path)
                 dst_size = os.path.getsize(dst_path)
                 if src_size != dst_size:
-                    print(f"{dst_element}: Size Differ!")
+                    print(f"{src_element}: Size Differ!")
                 is_same_file = is_same_file and src_size == dst_size
             if is_same_file and dst_file_exists and preset.check_file_mtime:
                 src_mtime = os.path.getmtime(src_path)
                 dst_mtime = os.path.getmtime(dst_path)
                 if src_mtime != dst_mtime:
-                    print(f"{dst_element}: MTime Differ!")
+                    print(f"{src_element}: MTime Differ!")
                 is_same_file = is_same_file and src_mtime == dst_mtime
             if is_same_file and dst_file_exists and preset.check_file_sha512:
                 src_value = get_file_sha512(src_path)
                 dst_value = get_file_sha512(dst_path)
                 if src_value != dst_value:
-                    print(f"{dst_element}: Hash Differ!")
+                    print(f"{src_element}: Hash Differ!")
                 is_same_file = is_same_file and src_value == dst_value
             # Replace: Exec
             if not dst_file_exists or not is_same_file:
@@ -194,7 +194,8 @@ def _sync(
                         os.utime(dst_path, (src_mtime, src_mtime))
             # Remove same ori files
             if (
-                is_same_file
+                dst_file_exists
+                and is_same_file
                 and os.path.isfile(src_path)
                 and preset.remove_src_same_files
             ):
