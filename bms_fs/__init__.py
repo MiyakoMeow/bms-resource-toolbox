@@ -107,7 +107,7 @@ def is_dir_having_file(dir_path: str) -> bool:
     has_file = False
     for element_name in os.listdir(dir_path):
         element_path = os.path.join(dir_path, element_name)
-        if os.path.isfile(element_path):
+        if os.path.isfile(element_path) and os.path.getsize(element_path) > 0:
             has_file = True
         elif os.path.isdir(element_path):
             has_file = has_file or is_dir_having_file(element_path)
