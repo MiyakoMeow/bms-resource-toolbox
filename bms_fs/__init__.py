@@ -77,6 +77,8 @@ def move_elements_across_dir(
     print_info: bool = False,
     replace: bool = True,
 ):
+    if not os.path.isdir(dir_path_dst):
+        os.mkdir(dir_path_dst)
     for element_name in os.listdir(dir_path_ori):
         ori_path = f"{dir_path_ori}/{element_name}"
         dst_path = f"{dir_path_dst}/{element_name}"
