@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 ENCODINGS = [
     "shift-jis",
@@ -161,7 +161,7 @@ def get_dir_bms_info(dir_path: str) -> Optional[BMSInfo]:
     for file_name in os.listdir(dir_path):
         if info is not None:
             break
-        file_path = f"{dir_path}/{file_name}"
+        file_path = os.path.join(dir_path, file_name)
         if not os.path.isfile(file_path):
             continue
         if file_name.endswith((".bms", ".bme", ".bml", ".pms")):
@@ -169,3 +169,24 @@ def get_dir_bms_info(dir_path: str) -> Optional[BMSInfo]:
         elif file_name.endswith((".bmson")):
             info = parse_bmson_file(file_path, encoding)
     return info
+
+
+def get_dir_bms_info_list(dir_path: str) -> List[BMSInfo]:
+    """仅寻找该目录第一层的文件"""
+    info_list: List[BMSInfo] = []
+    id = os.path.split(dir_path)[-1].split(".")[0]
+    encoding = ID_SPECIFIC_ENCODING_TABLE.get(id)
+    for file_name in os.listdir(dir_path):
+        file_path = os.path.join(dir_path, file_name)
+        if not os.path.isfile(file_path):
+            continue
+        # Parse
+        info: Optional[BMSInfo] = None
+        if file_name.endswith((".bms", ".bme", ".bml", ".pms")):
+            info = parse_bms_file(file_path, encoding)
+        elif file_name.endswith((".bmson")):
+            info = parse_bmson_file(file_path, encoding)
+        # Append
+        if info is not None:
+            info_list.append(info)
+    return info_list
