@@ -1,3 +1,4 @@
+from bms_fs import get_bms_folder_dir
 from bms_media.audio import (
     AUDIO_PRESET_OGG_Q10,
 )
@@ -6,16 +7,16 @@ from bms_media.video import (
     VIDEO_PRESET_AVI_512X512,
     VIDEO_PRESET_WMV2_512X512,
 )
-import f_transfer_audio
-import f_transfer_video
+import scripts_bms_folder.transfer_audio
+import scripts_bms_folder.transfer_video
 
 
 def main():
     print("This file is for parsing HQ version to LQ version. Just for LR2 players.")
-    root_dir = input("Input BMS Dir:")
+    root_dir = get_bms_folder_dir()
     # Parse Audio
     print("Parsing Audio... Phase 1: FLAC -> OGG")
-    f_transfer_audio.main(
+    scripts_bms_folder.transfer_audio.main(
         root_dir=root_dir,
         input_ext=["flac"],
         transfer_mode=[AUDIO_PRESET_OGG_Q10],
@@ -24,7 +25,7 @@ def main():
     )
     # Parse Audio
     print("Parsing Video...")
-    f_transfer_video.main(
+    scripts_bms_folder.transfer_video.main(
         root_dir=root_dir,
         input_exts=["mp4"],
         presets=[
