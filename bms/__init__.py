@@ -1,3 +1,4 @@
+from enum import Enum
 import json
 import os
 from typing import Dict, List, Optional
@@ -107,17 +108,37 @@ def deal_with_bms_title(title: str) -> str:
     return title
 
 
+class BMSDifficulty(Enum):
+    Unknown = 0
+    Beginner = 1
+    Normal = 2
+    Hyper = 3
+    Another = 4
+    Insane = 5
+
+
 class BMSInfo:
-    def __init__(self, title: str, artist: str, genre: str) -> None:
+    def __init__(
+        self,
+        title: str,
+        artist: str,
+        genre: str,
+        difficulty: BMSDifficulty = BMSDifficulty.Unknown,
+        playlevel: int = 0,
+    ) -> None:
         self.title = title
         self.artist = artist
         self.genre = genre
+        self.difficulty = difficulty
+        self.playlevel = playlevel
 
 
 def parse_bms_file(file_path: str, encoding: Optional[str] = None) -> BMSInfo:
     title = ""
     artist = ""
     genre = ""
+    difficulty = BMSDifficulty.Unknown
+    playlevel = 0
     with open(file_path, "rb") as file:
         file_bytes = file.read()
         file_str = get_bms_file_str(file_bytes, encoding)
@@ -130,16 +151,22 @@ def parse_bms_file(file_path: str, encoding: Optional[str] = None) -> BMSInfo:
                 title = line.replace("#TITLE", "").strip()
             elif line.startswith("#GENRE"):
                 genre = line.replace("#GENRE", "").strip()
+            elif line.startswith("#PLAYLEVEL"):
+                playlevel = int(line.replace("#PLAYLEVEL", "").strip())
+            elif line.startswith("#DIFFICULTY"):
+                difficulty = BMSDifficulty(int(line.replace("#DIFFICULTY", "").strip()))
 
         title = deal_with_bms_title(title)
 
-    return BMSInfo(title, artist, genre)
+    return BMSInfo(title, artist, genre, difficulty, playlevel)
 
 
 def parse_bmson_file(file_path: str, encoding: Optional[str] = None) -> BMSInfo:
     title = ""
     artist = ""
     genre = ""
+    difficulty = BMSDifficulty.Unknown
+    playlevel = 0
     with open(file_path, "rb") as file:
         file_bytes = file.read()
         file_str = get_bms_file_str(file_bytes, encoding)
@@ -149,8 +176,9 @@ def parse_bmson_file(file_path: str, encoding: Optional[str] = None) -> BMSInfo:
         title = bmson_info["info"]["title"]
         artist = bmson_info["info"]["artist"]
         genre = bmson_info["info"]["genre"]
+        playlevel = int(bmson_info["info"]["level"])
 
-    return BMSInfo(title, artist, genre)
+    return BMSInfo(title, artist, genre, difficulty, playlevel)
 
 
 def get_dir_bms_info(dir_path: str) -> Optional[BMSInfo]:

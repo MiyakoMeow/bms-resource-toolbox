@@ -2,6 +2,7 @@ import os
 import shutil
 from typing import List, Tuple
 
+from bms import BMSDifficulty, BMSInfo, get_dir_bms_info_list
 from bms_fs import get_bms_folder_dir
 
 
@@ -18,10 +19,30 @@ def set_folder_artist_name(root_dir: str):
         dir_path = os.path.join(root_dir, dir_name)
         if not os.path.isdir(dir_path):
             continue
-        # Situation 1: endswith "]"
-        if not dir_name.endswith("]"):
-            # TODO
-            pass
+        # Has been set?
+        if dir_name.endswith("]"):
+            continue
+        # Find bmses
+        bms_list: List[BMSInfo] = get_dir_bms_info_list(dir_path)
+        # Find suitable level 1
+        bms_list_lv1 = [
+            bms
+            for bms in bms_list
+            if bms.difficulty != BMSDifficulty.Insane and 1 <= bms.playlevel <= 12
+        ]
+        if len(bms_list_lv1) > 0:
+            bms = bms_list_lv1[0]
+            new_dir_name = f"{dir_name} [{bms.artist}]"
+            print("- Ready to rename: {} -> {}".format(dir_name, new_dir_name))
+            pairs.append((dir_name, new_dir_name))
+
+        elif len(bms_list) > 0:
+            bms = bms_list[0]
+            new_dir_name = f"{dir_name} [{bms.artist}]"
+            print("- Ready to rename: {} -> {}".format(dir_name, new_dir_name))
+            pairs.append((dir_name, new_dir_name))
+        else:
+            print(f"Dir {dir_path} has no bms files!")
 
     selection = input("Do transfering? [y/N]:")
     if not selection.lower().startswith("y"):
