@@ -13,32 +13,42 @@ _BMS_FOLDER: Optional[str] = None
 _BMS_PACK_DIR: Optional[str] = None
 
 
-def get_bms_folder_dir() -> str:
+def get_bms_folder_dir(tips: bool = True, use_default: bool = True) -> str:
     global _BMS_FOLDER
     if _BMS_FOLDER is not None:
         return _BMS_FOLDER
     BMS_FOLDER = os.environ.get("BMS_FOLDER")
     if BMS_FOLDER is None:
         BMS_FOLDER = os.path.abspath(".")
-    print("Set default dir by env BMS_FOLDER")
-    root_dir = input(f"Input root dir path of bms dirs (Default: {BMS_FOLDER}):")
+    if tips:
+        print("Set default dir by env BMS_FOLDER")
+        print(f"Input root dir path of bms dirs (Default: {BMS_FOLDER}):", end="")
+    root_dir = input()
     if len(root_dir.strip()) == 0:
-        root_dir = BMS_FOLDER
+        if use_default:
+            root_dir = BMS_FOLDER
+        else:
+            raise Exception("Default Value Disabled.")
     _BMS_FOLDER = root_dir
     return _BMS_FOLDER
 
 
-def get_bms_pack_dir() -> str:
+def get_bms_pack_dir(tips: bool = True, use_default: bool = True) -> str:
     global _BMS_PACK_DIR
     if _BMS_PACK_DIR is not None:
         return _BMS_PACK_DIR
     BMS_PACK_DIR = os.environ.get("BMS_PACK_DIR")
     if BMS_PACK_DIR is None:
         BMS_PACK_DIR = os.path.abspath(".")
-    print("Set default pack dir by env BMS_PACK_DIR")
-    root_dir = input(f"Input dir path of bms packs (Default: {BMS_PACK_DIR}):")
+    if tips:
+        print("Set default pack dir by env BMS_PACK_DIR")
+        print(f"Input dir path of bms packs (Default: {BMS_PACK_DIR}):", end="")
+    root_dir = input()
     if len(root_dir.strip()) == 0:
-        root_dir = BMS_PACK_DIR
+        if use_default:
+            root_dir = BMS_PACK_DIR
+        else:
+            raise Exception("Default Value Disabled.")
     _BMS_PACK_DIR = root_dir
     return _BMS_PACK_DIR
 
