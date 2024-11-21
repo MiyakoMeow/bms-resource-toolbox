@@ -23,8 +23,11 @@ def main(bms_dir: str = ""):
         if not os.path.isdir(dir_path):
             continue
         if not is_dir_having_file(dir_path):
-            print(f"Remove empty dir: {dir_path}")
-            shutil.rmtree(dir_path)
+            try:
+                print(f"Remove empty dir: {dir_path}")
+                shutil.rmtree(dir_path)
+            except PermissionError:
+                print(" x PermissionError!")
 
 
 if __name__ == "__main__":
