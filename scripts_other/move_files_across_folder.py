@@ -26,11 +26,11 @@ def main(
 
 if __name__ == "__main__":
     src_dir = input("Input src_dir:")
-    if os.path.isdir(src_dir):
+    if not os.path.isdir(src_dir):
         print("src_dir is not a dir.")
         exit()
     dst_dir = input("Input dst_dir:")
-    if os.path.isdir(dst_dir):
+    if not os.path.isdir(dst_dir):
         print("dst_dir is not a dir.")
         exit()
     main(src_dir, dst_dir)
