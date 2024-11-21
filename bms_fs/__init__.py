@@ -1,6 +1,7 @@
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
 import shutil
-from typing import Optional
+from typing import List, Optional, Tuple
 
 from bms import BMSInfo
 
@@ -89,9 +90,10 @@ def move_elements_across_dir(
 ):
     if not os.path.isdir(dir_path_dst):
         os.mkdir(dir_path_dst)
-    for element_name in os.listdir(dir_path_ori):
-        ori_path = f"{dir_path_ori}/{element_name}"
-        dst_path = f"{dir_path_dst}/{element_name}"
+
+    next_folder_paths: List[Tuple[str, str]] = []
+
+    def move_action(ori_path: str, dst_path: str):
         if print_info:
             print(f" - Moving from {ori_path} to {dst_path}")
         # Move
@@ -107,12 +109,39 @@ def move_elements_across_dir(
             if not os.path.isdir(dst_path):
                 os.mkdir(dst_path)
             # Child dir
-            move_elements_across_dir(ori_path, dst_path, print_info, replace)
+            next_folder_paths.append((ori_path, dst_path))
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        # 提交任务
+        dir_lists: List[Tuple[str, str]] = [
+            (
+                os.path.join(dir_path_ori, element_name),
+                os.path.join(dir_path_dst, element_name),
+            )
+            for element_name in os.listdir(dir_path_ori)
+        ]
+        futures = [
+            executor.submit(
+                move_action,
+                path_ori,
+                path_dst,
+            )
+            for path_ori, path_dst in dir_lists
+        ]
+        # 等待任务完成
+        for _ in as_completed(futures):
+            pass
+
+    # Next Level
+    for ori_path, dst_path in next_folder_paths:
+        move_elements_across_dir(ori_path, dst_path, print_info, replace)
 
     # Clean Source
     if replace or not is_dir_having_file(dir_path_ori):
-        for e in os.listdir(dir_path_ori):
-            shutil.rmtree(os.path.join(dir_path_ori, e))
+        try:
+            shutil.rmtree(dir_path_ori)
+        except PermissionError:
+            print(f" x PermissionError! ({dir_path_ori})")
 
 
 def is_dir_having_file(dir_path: str) -> bool:
