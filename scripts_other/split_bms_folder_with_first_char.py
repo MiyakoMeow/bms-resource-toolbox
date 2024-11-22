@@ -1,7 +1,14 @@
 import os
+import re
 import shutil
 from typing import Callable, List, Tuple
 
+# 日文平假名
+RE_JAPANESE_HIRAGANA = re.compile("[\u3040-\u309f]+")
+# 日文片假名
+RE_JAPANESE_KATAKANA = re.compile("[\u30a0-\u30ff]+")
+# 汉字
+RE_CHINESE_CHARACTER = re.compile("[\u4e00-\u9fa5]+")
 
 RULES: List[Tuple[str, Callable[[str], bool]]] = [
     ("0-9", lambda name: "0" <= name[0].upper() <= "9"),
@@ -10,7 +17,9 @@ RULES: List[Tuple[str, Callable[[str], bool]]] = [
     ("LMNOPQ", lambda name: "L" <= name[0].upper() <= "Q"),
     ("RST", lambda name: "R" <= name[0].upper() <= "T"),
     ("UVWXYZ", lambda name: "U" <= name[0].upper() <= "Z"),
-    ("假名", lambda name: "ぁ" <= "ん" or "ン" <= name[0].upper() <= "ン"),
+    ("平假名", lambda name: RE_JAPANESE_HIRAGANA.search(name[0]) is not None),
+    ("片假名", lambda name: RE_JAPANESE_KATAKANA.search(name[0]) is not None),
+    ("汉字", lambda name: RE_CHINESE_CHARACTER.search(name[0]) is not None),
     ("+", lambda name: len(name) > 0),
 ]
 
