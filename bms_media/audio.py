@@ -169,7 +169,10 @@ def transfer_audio_by_format_in_dir(
                 elif process_returncode == 0:
                     # Succcess
                     if remove_origin_file and os.path.isfile(file_path):
-                        os.remove(file_path)
+                        try:
+                            os.remove(file_path)
+                        except PermissionError:
+                            print(f" -> PermissionError When Deleting: {file_path}")
                 else:
                     # Failed
                     switch_next = True
