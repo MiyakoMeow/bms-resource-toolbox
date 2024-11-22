@@ -54,9 +54,27 @@ def merge_folders(root_dir: str):
                 )
                 continue
 
-            # Print
-            print("- Find Dir pair: {} <- {}".format(dir_name, dir_name_without_artist))
+            # Append
             pairs.append((dir_name, dir_name_without_artist))
+
+    # Check dumplate
+    last_from_dir_name = ""
+    dumplate_list: List[str] = []
+    for target_dir_name, from_dir_name in pairs:
+        if last_from_dir_name == from_dir_name:
+            dumplate_list.append(from_dir_name)
+        last_from_dir_name = from_dir_name
+
+    if len(dumplate_list) > 0:
+        print("Dumplate!")
+        for name in dumplate_list:
+            print(f" -> {name}")
+        exit()
+
+    # Confirm
+    for target_dir_name, from_dir_name in pairs:
+        # Print
+        print("- Find Dir pair: {} <- {}".format(target_dir_name, from_dir_name))
 
     selection = input("Do transfering? [y/N]:")
     if not selection.lower().startswith("y"):
@@ -67,7 +85,6 @@ def merge_folders(root_dir: str):
         from_dir_path = os.path.join(root_dir, from_dir_name)
         target_dir_path = os.path.join(root_dir, target_dir_name)
         move_elements_across_dir(from_dir_path, target_dir_path)
-        os.rmdir(from_dir_path)
 
 
 def main(
