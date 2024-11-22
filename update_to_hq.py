@@ -11,6 +11,7 @@ from scripts_bms_folder import (
     transfer_audio,
     remove_unneed_media_file,
 )
+from scripts_other import remove_empty_folder
 from scripts_rawpack import rawpack_unzip_to_bms_folder
 
 
@@ -71,6 +72,9 @@ def main():
     # Soft syncing
     print(f" > 5. Syncing dir files from {sync_dir} to {root_dir}")
     sync_folder(src_dir=root_dir, dst_dir=sync_dir, preset=SYNC_PRESET_FOR_APPEND)
+    # Remove Empty folder
+    print(f" > 6. Remove empty folder in {root_dir}")
+    remove_empty_folder.main(parent_dir=root_dir)
 
 
 if __name__ == "__main__":
