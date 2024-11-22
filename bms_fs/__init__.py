@@ -105,11 +105,12 @@ def move_elements_across_dir(
             if not os.path.isfile(dst_path):
                 shutil.move(ori_path, dst_path)
         elif os.path.isdir(ori_path):
-            # Make new dir in dst
+            # Directly move dir
             if not os.path.isdir(dst_path):
-                os.mkdir(dst_path)
-            # Child dir
-            next_folder_paths.append((ori_path, dst_path))
+                shutil.move(ori_path, dst_path)
+            else:
+                # Add child dir
+                next_folder_paths.append((ori_path, dst_path))
 
     with ThreadPoolExecutor(max_workers=4) as executor:
         # 提交任务
