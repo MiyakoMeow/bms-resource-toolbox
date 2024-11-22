@@ -88,6 +88,8 @@ def move_elements_across_dir(
     print_info: bool = False,
     replace: bool = True,
 ):
+    if not os.path.isdir(dir_path_ori):
+        return
     if not os.path.isdir(dir_path_dst):
         os.mkdir(dir_path_dst)
 
