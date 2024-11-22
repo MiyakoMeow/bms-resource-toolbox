@@ -100,11 +100,11 @@ def move_elements_across_dir(
             print(f" - Moving from {ori_path} to {dst_path}")
         # Move
         if os.path.isfile(ori_path):
-            # Replace?
-            if os.path.isfile(dst_path) and replace:
-                os.remove(dst_path)
-            # Move
-            if not os.path.isfile(dst_path):
+            # Replace? Move
+            if replace:
+                shutil.move(ori_path, dst_path)
+            # Not exists? Move
+            elif not os.path.isfile(dst_path):
                 shutil.move(ori_path, dst_path)
         elif os.path.isdir(ori_path):
             # Directly move dir
