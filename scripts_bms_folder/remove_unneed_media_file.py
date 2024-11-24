@@ -1,5 +1,5 @@
 import os
-from typing import Dict, List, Tuple
+from typing import Dict, List, Set, Tuple
 import sys
 
 # 获取当前正在执行的Python脚本的绝对路径
@@ -18,6 +18,7 @@ def remove_unneed_media_files(
     bms_dir_path: str, rules: List[Tuple[List[str], List[str]]]
 ):
     remove_pairs: List[Tuple[str, str]] = []
+    removed_files: Set[str] = set()
     for file_name in os.listdir(bms_dir_path):
         file_path = os.path.join(bms_dir_path, file_name)
         if not os.path.isfile(file_path):
@@ -37,7 +38,10 @@ def remove_unneed_media_files(
                 # File not exist?
                 if not os.path.isfile(replacing_file_path):
                     continue
+                if replacing_file_path in removed_files:
+                    continue
                 remove_pairs.append((file_path, replacing_file_path))
+                removed_files.add(replacing_file_path)
 
     if len(remove_pairs) > 0:
         print(f"Entering: {bms_dir_path}")
