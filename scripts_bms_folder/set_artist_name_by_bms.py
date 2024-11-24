@@ -1,6 +1,6 @@
 import os
 import shutil
-from typing import List, Tuple
+from typing import Callable, List, Tuple
 import sys
 
 # 获取当前正在执行的Python脚本的绝对路径
@@ -13,7 +13,7 @@ current_directory = os.path.dirname(current_file_path)
 sys.path.append(f"{current_directory}/..")
 
 from bms import BMSDifficulty, BMSInfo, get_dir_bms_info_list
-from bms_fs import get_bms_folder_dir
+from bms_fs import get_bms_folder_dir, get_vaild_fs_name
 
 
 def set_folder_artist_name(root_dir: str):
@@ -34,25 +34,50 @@ def set_folder_artist_name(root_dir: str):
             continue
         # Find bmses
         bms_list: List[BMSInfo] = get_dir_bms_info_list(dir_path)
-        # Find suitable level 1
-        bms_list_lv1 = [
-            bms
-            for bms in bms_list
-            if bms.difficulty != BMSDifficulty.Insane and 1 <= bms.playlevel <= 12
-        ]
-        if len(bms_list_lv1) > 0:
-            bms = bms_list_lv1[0]
-            new_dir_name = f"{dir_name} [{bms.artist}]"
+
+        # Add pair
+        def add_pair(bms: BMSInfo):
+            new_dir_name = f"{dir_name} [{get_vaild_fs_name(bms.artist)}]"
             print("- Ready to rename: {} -> {}".format(dir_name, new_dir_name))
             pairs.append((dir_name, new_dir_name))
 
-        elif len(bms_list) > 0:
+        # Find suitable whitestar level
+        # Filter 1: hyperless
+        def bms_fliter_hyperless(bms: BMSInfo) -> bool:
+            return (
+                bms.difficulty != BMSDifficulty.Insane
+                and bms.difficulty != BMSDifficulty.Unknown
+                and bms.difficulty != BMSDifficulty.Another
+                and 1 <= bms.playlevel <= 10
+            )
+
+        # Filter 2: whitestar
+        def bms_fliter_whitestar(bms: BMSInfo) -> bool:
+            return (
+                bms.difficulty != BMSDifficulty.Insane
+                and bms.difficulty != BMSDifficulty.Unknown
+                and 8 <= bms.playlevel <= 12
+            )
+
+        bms_list_hyperless = [bms for bms in bms_list if bms_fliter_hyperless(bms)]
+        if len(bms_list_hyperless) > 0:
+            bms = bms_list_hyperless[0]
+            add_pair(bms)
+            continue
+
+        bms_list_whitestar = [bms for bms in bms_list if bms_fliter_whitestar(bms)]
+        if len(bms_list_whitestar) > 0:
+            bms = bms_list_whitestar[0]
+            add_pair(bms)
+            continue
+
+        # Filter end: first
+        if len(bms_list) > 0:
             bms = bms_list[0]
-            new_dir_name = f"{dir_name} [{bms.artist}]"
-            print("- Ready to rename: {} -> {}".format(dir_name, new_dir_name))
-            pairs.append((dir_name, new_dir_name))
-        else:
-            print(f"Dir {dir_path} has no bms files!")
+            add_pair(bms)
+            continue
+
+        print(f"Dir {dir_path} has no bms files!")
 
     selection = input("Do transfering? [y/N]:")
     if not selection.lower().startswith("y"):
