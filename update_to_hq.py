@@ -61,7 +61,7 @@ def main():
         root_dir=root_dir,
         input_ext=["wav"],
         transfer_mode=[AUDIO_PRESET_FLAC, AUDIO_PRESET_FLAC_FFMPEG],
-        remove_origin_file=True,
+        remove_origin_file_when_success=True,
         skip_on_fail=False,
     )
     # Remove Unneed Media File

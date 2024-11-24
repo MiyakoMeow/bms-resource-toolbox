@@ -20,7 +20,8 @@ def main():
         root_dir=root_dir,
         input_ext=["flac"],
         transfer_mode=[AUDIO_PRESET_OGG_Q10],
-        remove_origin_file=True,
+        remove_origin_file_when_success=True,
+        remove_origin_file_when_failed=False,
         skip_on_fail=False,
     )
     # Parse Audio

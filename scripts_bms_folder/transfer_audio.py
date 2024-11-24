@@ -46,7 +46,8 @@ def main(
     root_dir: str = "",
     input_ext: List[str] = [],
     transfer_mode: List[AudioPreset] = [],
-    remove_origin_file: bool = True,
+    remove_origin_file_when_success: bool = True,
+    remove_origin_file_when_failed: bool = True,
     skip_on_fail: bool = False,
 ):
     if len(root_dir) == 0:
@@ -68,7 +69,8 @@ def main(
             bms_dir_path,
             input_ext,
             transfer_mode,
-            remove_origin_file=remove_origin_file,
+            remove_origin_file_when_success=remove_origin_file_when_success,
+            remove_origin_file_when_failed=remove_origin_file_when_failed,
         )
         if not is_success:
             print(" - Dir:", bms_dir_path, "Error occured!")

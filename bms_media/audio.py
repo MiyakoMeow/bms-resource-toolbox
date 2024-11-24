@@ -60,7 +60,8 @@ def transfer_audio_by_format_in_dir(
     dir: str,
     input_exts: List[str],
     presets: List[AudioPreset],
-    remove_origin_file: bool = True,
+    remove_origin_file_when_success: bool = True,
+    remove_origin_file_when_failed: bool = False,
     remove_existing_target_file: bool = True,
 ) -> bool:
     """
@@ -168,7 +169,7 @@ def transfer_audio_by_format_in_dir(
                     new_processes.append(((file_path, preset_index), process))
                 elif process_returncode == 0:
                     # Succcess
-                    if remove_origin_file and os.path.isfile(file_path):
+                    if remove_origin_file_when_success and os.path.isfile(file_path):
                         try:
                             os.remove(file_path)
                         except PermissionError:
@@ -187,6 +188,12 @@ def transfer_audio_by_format_in_dir(
             if new_preset_index not in range(0, len(presets)):
                 # Last, Return
                 has_error = True
+                # Remove Origin files
+                if remove_origin_file_when_failed and os.path.isfile(file_path):
+                    try:
+                        os.remove(file_path)
+                    except PermissionError:
+                        print(f" -> PermissionError When Deleting: {file_path}")
                 continue
             # Count
             fallback_file_names.append((os.path.split(file_path)[-1], new_preset_index))
@@ -212,6 +219,8 @@ def transfer_audio_by_format_in_dir(
         print("- Err file_path: ", err_file_path)
         print("- Err stdout: ", err_stdout)
         print("- Err stderr: ", err_stderr)
+        if remove_origin_file_when_failed:
+            print(" ! The failed origin file has been removed.")
 
     if file_count > 0:
         print(f" -v- Parsed {file_count} file(s).")
