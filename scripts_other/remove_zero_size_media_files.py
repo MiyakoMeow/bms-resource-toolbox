@@ -1,5 +1,6 @@
 import os
 import sys
+from typing import List
 
 # 获取当前正在执行的Python脚本的绝对路径
 current_file_path = os.path.abspath(__file__)
@@ -13,17 +14,20 @@ sys.path.append(f"{current_directory}/..")
 from bms_fs import get_bms_folder_dir
 
 
-def main(parent_dir: str = ""):
-    if len(parent_dir) == 0:
-        parent_dir = get_bms_folder_dir()
+def main(parent_dir: str, print_dir: bool = False):
+    if print_dir:
+        print(f"Entering dir: {parent_dir}")
 
     if not os.path.isdir(parent_dir):
         print("Not a vaild dir! Aborting...")
         pass
 
+    next_dir_list: List[str] = []
+
     for element_name in os.listdir(parent_dir):
         element_path = os.path.join(parent_dir, element_name)
         if os.path.isfile(element_path):
+            # print(f" - Found file: {element_name}")
             if not (
                 element_name.endswith(".ogg")
                 or element_name.endswith(".wav")
@@ -42,8 +46,13 @@ def main(parent_dir: str = ""):
             except PermissionError:
                 print(" x PermissionError!")
         elif os.path.isdir(element_path):
-            main(parent_dir=element_path)
+            # print(f" - Found dir: {element_name}")
+            next_dir_list.append(element_name)
+
+    for next_dir_name in next_dir_list:
+        main(parent_dir=os.path.join(parent_dir, next_dir_name), print_dir=print_dir)
 
 
 if __name__ == "__main__":
-    main()
+    parent_dir = get_bms_folder_dir()
+    main(parent_dir=parent_dir, print_dir=True)
