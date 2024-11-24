@@ -76,7 +76,7 @@ def merge_folders(root_dir: str):
         # Print
         print("- Find Dir pair: {} <- {}".format(target_dir_name, from_dir_name))
 
-    selection = input("Do transfering? [y/N]:")
+    selection = input(f"There are {len(pairs)} actions. Do transfering? [y/N]:")
     if not selection.lower().startswith("y"):
         print("Aborted.")
         return
@@ -84,6 +84,7 @@ def merge_folders(root_dir: str):
     for target_dir_name, from_dir_name in pairs:
         from_dir_path = os.path.join(root_dir, from_dir_name)
         target_dir_path = os.path.join(root_dir, target_dir_name)
+        print(f" - Moving: {target_dir_name} <- {from_dir_name}")
         move_elements_across_dir(from_dir_path, target_dir_path)
 
 
