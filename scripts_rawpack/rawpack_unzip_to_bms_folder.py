@@ -170,7 +170,10 @@ def main(pack_dir: str, cache_dir: str, root_dir: str):
                 # Move
                 print(f" - Moving inner files in {inner_dir_path} to {cache_dir_path}")
                 move_elements_across_dir(inner_dir_path, cache_dir_path)
-                os.rmdir(inner_dir_path)
+                try:
+                    os.rmdir(inner_dir_path)
+                except FileNotFoundError:
+                    pass
 
         if error:
             continue
@@ -212,8 +215,8 @@ def main(pack_dir: str, cache_dir: str, root_dir: str):
         move_elements_across_dir(
             cache_dir_path, target_dir_path, cache_file_count <= 10
         )
-        os.rmdir(cache_dir_path)
         try:
+            os.rmdir(cache_dir_path)
             os.rmdir(cache_dir_root_path)
         except FileNotFoundError:
             pass
