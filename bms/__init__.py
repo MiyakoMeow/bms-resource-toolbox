@@ -152,9 +152,18 @@ def parse_bms_file(file_path: str, encoding: Optional[str] = None) -> BMSInfo:
             elif line.startswith("#GENRE"):
                 genre = line.replace("#GENRE", "").strip()
             elif line.startswith("#PLAYLEVEL"):
-                playlevel = int(line.replace("#PLAYLEVEL", "").strip())
+                value_str = line.replace("#PLAYLEVEL", "").strip()
+                if len(value_str) > 0 and value_str.isdecimal():
+                    playlevel = int(float(value_str))
             elif line.startswith("#DIFFICULTY"):
-                difficulty = BMSDifficulty(int(line.replace("#DIFFICULTY", "").strip()))
+                value_str = line.replace("#DIFFICULTY", "").strip()
+                if len(value_str) > 0 and value_str.isdecimal():
+                    value = int(float(value_str))
+                    difficulty = (
+                        BMSDifficulty(value)
+                        if 0 <= value <= 5
+                        else BMSDifficulty.Unknown
+                    )
 
         title = deal_with_bms_title(title)
 
@@ -171,7 +180,11 @@ def parse_bmson_file(file_path: str, encoding: Optional[str] = None) -> BMSInfo:
         file_bytes = file.read()
         file_str = get_bms_file_str(file_bytes, encoding)
 
-        bmson_info = json.loads(file_str)
+        try:
+            bmson_info = json.loads(file_str)
+        except json.JSONDecodeError:
+            print(f" !_!: Json Decode Error! {file_path}")
+            return BMSInfo("Error", "Error", "Error")
         # Get info
         title = bmson_info["info"]["title"]
         artist = bmson_info["info"]["artist"]
