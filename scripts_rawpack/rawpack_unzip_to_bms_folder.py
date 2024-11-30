@@ -4,7 +4,7 @@ import os
 import shutil
 import sys
 import time
-from typing import Dict, List
+from typing import Dict, List, Tuple
 import zipfile
 
 import py7zr
@@ -87,11 +87,8 @@ def unzip_file_to_cache_dir(file_path: str, cache_dir_path: str):
         shutil.copy(file_path, target_file_path)
 
 
-def main(pack_dir: str, cache_dir: str, root_dir: str):
-    if not os.path.isdir(cache_dir):
-        os.mkdir(cache_dir)
-    if not os.path.isdir(root_dir):
-        os.mkdir(root_dir)
+def get_file_id_names(pack_dir: str) -> List[Tuple[str, str]]:
+    file_id_names: List[Tuple[str, str]] = []
     for file_name in os.listdir(pack_dir):
         file_path = os.path.join(pack_dir, file_name)
         if not os.path.isfile(file_path):
@@ -99,6 +96,27 @@ def main(pack_dir: str, cache_dir: str, root_dir: str):
         id_str = file_name.split(" ")[0]
         if not id_str.isdigit():
             continue
+        file_id_names.append((id_str, file_name))
+    return file_id_names
+
+
+def main(pack_dir: str, cache_dir: str, root_dir: str, confirm: bool = False):
+    if not os.path.isdir(cache_dir):
+        os.mkdir(cache_dir)
+    if not os.path.isdir(root_dir):
+        os.mkdir(root_dir)
+
+    file_id_names: List[Tuple[str, str]] = get_file_id_names(pack_dir)
+
+    if confirm:
+        for id_str, file_name in file_id_names:
+            print(f"{id_str}: {file_name}")
+        selection = input("-> Confirm [y/N]:")
+        if selection.lower().startswith("y"):
+            return
+
+    for id_str, file_name in file_id_names:
+        file_path = os.path.join(pack_dir, file_name)
 
         # Prepare an empty cache dir
         cache_dir_path = os.path.join(cache_dir, id_str)

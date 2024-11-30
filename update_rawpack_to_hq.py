@@ -24,17 +24,24 @@ def main():
     print(
         "You need to set pack num before running this script, see scripts_rawpack/rawpack_set_num.py"
     )
-    # Input
+    # Input 1
     print(" - Input 1: Pack dir path")
     pack_dir = input(">")
     if not os.path.isdir(pack_dir):
         print("Pack dir is not vaild dir.")
         return
+    # Print Packs
+    file_id_names = rawpack_unzip_to_bms_folder.get_file_id_names(pack_dir)
+    print(" -- There are packs in pack_dir:")
+    for id_str, file_name in file_id_names:
+        print(f" > {file_name}")
+    # Input 2
     print(" - Input 2: BMS Cache Folder path")
     root_dir = input(">")
     if not os.path.isdir(root_dir):
         print("Root dir is not vaild dir.")
         return
+    # Input 3
     print(" - Input 3: Already exists BMS Folder path")
     print("This script will use this dir, just for name syncing and file checking.")
     sync_dir = input(">")
