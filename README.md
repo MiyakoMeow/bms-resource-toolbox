@@ -78,11 +78,30 @@
 
 运行要求：
 
-- 安装Python（或Anaconda等Python运行环境），Python版本至少为3.7。
-
 - 能够使用命令行操作（本项目暂无GUI版）。
 
-### 安装所需的库
+### 所需软件
+
+- [Python](https://python.org)
+
+> 版本至少为3.7。
+
+- [ffmpeg](https://ffmpeg.org)
+
+> [下载链接](https://www.gyan.dev/ffmpeg/builds/ffmpeg-git-full.7z)
+> 下载、解压、将exe文件所在目录添加至Path环境变量。
+
+- [oggenc](https://www.rarewares.org/ogg-oggenc.php)
+
+> [下载链接](https://www.rarewares.org/files/ogg/oggenc2.88-1.3.7-x64.zip)
+> 下载、解压、将exe文件所在目录添加至Path环境变量。
+
+- [flac](https://xiph.org/flac/index.html)
+
+> [下载链接](https://ftp.osuosl.org/pub/xiph/releases/flac/flac-1.4.3-win.zip)
+> 下载、解压、将exe文件所在目录添加至Path环境变量。
+
+### 所需Python库
 
 ```commandline
 pip install py7zr rarfile
@@ -114,6 +133,11 @@ y
 
 > - 此脚本会将打上编号后的文件解压或移动至目标路径，然后直接按步骤生成HQ版本BMS目录。
 
+4. 运行`pack_hq_to_lq.py`，填入步骤3填入的解压目标路径。用于制作LQ版本大包。
+
+> - 该脚本会把路径下的mp4文件转换成mpeg文件，flac文件转换成ogg文件。
+> - 已知问题：Windows下，将音频转换成ogg文件时概率卡住，此时建议使用命令行（oggenc命令）手动转换。
+
 ### 更新差分包生成
 
 1. 下载BMS文件至BMS_PACK_DIR。同第一次打包。
@@ -135,4 +159,4 @@ y
 > - 此脚本会将打上编号后的文件解压或移动至目标路径，然后直接按步骤生成HQ版本BMS目录。
 > - 执行完该步后，HQ版本的更新差分包就可以制作了。
 
-4. 运行`pack_hq_to_lq.py`，填入步骤3填入的解压目标路径。用于制作LQ版本更新差分包。
+4. 运行`pack_hq_to_lq.py`，填入步骤3填入的解压目标路径。用于制作LQ版本更新差分包。注意点同第一次打包。
