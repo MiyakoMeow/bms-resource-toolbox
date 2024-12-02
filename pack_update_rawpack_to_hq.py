@@ -11,7 +11,7 @@ import bms_folder_set_name_by_another_folder
 import bms_folder_transfer_audio
 import bms_folder_remove_unneed_media_file
 import remove_empty_folder
-import rawpack_unzip_to_bms_folder
+import rawpack_unzip_numeric_to_bms_folder
 
 
 def main():
@@ -30,9 +30,9 @@ def main():
         print("Pack dir is not vaild dir.")
         return
     # Print Packs
-    file_id_names = rawpack_unzip_to_bms_folder.get_file_id_names(pack_dir)
+    file_id_names = rawpack_unzip_numeric_to_bms_folder.get_num_set_file_names(pack_dir)
     print(" -- There are packs in pack_dir:")
-    for id_str, file_name in file_id_names:
+    for file_name in file_id_names:
         print(f" > {file_name}")
     # Input 2
     print(" - Input 2: BMS Cache Folder path")
@@ -53,7 +53,7 @@ def main():
         return
     # Unzip
     print(f" > 1. Unzip packs from {pack_dir} to {root_dir}")
-    rawpack_unzip_to_bms_folder.main(
+    rawpack_unzip_numeric_to_bms_folder.main(
         root_dir=root_dir,
         pack_dir=pack_dir,
         cache_dir=os.path.join(root_dir, "CacheDir"),
