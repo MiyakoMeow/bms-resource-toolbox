@@ -23,8 +23,8 @@ def main(pack_dir: str, cache_dir: str, root_dir: str, confirm: bool = False):
 
     num_set_file_names: List[str] = [
         file_name
-        for file_name in os.listdir(root_dir)
-        if os.path.isfile(os.path.join(root_dir, file_name))
+        for file_name in os.listdir(pack_dir)
+        if os.path.isfile(os.path.join(pack_dir, file_name))
         and (
             file_name.endswith(".zip")
             or file_name.endswith(".7z")
