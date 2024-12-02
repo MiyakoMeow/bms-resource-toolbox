@@ -2,8 +2,8 @@ from bms_media.audio import (
     AUDIO_PRESET_FLAC,
     AUDIO_PRESET_FLAC_FFMPEG,
 )
-from scripts_bms_folder import transfer_audio
-from scripts_bms_folder import remove_unneed_media_file
+import bms_folder_transfer_audio
+import bms_folder_remove_unneed_media_file
 
 
 def main():
@@ -13,7 +13,7 @@ def main():
     root_dir = input("Input BMS Dir:")
     # Parse Audio
     print("Parsing Audio... Phase 1: WAV -> FLAC")
-    transfer_audio.main(
+    bms_folder_transfer_audio.main(
         root_dir=root_dir,
         input_ext=["wav"],
         transfer_mode=[AUDIO_PRESET_FLAC, AUDIO_PRESET_FLAC_FFMPEG],
@@ -23,8 +23,8 @@ def main():
     )
     # Remove Unneed Media File
     print("Removing Unneed Files")
-    remove_unneed_media_file.main(
-        root_dir, preset=remove_unneed_media_file.PRESET_NORMAL
+    bms_folder_remove_unneed_media_file.main(
+        root_dir, preset=bms_folder_remove_unneed_media_file.PRESET_NORMAL
     )
 
 

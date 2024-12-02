@@ -1,15 +1,5 @@
 import os
-import sys
 from typing import List, Tuple
-
-# 获取当前正在执行的Python脚本的绝对路径
-current_file_path = os.path.abspath(__file__)
-
-# 获取该脚本所在的目录
-current_directory = os.path.dirname(current_file_path)
-
-# 为各模块添加模块寻找路径
-sys.path.append(f"{current_directory}/..")
 
 from bms_fs import move_elements_across_dir
 

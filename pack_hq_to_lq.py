@@ -7,8 +7,8 @@ from bms_media.video import (
     VIDEO_PRESET_AVI_512X512,
     VIDEO_PRESET_WMV2_512X512,
 )
-import scripts_bms_folder.transfer_audio
-import scripts_bms_folder.transfer_video
+import bms_folder_transfer_audio
+import bms_folder_transfer_video
 
 
 def main():
@@ -16,7 +16,7 @@ def main():
     root_dir = get_bms_folder_dir()
     # Parse Audio
     print("Parsing Audio... Phase 1: FLAC -> OGG")
-    scripts_bms_folder.transfer_audio.main(
+    bms_folder_transfer_audio.main(
         root_dir=root_dir,
         input_ext=["flac"],
         transfer_mode=[AUDIO_PRESET_OGG_Q10],
@@ -26,7 +26,7 @@ def main():
     )
     # Parse Audio
     print("Parsing Video...")
-    scripts_bms_folder.transfer_video.main(
+    bms_folder_transfer_video.main(
         root_dir=root_dir,
         input_exts=["mp4"],
         presets=[
