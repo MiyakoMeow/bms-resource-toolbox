@@ -92,8 +92,8 @@ def main(pack_dir: str, cache_dir: str, root_dir: str, confirm: bool = False):
 
 
 if __name__ == "__main__":
-    root_dir = get_bms_folder_dir()
     pack_dir = get_bms_pack_dir()
+    root_dir = get_bms_folder_dir()
     main(
         root_dir=root_dir,
         pack_dir=pack_dir,

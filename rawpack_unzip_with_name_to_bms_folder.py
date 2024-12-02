@@ -42,6 +42,8 @@ def main(pack_dir: str, cache_dir: str, root_dir: str, confirm: bool = False):
     for file_name in num_set_file_names:
         file_path = os.path.join(pack_dir, file_name)
         file_name_without_ext = file_name[: -len(file_name.rsplit(".", 1)[-1]) - 1]
+        while len(file_name_without_ext) > 0 and file_name_without_ext[-1] == ".":
+            file_name_without_ext = file_name_without_ext[:-1]
 
         # Prepare an empty cache dir
         cache_dir_path = os.path.join(cache_dir, file_name_without_ext)
@@ -83,8 +85,8 @@ def main(pack_dir: str, cache_dir: str, root_dir: str, confirm: bool = False):
 
 
 if __name__ == "__main__":
-    root_dir = get_bms_folder_dir()
     pack_dir = get_bms_pack_dir()
+    root_dir = get_bms_folder_dir()
     main(
         root_dir=root_dir,
         pack_dir=pack_dir,
