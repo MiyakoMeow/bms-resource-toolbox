@@ -35,13 +35,15 @@ def main():
     for file_name in file_id_names:
         print(f" > {file_name}")
     # Input 2
-    print(" - Input 2: BMS Cache Folder path")
+    print(" - Input 2: BMS Cache Folder path. (Input a dir path that NOT exists)")
     root_dir = input(">")
-    if not os.path.isdir(root_dir):
-        print("Root dir is not vaild dir.")
+    if os.path.isdir(root_dir):
+        print("Root dir is an existing dir.")
         return
     # Input 3
-    print(" - Input 3: Already exists BMS Folder path")
+    print(
+        " - Input 3: Already exists BMS Folder path. (Input a dir path that ALREADY exists)"
+    )
     print("This script will use this dir, just for name syncing and file checking.")
     sync_dir = input(">")
     if not os.path.isdir(sync_dir):
@@ -51,6 +53,8 @@ def main():
     confirm = input("Sure? [y/N]")
     if not confirm.lower().startswith("y"):
         return
+    # Setup
+    os.makedirs(root_dir, exist_ok=False)
     # Unzip
     print(f" > 1. Unzip packs from {pack_dir} to {root_dir}")
     rawpack_unzip_numeric_to_bms_folder.main(
