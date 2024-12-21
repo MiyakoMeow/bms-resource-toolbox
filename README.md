@@ -1,4 +1,4 @@
-# [BOF:TT大包生成脚本](https://gitee.com/MiyakoMeow/boftt-pack-generator-scripts)
+# [通用BMS大包生成脚本](https://gitee.com/MiyakoMeow/boftt-pack-generator-scripts)
 
 脚本地址：Gitee上搜MiyakoMeow/boftt-pack-generator-scripts
 
@@ -19,7 +19,7 @@
 2. 已知问题：部分有BGA的作品，BGA在LR2上无法播放的情况。
 3. 如果有将MP4视频转换成LR2**保证可播放**的格式的方法，或者有关于该大包的其他问题，请联系我。
 
-## 下载链接
+## BOFTT大包下载链接
 
 ### 123云盘
 
@@ -35,7 +35,7 @@
 
 - [bms.iidx.ca](https://bms.iidx.ca/bms/BMS/BMS%20%E6%B4%BB%E5%8A%A8%E5%8C%85/BOF%20G2R/%5B2024%5D%20BOFTT/)
 
-## 特殊情况列表
+## BOFTT大包特殊情况列表
 
 - no.198, 199, 245, 258, 283, 286, 287, 301 使用了62进制BMS，不兼容LR2和beatoraja 0.8.7之前的版本。
 
@@ -48,7 +48,7 @@
 - no.472 BMSON文件解析错误（第19行少了一个逗号），已补齐（BMS文件修改注意）。未经修改的文件以_ori为后缀。
 经过实测，在beatoraja 0.8.7中，未经修改的谱面文件无法被读取。
 
-## 下载记录
+## BOFTT大包更新记录
 
 时区：GMT+8（中国标准时间）
 
