@@ -83,6 +83,7 @@ def set_folder_artist_name(root_dir: str):
 def main(
     root_dir: str = "",
 ):
+    print("该脚本适用于希望在文件夹名后添加“ [艺术家]”的情况。")
     if len(root_dir) == 0:
         root_dir = get_bms_folder_dir()
     set_folder_artist_name(root_dir)

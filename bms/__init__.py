@@ -1,7 +1,7 @@
 from enum import Enum
 import json
 import os
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 ENCODINGS = [
     "shift-jis",
@@ -125,12 +125,14 @@ class BMSInfo:
         genre: str,
         difficulty: BMSDifficulty = BMSDifficulty.Unknown,
         playlevel: int = 0,
+        bmp_formats: List[str] = [],
     ) -> None:
         self.title = title
         self.artist = artist
         self.genre = genre
         self.difficulty = difficulty
         self.playlevel = playlevel
+        self.bmp_formats = bmp_formats
 
 
 def parse_bms_file(file_path: str, encoding: Optional[str] = None) -> BMSInfo:
@@ -139,6 +141,7 @@ def parse_bms_file(file_path: str, encoding: Optional[str] = None) -> BMSInfo:
     genre = ""
     difficulty = BMSDifficulty.Unknown
     playlevel = 0
+    ext_list = []
     with open(file_path, "rb") as file:
         file_bytes = file.read()
         file_str = get_bms_file_str(file_bytes, encoding)
@@ -167,10 +170,15 @@ def parse_bms_file(file_path: str, encoding: Optional[str] = None) -> BMSInfo:
                         if 0 <= value <= 5
                         else BMSDifficulty.Unknown
                     )
+            elif line.startswith("#BMP"):
+                value_str = line.replace("#BMP", "").strip()
+                ext = os.path.splitext(value_str)[1]
+                if ext is not None:
+                    ext_list.append(ext)
 
         title = deal_with_bms_title(title)
 
-    return BMSInfo(title, artist, genre, difficulty, playlevel)
+    return BMSInfo(title, artist, genre, difficulty, playlevel, ext_list)
 
 
 def parse_bmson_file(file_path: str, encoding: Optional[str] = None) -> BMSInfo:
@@ -184,17 +192,33 @@ def parse_bmson_file(file_path: str, encoding: Optional[str] = None) -> BMSInfo:
         file_str = get_bms_file_str(file_bytes, encoding)
 
         try:
-            bmson_info = json.loads(file_str)
+            bmson_info: Dict[Any, Any] = json.loads(file_str)
         except json.JSONDecodeError:
             print(f" !_!: Json Decode Error! {file_path}")
             return BMSInfo("Error", "Error", "Error")
-        # Get info
-        title = bmson_info["info"]["title"]
-        artist = bmson_info["info"]["artist"]
-        genre = bmson_info["info"]["genre"]
-        playlevel = int(bmson_info["info"]["level"])
 
-    return BMSInfo(title, artist, genre, difficulty, playlevel)
+        # Get info
+        def dict_get(dict: Dict[Any, Any], *info) -> Optional[Any]:
+            now = dict
+            for i in info:
+                if now is not None:
+                    now = now[i]
+            return now
+
+        title = dict_get(bmson_info, "info", "title") or ""
+        artist = dict_get(bmson_info, "info", "artist") or ""
+        genre = dict_get(bmson_info, "info", "genre") or ""
+        playlevel = int(dict_get(bmson_info, "info", "level") or 0)
+        ext_list = []
+        bga_headers = dict_get(bmson_info, "bga", "bga_header")
+        if bga_headers is not None:
+            for bga_header in bga_headers:
+                file_name = bga_header["name"]
+                ext = os.path.splitext(file_name)[1]
+                if ext is not None:
+                    ext_list.append(ext)
+
+    return BMSInfo(title, artist, genre, difficulty, playlevel, ext_list)
 
 
 def get_dir_bms_info(dir_path: str) -> Optional[BMSInfo]:
