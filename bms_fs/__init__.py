@@ -87,6 +87,8 @@ def move_elements_across_dir(
     dir_path_dst: str,
     print_info: bool = False,
     replace: bool = True,
+    # TODO: More smart
+    replace_new_file_if_unique: bool = False,
 ):
     if not os.path.isdir(dir_path_ori):
         return
@@ -95,14 +97,24 @@ def move_elements_across_dir(
 
     next_folder_paths: List[Tuple[str, str]] = []
 
+    def is_same_content(file_a: str, file_b: str) -> bool:
+        with open(file_a, "rb") as fa:
+            with open(file_b, "rb") as fb:
+                ca = fa.read()
+                cb = fb.read()
+                return ca == cb
+
     def move_action(ori_path: str, dst_path: str):
         if print_info:
             print(f" - Moving from {ori_path} to {dst_path}")
         # Move
         if os.path.isfile(ori_path):
-            # Replace? Move
+            # Replace?
             if replace:
-                shutil.move(ori_path, dst_path)
+                if not replace_new_file_if_unique:
+                    shutil.move(ori_path, dst_path)
+                elif is_same_content(ori_path, dst_path):
+                    shutil.move(ori_path, dst_path)
             # Not exists? Move
             elif not os.path.isfile(dst_path):
                 shutil.move(ori_path, dst_path)
