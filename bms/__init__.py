@@ -2,6 +2,7 @@ from enum import Enum
 import json
 import os
 from typing import Any, Dict, List, Optional
+from dataclasses import dataclass, field
 
 from bms.encodings import PriorityDecoder
 
@@ -113,22 +114,14 @@ class BMSDifficulty(Enum):
     Insane = 5
 
 
+@dataclass
 class BMSInfo:
-    def __init__(
-        self,
-        title: str,
-        artist: str,
-        genre: str,
-        difficulty: BMSDifficulty = BMSDifficulty.Unknown,
-        playlevel: int = 0,
-        bmp_formats: List[str] = [],
-    ) -> None:
-        self.title = title
-        self.artist = artist
-        self.genre = genre
-        self.difficulty = difficulty
-        self.playlevel = playlevel
-        self.bmp_formats = bmp_formats
+    title: str
+    artist: str
+    genre: str
+    difficulty: BMSDifficulty = BMSDifficulty.Unknown
+    playlevel: int = 0
+    bmp_formats: List[str] = field(default_factory=list)
 
 
 def parse_bms_file(file_path: str, encoding: Optional[str] = None) -> BMSInfo:
