@@ -261,8 +261,7 @@ def _extract_work_name_post_process(
     s = s.strip()
 
     if remove_unclosed_pair:
-        stack = []
-        last_unmatched_pos = -1
+        stack: List[Tuple[str, int]] = []
 
         # 遍历字符串记录括号状态
         pairs = [
@@ -270,12 +269,15 @@ def _extract_work_name_post_process(
             ("[", "]"),
             ("{", "}"),
             ("（", "）"),
+            ("［", "］"),
+            ("｛", "｝"),
+            ("【", "】"),
         ]
         for i, c in enumerate(s):
             for p_open, p_close in pairs:
                 if c == p_open:
                     stack.append((c, i))  # 记录括号类型和位置
-                elif c == p_close and stack and stack[-1][0] == p_open:
+                if c == p_close and stack and stack[-1][0] == p_open:
                     stack.pop()
 
         # 如果存在未闭合括号
