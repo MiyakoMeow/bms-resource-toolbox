@@ -59,16 +59,17 @@ def main(root_dir: str):
     该脚本用于重命名作品文件夹。
     格式：“标题 [艺术家]”
     """
-    fail_count = 0
+    fail_list = []
     for dir_name in os.listdir(root_dir):
         dir_path = os.path.join(root_dir, dir_name)
         if not os.path.isdir(dir_path):
             continue
         result = set_dir_name_by_bms(dir_path)
         if not result:
-            fail_count += 1
-    if fail_count > 0:
-        print("Fail Count:", fail_count)
+            fail_list.append(dir_name)
+    if len(fail_list) > 0:
+        print("Fail Count:", len(fail_list))
+        print(fail_list)
 
 
 if __name__ == "__main__":
