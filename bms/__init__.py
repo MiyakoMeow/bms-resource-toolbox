@@ -3,6 +3,8 @@ import json
 import os
 from typing import Any, Dict, List, Optional
 
+from bms.encodings import PriorityDecoder
+
 ENCODINGS = [
     "shift-jis",
     "shift-jis-2004",
@@ -12,7 +14,7 @@ ENCODINGS = [
     "shift-jisx0213",
 ]
 
-ID_SPECIFIC_ENCODING_TABLE: Dict[str, str] = {
+BOFTT_ID_SPECIFIC_ENCODING_TABLE: Dict[str, str] = {
     "134": "utf-8",
     "191": "gbk",
     "435": "gbk",
@@ -23,20 +25,14 @@ ID_SPECIFIC_ENCODING_TABLE: Dict[str, str] = {
 
 def get_bms_file_str(file_bytes: bytes, encoding: Optional[str] = None) -> str:
     file_str = ""
-    if encoding is not None:
-        file_str = file_bytes.decode(encoding, "replace")
-        return file_str
-    done = False
-    for encoding in ENCODINGS:
-        try:
-            file_str = file_bytes.decode(encoding, "strict")
-            done = True
-        except UnicodeDecodeError:
-            pass
-        if done:
-            break
-    if not done:
-        file_str = file_bytes.decode("utf-8", "replace")
+    encoding_priority = ENCODINGS
+    if encoding:
+        encoding_priority.insert(0, encoding)
+    decoder = PriorityDecoder(encoding_priority)
+    try:
+        file_str = decoder.decode(file_bytes, errors="strict")
+    except UnicodeDecodeError:
+        file_str = file_bytes.decode("utf-8", errors="ignore")
 
     return file_str
 
@@ -224,8 +220,10 @@ def parse_bmson_file(file_path: str, encoding: Optional[str] = None) -> BMSInfo:
 def get_dir_bms_info(dir_path: str) -> Optional[BMSInfo]:
     """仅寻找该目录第一层的文件"""
     info: Optional[BMSInfo] = None
+    # For BOFTT
     id = os.path.split(dir_path)[-1].split(".")[0]
-    encoding = ID_SPECIFIC_ENCODING_TABLE.get(id)
+    encoding = BOFTT_ID_SPECIFIC_ENCODING_TABLE.get(id)
+    # Scan
     for file_name in os.listdir(dir_path):
         if info is not None:
             break
@@ -242,8 +240,10 @@ def get_dir_bms_info(dir_path: str) -> Optional[BMSInfo]:
 def get_dir_bms_info_list(dir_path: str) -> List[BMSInfo]:
     """仅寻找该目录第一层的文件"""
     info_list: List[BMSInfo] = []
+    # For BOFTT
     id = os.path.split(dir_path)[-1].split(".")[0]
-    encoding = ID_SPECIFIC_ENCODING_TABLE.get(id)
+    encoding = BOFTT_ID_SPECIFIC_ENCODING_TABLE.get(id)
+    # Scan
     for file_name in os.listdir(dir_path):
         file_path = os.path.join(dir_path, file_name)
         if not os.path.isfile(file_path):
