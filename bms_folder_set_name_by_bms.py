@@ -45,10 +45,6 @@ def _pick_bms_in_dir(bms_dir_path: str) -> Optional[BMSInfo]:
 
 
 def set_dir_name_by_bms(bms_dir_path: str):
-    if not os.path.split(bms_dir_path)[-1].strip().isdigit():
-        # print(f"{dir_path} has been renamed! Skipping...")
-        return
-
     info: Optional[BMSInfo] = _pick_bms_in_dir(bms_dir_path)
     if info is None:
         print(f"{bms_dir_path} has no bms/bmson files!")
@@ -72,10 +68,12 @@ def set_dir_name_by_bms(bms_dir_path: str):
 
 
 def main(root_dir: str):
-    print("该脚本用于重命名作品文件夹。")
-    print("格式：“标题 [艺术家]”")
+    """
+    该脚本用于重命名作品文件夹。
+    格式：“标题 [艺术家]”
+    """
     for dir_name in os.listdir(root_dir):
-        dir_path = f"{root_dir}/{dir_name}"
+        dir_path = os.path.join(root_dir, dir_name)
         if not os.path.isdir(dir_path):
             continue
         set_dir_name_by_bms(dir_path)
