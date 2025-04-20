@@ -191,7 +191,7 @@ def parse_bmson_file(file_path: str, encoding: Optional[str] = None) -> BMSInfo:
             now = dict
             for i in info:
                 if now is not None:
-                    now = now[i]
+                    now = now.get(i)
             return now
 
         title = dict_get(bmson_info, "info", "title") or ""
