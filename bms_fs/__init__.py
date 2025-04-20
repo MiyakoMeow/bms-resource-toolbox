@@ -265,13 +265,18 @@ def _extract_work_name_post_process(
         last_unmatched_pos = -1
 
         # 遍历字符串记录括号状态
+        pairs = [
+            ("(", ")"),
+            ("[", "]"),
+            ("{", "}"),
+            ("（", "）"),
+        ]
         for i, c in enumerate(s):
-            if c in {"(", "["}:
-                stack.append((c, i))  # 记录括号类型和位置
-            elif c == ")" and stack and stack[-1][0] == "(":
-                stack.pop()
-            elif c == "]" and stack and stack[-1][0] == "[":
-                stack.pop()
+            for p_open, p_close in pairs:
+                if c == p_open:
+                    stack.append((c, i))  # 记录括号类型和位置
+                elif c == p_close and stack and stack[-1][0] == p_open:
+                    stack.pop()
 
         # 如果存在未闭合括号
         if stack:
