@@ -3,68 +3,55 @@ import os.path
 import shutil
 from typing import List, Optional
 
-from bms import BMSDifficulty, BMSInfo, get_dir_bms_info_list
-from bms_fs import get_bms_folder_dir, get_vaild_fs_name
+from bms import BMSInfo, get_dir_bms_info_list
+from bms_fs import extract_work_name, get_bms_folder_dir, get_vaild_fs_name
 
 
 def _pick_bms_in_dir(bms_dir_path: str) -> Optional[BMSInfo]:
     # Find bmses
     bms_list: List[BMSInfo] = get_dir_bms_info_list(bms_dir_path)
-    # Find Beginner
-    bms_list_filtered = [
-        bms
-        for bms in bms_list
-        if bms.difficulty == BMSDifficulty.Beginner and 1 <= bms.playlevel <= 6
-    ]
-    if len(bms_list_filtered) > 0:
-        bms = bms_list_filtered[0]
-        return bms
-    # Find Normal
-    bms_list_filtered = [
-        bms
-        for bms in bms_list
-        if bms.difficulty == BMSDifficulty.Normal and 4 <= bms.playlevel <= 9
-    ]
-    if len(bms_list_filtered) > 0:
-        bms = bms_list_filtered[0]
-        return bms
-    # Find Hyper
-    bms_list_filtered = [
-        bms
-        for bms in bms_list
-        if bms.difficulty == BMSDifficulty.Hyper and 7 <= bms.playlevel <= 11
-    ]
-    if len(bms_list_filtered) > 0:
-        bms = bms_list_filtered[0]
-        return bms
-    # Last: Pick the first
-    if len(bms_list) > 0:
-        bms = bms_list[0]
-        return bms
-    return None
+    if len(bms_list) == 0:
+        return None
+    # Split title
+    title = extract_work_name([bms.title for bms in bms_list])
+    artist = extract_work_name(
+        [bms.artist for bms in bms_list], remove_tailing_slash=True
+    )
+    genre = extract_work_name([bms.genre for bms in bms_list])
+    return BMSInfo(title, artist, genre)
 
 
-def set_dir_name_by_bms(bms_dir_path: str):
+def set_dir_name_by_bms(bms_dir_path: str) -> bool:
     info: Optional[BMSInfo] = _pick_bms_in_dir(bms_dir_path)
     if info is None:
         print(f"{bms_dir_path} has no bms/bmson files!")
-        return
+        return False
 
     parent_dir, _ = os.path.split(bms_dir_path)
     if parent_dir is None:
         raise Exception("Parent is None!")
 
-    # Deal with info
-    print(f"{bms_dir_path} found bms title: {info.title} artist: {info.artist}")
-    title = info.title
-    artist = info.artist
+    if len(info.title) == 0 and len(info.artist) == 0:
+        print(f"{bms_dir_path}: Info title and artist is EMPTY!")
+        return False
 
     # Rename
     new_dir_path = os.path.join(
-        parent_dir, f"{get_vaild_fs_name(title)} [{get_vaild_fs_name(artist)}]"
+        parent_dir,
+        f"{get_vaild_fs_name(info.title)} [{get_vaild_fs_name(info.artist)}]",
     )
 
+    # Same? Ignore
+    if bms_dir_path == new_dir_path:
+        return True
+
+    print(f"{bms_dir_path}: Rename! Title: {info.title}; Artist: {info.artist}")
+    if os.path.isdir(new_dir_path):
+        print(f" - Directory {new_dir_path} exists!")
+        return False
+
     shutil.move(bms_dir_path, new_dir_path)
+    return True
 
 
 def main(root_dir: str):
@@ -72,11 +59,16 @@ def main(root_dir: str):
     该脚本用于重命名作品文件夹。
     格式：“标题 [艺术家]”
     """
+    fail_count = 0
     for dir_name in os.listdir(root_dir):
         dir_path = os.path.join(root_dir, dir_name)
         if not os.path.isdir(dir_path):
             continue
-        set_dir_name_by_bms(dir_path)
+        result = set_dir_name_by_bms(dir_path)
+        if not result:
+            fail_count += 1
+    if fail_count > 0:
+        print("Fail Count:", fail_count)
 
 
 if __name__ == "__main__":

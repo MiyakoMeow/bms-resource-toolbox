@@ -5,9 +5,9 @@ from typing import Any, Dict, List, Optional
 
 ENCODINGS = [
     "shift-jis",
+    "shift-jis-2004",
     "gb2312",
     "utf-8",
-    "shift-jis-2004",
     "gb18030",
     "shift-jisx0213",
 ]
@@ -232,9 +232,9 @@ def get_dir_bms_info(dir_path: str) -> Optional[BMSInfo]:
         file_path = os.path.join(dir_path, file_name)
         if not os.path.isfile(file_path):
             continue
-        if file_name.endswith((".bms", ".bme", ".bml", ".pms")):
+        if file_name.lower().endswith((".bms", ".bme", ".bml", ".pms")):
             info = parse_bms_file(file_path, encoding)
-        elif file_name.endswith((".bmson")):
+        elif file_name.lower().endswith((".bmson")):
             info = parse_bmson_file(file_path, encoding)
     return info
 
@@ -250,9 +250,9 @@ def get_dir_bms_info_list(dir_path: str) -> List[BMSInfo]:
             continue
         # Parse
         info: Optional[BMSInfo] = None
-        if file_name.endswith((".bms", ".bme", ".bml", ".pms")):
+        if file_name.lower().endswith((".bms", ".bme", ".bml", ".pms")):
             info = parse_bms_file(file_path, encoding)
-        elif file_name.endswith((".bmson")):
+        elif file_name.lower().endswith((".bmson")):
             info = parse_bmson_file(file_path, encoding)
         # Append
         if info is not None:
