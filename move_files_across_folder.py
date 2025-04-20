@@ -1,17 +1,14 @@
 import os
 
-from bms_fs import move_elements_across_dir
+from bms_fs import MoveOptions, move_elements_across_dir
 
 
 def main(
     from_dir_path: str,
     to_dir_path: str,
-    print_info: bool = False,
-    replace: bool = True,
+    options: MoveOptions = MoveOptions(),
 ):
-    move_elements_across_dir(
-        from_dir_path, to_dir_path, print_info=print_info, replace=replace
-    )
+    move_elements_across_dir(from_dir_path, to_dir_path, options)
 
 
 if __name__ == "__main__":
