@@ -4,6 +4,7 @@ from bms_fs import ReplaceAction, ReplaceOptions, move_elements_across_dir
 
 
 def main(src_dir: str, dst_dir: str):
+    move_count = 0
     for bms_dir_name in os.listdir(src_dir):
         bms_dir = os.path.join(src_dir, bms_dir_name)
         if not os.path.isdir(bms_dir):
@@ -30,6 +31,30 @@ def main(src_dir: str, dst_dir: str):
                 default=ReplaceAction.Replace,
             ),
         )
+        move_count += 1
+    if move_count > 0:
+        print(f"Move {move_count} songs.")
+        return
+
+    # Deal with song dir
+    move_elements_across_dir(
+        src_dir,
+        dst_dir,
+        replace_options=ReplaceOptions(
+            ext=dict(
+                (ext, ReplaceAction.CheckReplace)
+                for ext in [
+                    "bms",
+                    "bml",
+                    "bme",
+                    "pms",
+                    "txt",
+                    "bmson",
+                ]
+            ),
+            default=ReplaceAction.Replace,
+        ),
+    )
 
 
 if __name__ == "__main__":
