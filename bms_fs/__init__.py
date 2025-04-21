@@ -2,6 +2,7 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
 import shutil
+import difflib
 from typing import List, Optional, Tuple
 from dataclasses import dataclass
 
@@ -290,3 +291,11 @@ def _extract_work_name_post_process(
             s = s.rstrip()[:-1].rstrip()
 
     return s
+
+
+def dir_similarity(dir_path_a: str, dir_path_b: str) -> float:
+    # 相似度
+    dir_str_a = " ".join(os.listdir(dir_path_a))
+    dir_str_b = " ".join(os.listdir(dir_path_b))
+    similarity = difflib.SequenceMatcher(None, dir_str_a, dir_str_b).ratio()
+    return similarity
