@@ -1,31 +1,33 @@
 import os
 import os.path
 import shutil
-from typing import List, Optional
+from typing import Optional
 
-from bms import BMSInfo, get_dir_bms_info_list
-from bms_fs import extract_work_name, get_bms_folder_dir, get_vaild_fs_name
-
-
-def _pick_bms_in_dir(bms_dir_path: str) -> Optional[BMSInfo]:
-    # Find bmses
-    bms_list: List[BMSInfo] = get_dir_bms_info_list(bms_dir_path)
-    if len(bms_list) == 0:
-        return None
-    # Split title
-    title = extract_work_name([bms.title for bms in bms_list])
-    artist = extract_work_name(
-        [bms.artist for bms in bms_list], remove_tailing_slash=True
-    )
-    genre = extract_work_name([bms.genre for bms in bms_list])
-    return BMSInfo(title, artist, genre)
+from bms import BMSInfo, get_dir_bms_info
+from bms_fs import (
+    MoveOptions,
+    dir_similarity,
+    get_vaild_fs_name,
+    move_elements_across_dir,
+    get_bms_folder_dir,
+)
 
 
 def set_dir_name_by_bms(bms_dir_path: str) -> bool:
-    info: Optional[BMSInfo] = _pick_bms_in_dir(bms_dir_path)
-    if info is None:
-        print(f"{bms_dir_path} has no bms/bmson files!")
-        return False
+    info: Optional[BMSInfo] = get_dir_bms_info(bms_dir_path)
+    while info is None:
+        print(f"{bms_dir_path} has no bms/bmson files! Trying to move out.")
+        bms_dir_elements = os.listdir(bms_dir_path)
+        if len(bms_dir_elements) != 1:
+            print(f" - Element count: {len(bms_dir_elements)}")
+            return False
+        bms_dir_inner = os.path.join(bms_dir_path, bms_dir_elements[0])
+        if not os.path.isdir(bms_dir_inner):
+            print(f" - Folder has only a file: {bms_dir_elements[0]}")
+            return False
+        print(" - Moving out files...")
+        move_elements_across_dir(bms_dir_inner, bms_dir_path, MoveOptions(replace=True))
+        info = get_dir_bms_info(bms_dir_path)
 
     parent_dir, _ = os.path.split(bms_dir_path)
     if parent_dir is None:
@@ -46,11 +48,28 @@ def set_dir_name_by_bms(bms_dir_path: str) -> bool:
         return True
 
     print(f"{bms_dir_path}: Rename! Title: {info.title}; Artist: {info.artist}")
-    if os.path.isdir(new_dir_path):
-        print(f" - Directory {new_dir_path} exists!")
+    if not os.path.isdir(new_dir_path):
+        # Move Directly
+        shutil.move(bms_dir_path, new_dir_path)
+        return True
+
+    # Same dir?
+    similarity = dir_similarity(bms_dir_path, new_dir_path)
+    print(f" - Directory {new_dir_path} exists! Similarity: {similarity}")
+    if similarity < 0.9:
+        print("- Merge canceled.")
         return False
 
-    shutil.move(bms_dir_path, new_dir_path)
+    print(" - Merge start!")
+    move_elements_across_dir(
+        bms_dir_path,
+        new_dir_path,
+        MoveOptions(
+            replace=True,
+            replace_save_both_unique_file=True,
+            replace_skip_unique_file=True,
+        ),
+    )
     return True
 
 

@@ -5,7 +5,8 @@ import openpyxl
 from bms import get_dir_bms_info
 from bms_fs import get_bms_folder_dir
 
-if __name__ == "__main__":
+
+def main():
     print("Set default dir by env BOFTT_DIR")
 
     root_dir = get_bms_folder_dir()
@@ -37,3 +38,7 @@ if __name__ == "__main__":
     table_path = os.path.join(root_dir, "bms_list.xlsx")
     print(f"Saving table to {table_path}")
     workbook.save(table_path)
+
+
+if __name__ == "__main__":
+    main()

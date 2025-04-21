@@ -1,7 +1,8 @@
 from enum import Enum
+from collections import defaultdict
 import json
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
 
 from bms.encodings import PriorityDecoder
@@ -36,73 +37,6 @@ def get_bms_file_str(file_bytes: bytes, encoding: Optional[str] = None) -> str:
         file_str = file_bytes.decode("utf-8", errors="ignore")
 
     return file_str
-
-
-def is_difficulty_sign(sign: str) -> bool:
-    """
-    SP ANOTHER
-    EZ
-    HD
-    IN
-    AT
-    """
-    prefix_signs = [
-        "SP",
-        "DP",
-        "PM",
-        "5k",
-        "7k",
-        "9k",
-        "14k",
-        "5b",
-        "7b",
-        "9b",
-        "14b",
-        "beginner",
-        "normal",
-        "hyper",
-        "another",
-        "light",
-        "main",
-        "hard",
-        "EZ",
-        "HD",
-        "IN",
-        "AT",
-    ]
-    exact_signs = ["B", "N", "H", "A", "I", "SH"]
-    for model in prefix_signs:
-        if sign.strip().upper().startswith(model.upper()):
-            return True
-    for model in exact_signs:
-        if sign.strip().upper() == model.upper():
-            return True
-    return False
-
-
-def deal_with_bms_title(title: str) -> str:
-    if title.rstrip().endswith("]"):
-        pairs_start_index = title.rfind("[")
-        pairs_end_index = pairs_start_index + title[pairs_start_index:].rfind("]")
-        if 0 < pairs_start_index < pairs_end_index and is_difficulty_sign(
-            title[pairs_start_index + 1 : pairs_end_index]
-        ):
-            title = title[:pairs_start_index] + title[pairs_end_index + 1 :]
-    if title.rstrip().endswith(")"):
-        pairs_start_index = title.rfind("(")
-        pairs_end_index = pairs_start_index + title[pairs_start_index:].rfind(")")
-        if 0 < pairs_start_index < pairs_end_index and is_difficulty_sign(
-            title[pairs_start_index + 1 : pairs_end_index]
-        ):
-            title = title[:pairs_start_index] + title[pairs_end_index + 1 :]
-    if title.rstrip().endswith("-"):
-        pairs_end_index = title.rfind("-")
-        pairs_start_index = title[:pairs_end_index].rfind("-")
-        if 0 < pairs_start_index < pairs_end_index and is_difficulty_sign(
-            title[pairs_start_index + 1 : pairs_end_index]
-        ):
-            title = title[:pairs_start_index] + title[pairs_end_index + 1 :]
-    return title
 
 
 class BMSDifficulty(Enum):
@@ -165,8 +99,6 @@ def parse_bms_file(file_path: str, encoding: Optional[str] = None) -> BMSInfo:
                 if ext is not None:
                     ext_list.append(ext)
 
-        title = deal_with_bms_title(title)
-
     return BMSInfo(title, artist, genre, difficulty, playlevel, ext_list)
 
 
@@ -210,27 +142,7 @@ def parse_bmson_file(file_path: str, encoding: Optional[str] = None) -> BMSInfo:
     return BMSInfo(title, artist, genre, difficulty, playlevel, ext_list)
 
 
-def get_dir_bms_info(dir_path: str) -> Optional[BMSInfo]:
-    """仅寻找该目录第一层的文件"""
-    info: Optional[BMSInfo] = None
-    # For BOFTT
-    id = os.path.split(dir_path)[-1].split(".")[0]
-    encoding = BOFTT_ID_SPECIFIC_ENCODING_TABLE.get(id)
-    # Scan
-    for file_name in os.listdir(dir_path):
-        if info is not None:
-            break
-        file_path = os.path.join(dir_path, file_name)
-        if not os.path.isfile(file_path):
-            continue
-        if file_name.lower().endswith((".bms", ".bme", ".bml", ".pms")):
-            info = parse_bms_file(file_path, encoding)
-        elif file_name.lower().endswith((".bmson")):
-            info = parse_bmson_file(file_path, encoding)
-    return info
-
-
-def get_dir_bms_info_list(dir_path: str) -> List[BMSInfo]:
+def get_dir_bms_list(dir_path: str) -> List[BMSInfo]:
     """仅寻找该目录第一层的文件"""
     info_list: List[BMSInfo] = []
     # For BOFTT
@@ -251,3 +163,105 @@ def get_dir_bms_info_list(dir_path: str) -> List[BMSInfo]:
         if info is not None:
             info_list.append(info)
     return info_list
+
+
+def get_dir_bms_info(bms_dir_path: str) -> Optional[BMSInfo]:
+    # Find bmses
+    bms_list: List[BMSInfo] = get_dir_bms_list(bms_dir_path)
+    if len(bms_list) == 0:
+        return None
+    # Split title
+    title = extract_work_name([bms.title for bms in bms_list])
+    artist = extract_work_name(
+        [bms.artist for bms in bms_list], remove_tailing_slash=True
+    )
+    genre = extract_work_name([bms.genre for bms in bms_list])
+    return BMSInfo(title, artist, genre)
+
+
+def extract_work_name(
+    titles: List[str],
+    remove_unclosed_pair: bool = True,
+    remove_tailing_slash: bool = False,
+) -> str:
+    """
+    从多个BMS文件标题中提取共同的作品名（改进版）
+
+    :param titles: 包含多个BMS标题的列表
+    :return: 提取出的共同作品名（经过后处理）
+    """
+    # 统计所有可能前缀的出现次数
+    prefix_counts = defaultdict(int)
+    for title in titles:
+        for i in range(1, len(title) + 1):
+            prefix = title[:i]
+            prefix_counts[prefix] += 1
+
+    if not prefix_counts:
+        return ""
+
+    max_count = max(prefix_counts.values())
+
+    candidates = [
+        (prefix, count)
+        for prefix, count in prefix_counts.items()
+        if count >= max_count * 0.5  # 超过一半就可以算上
+    ]
+
+    # 排序规则：优先长度降序，其次次数降序，最后字典序升序
+    candidates.sort(key=lambda x: (-len(x[0]), -x[1], x[0]))
+
+    # 提取最优候选
+    best_candidate = candidates[0][0] if candidates else ""
+
+    # 后处理：移除未闭合括号及其后续内容
+    return _extract_work_name_post_process(
+        best_candidate,
+        remove_unclosed_pair=remove_unclosed_pair,
+        remove_tailing_slash=remove_tailing_slash,
+    )
+
+
+def _extract_work_name_post_process(
+    s: str, remove_unclosed_pair: bool = True, remove_tailing_slash: bool = False
+) -> str:
+    """
+    后处理函数：移除未闭合括号及其后续内容
+
+    :param s: 原始字符串
+    :return: 处理后的字符串
+    """
+
+    # 清除前后空格
+    s = s.strip()
+
+    if remove_unclosed_pair:
+        stack: List[Tuple[str, int]] = []
+
+        # 遍历字符串记录括号状态
+        pairs = [
+            ("(", ")"),
+            ("[", "]"),
+            ("{", "}"),
+            ("（", "）"),
+            ("［", "］"),
+            ("｛", "｝"),
+            ("【", "】"),
+        ]
+        for i, c in enumerate(s):
+            for p_open, p_close in pairs:
+                if c == p_open:
+                    stack.append((c, i))  # 记录括号类型和位置
+                if c == p_close and stack and stack[-1][0] == p_open:
+                    stack.pop()
+
+        # 如果存在未闭合括号
+        if stack:
+            last_unmatched_pos = stack[-1][1]
+            s = s[:last_unmatched_pos].rstrip()  # 截断并移除末尾空格
+
+    if remove_tailing_slash:
+        if s.rstrip().endswith("/"):
+            s = s.rstrip()[:-1].rstrip()
+
+    return s
