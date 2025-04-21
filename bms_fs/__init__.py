@@ -91,18 +91,12 @@ def is_same_content(file_a: str, file_b: str) -> bool:
     if not os.path.isfile(file_b):
         return False
     fa = open(file_a, "rb")
-    fb = open(file_b, "rb")
-    result = True
-    while True:
-        ca = fa.read(1024)
-        cb = fb.read(1024)
-        if ca != cb:
-            result = False
-        if not result or not ca:
-            break
+    ca: bytes = fa.read()
     fa.close()
+    fb = open(file_b, "rb")
+    cb: bytes = fb.read()
     fb.close()
-    return result
+    return ca == cb
 
 
 @dataclass
