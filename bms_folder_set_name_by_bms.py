@@ -64,8 +64,8 @@ def set_dir_name_by_bms(bms_dir_path: str) -> bool:
     # Same dir?
     similarity = bms_dir_similarity(bms_dir_path, new_dir_path)
     print(f" - Directory {new_dir_path} exists! Similarity: {similarity}")
-    if similarity < 0.9:
-        print("- Merge canceled.")
+    if similarity < 0.8:
+        print(" - Merge canceled.")
         return False
 
     print(" - Merge start!")
