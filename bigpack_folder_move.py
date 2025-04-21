@@ -17,10 +17,17 @@ def main(src_dir: str, dst_dir: str):
             dst_bms_dir,
             replace_options=ReplaceOptions(
                 ext=dict(
-                    (ext, ReplaceAction.Replace)
-                    for ext in ["ogg", "flac", "mp4", "wmv", "mpg", "mpeg", "bmp"]
+                    (ext, ReplaceAction.CheckReplace)
+                    for ext in [
+                        "bms",
+                        "bml",
+                        "bme",
+                        "pms",
+                        "txt",
+                        "bmson",
+                    ]
                 ),
-                default=ReplaceAction.CheckReplace,
+                default=ReplaceAction.Replace,
             ),
         )
 
