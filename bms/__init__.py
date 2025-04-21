@@ -172,13 +172,22 @@ def get_dir_bms_info(bms_dir_path: str) -> Optional[BMSInfo]:
         return None
     # Split title
     title = extract_work_name([bms.title for bms in bms_list])
-    if title.endswith("-"):
-        cnt = title.count("-")
-        if cnt % 2 != 0 and title[-2].isspace():
-            title = title[:-1].strip()
+    if title.endswith("-") and title.count("-") % 2 != 0 and title[-2].isspace():
+        title = title[:-1].strip()
     artist = extract_work_name(
         [bms.artist for bms in bms_list],
-        remove_tailing_sign_list=["/", ":", "：", "-", "obj", "obj."],
+        remove_tailing_sign_list=[
+            "/",
+            ":",
+            "：",
+            "-",
+            "obj",
+            "obj.",
+            "Obj",
+            "Obj.",
+            "OBJ",
+            "OBJ.",
+        ],
     )
     genre = extract_work_name([bms.genre for bms in bms_list])
     return BMSInfo(title, artist, genre)
