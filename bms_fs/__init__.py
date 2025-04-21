@@ -161,6 +161,8 @@ def move_elements_across_dir(
                 new_file_name = f"{name}.{i}.{ext}"
                 new_dst_path = os.path.join(dir_path_dst, new_file_name)
                 if os.path.isfile(new_dst_path):
+                    if is_same_content(ori_path, new_dst_path):
+                        break
                     continue
                 shutil.move(ori_path, new_dst_path)
                 break
