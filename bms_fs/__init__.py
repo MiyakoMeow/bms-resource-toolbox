@@ -225,13 +225,11 @@ def extract_work_name(
         return ""
 
     max_count = max(prefix_counts.values())
-    tolerance_percent = 0.8  # 允许的最大次数差
 
-    # 获取所有候选：出现次数 >= 最大次数 - 容差
     candidates = [
         (prefix, count)
         for prefix, count in prefix_counts.items()
-        if count >= max_count * tolerance_percent
+        if count >= max_count * 0.5  # 超过一半就可以算上
     ]
 
     # 排序规则：优先长度降序，其次次数降序，最后字典序升序
