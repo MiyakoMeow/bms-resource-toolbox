@@ -172,8 +172,13 @@ def get_dir_bms_info(bms_dir_path: str) -> Optional[BMSInfo]:
         return None
     # Split title
     title = extract_work_name([bms.title for bms in bms_list])
+    if title.endswith("-"):
+        cnt = title.count("-")
+        if cnt % 2 != 0 and title[-2].isspace():
+            title = title[:-1].strip()
     artist = extract_work_name(
-        [bms.artist for bms in bms_list], remove_tailing_slash=True
+        [bms.artist for bms in bms_list],
+        remove_tailing_sign_list=["/", ":", "：", "-", "obj", "obj."],
     )
     genre = extract_work_name([bms.genre for bms in bms_list])
     return BMSInfo(title, artist, genre)
@@ -182,7 +187,7 @@ def get_dir_bms_info(bms_dir_path: str) -> Optional[BMSInfo]:
 def extract_work_name(
     titles: List[str],
     remove_unclosed_pair: bool = True,
-    remove_tailing_slash: bool = False,
+    remove_tailing_sign_list: List[str] = [],
 ) -> str:
     """
     从多个BMS文件标题中提取共同的作品名（改进版）
@@ -218,12 +223,12 @@ def extract_work_name(
     return _extract_work_name_post_process(
         best_candidate,
         remove_unclosed_pair=remove_unclosed_pair,
-        remove_tailing_slash=remove_tailing_slash,
+        remove_tailing_sign_list=remove_tailing_sign_list,
     )
 
 
 def _extract_work_name_post_process(
-    s: str, remove_unclosed_pair: bool = True, remove_tailing_slash: bool = False
+    s: str, remove_unclosed_pair: bool = True, remove_tailing_sign_list: List[str] = []
 ) -> str:
     """
     后处理函数：移除未闭合括号及其后续内容
@@ -235,33 +240,40 @@ def _extract_work_name_post_process(
     # 清除前后空格
     s = s.strip()
 
-    if remove_unclosed_pair:
-        stack: List[Tuple[str, int]] = []
+    while True:
+        triggered = False
+        if remove_unclosed_pair:
+            stack: List[Tuple[str, int]] = []
 
-        # 遍历字符串记录括号状态
-        pairs = [
-            ("(", ")"),
-            ("[", "]"),
-            ("{", "}"),
-            ("（", "）"),
-            ("［", "］"),
-            ("｛", "｝"),
-            ("【", "】"),
-        ]
-        for i, c in enumerate(s):
-            for p_open, p_close in pairs:
-                if c == p_open:
-                    stack.append((c, i))  # 记录括号类型和位置
-                if c == p_close and stack and stack[-1][0] == p_open:
-                    stack.pop()
+            # 遍历字符串记录括号状态
+            pairs = [
+                ("(", ")"),
+                ("[", "]"),
+                ("{", "}"),
+                ("（", "）"),
+                ("［", "］"),
+                ("｛", "｝"),
+                ("【", "】"),
+            ]
+            for i, c in enumerate(s):
+                for p_open, p_close in pairs:
+                    if c == p_open:
+                        stack.append((c, i))  # 记录括号类型和位置
+                    if c == p_close and stack and stack[-1][0] == p_open:
+                        stack.pop()
 
-        # 如果存在未闭合括号
-        if stack:
-            last_unmatched_pos = stack[-1][1]
-            s = s[:last_unmatched_pos].rstrip()  # 截断并移除末尾空格
+            # 如果存在未闭合括号
+            if stack:
+                last_unmatched_pos = stack[-1][1]
+                s = s[:last_unmatched_pos].rstrip()  # 截断并移除末尾空格
+                triggered = True
 
-    if remove_tailing_slash:
-        if s.rstrip().endswith("/"):
-            s = s.rstrip()[:-1].rstrip()
+        for sign in remove_tailing_sign_list:
+            if s.endswith(sign):
+                s = s[: -len(sign)].rstrip()
+                triggered = True
+        # 没触发？
+        if not triggered:
+            break
 
     return s
