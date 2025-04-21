@@ -123,6 +123,8 @@ def move_elements_across_dir(
     options: MoveOptions = MoveOptions(),
     replace_options: ReplaceOptions = ReplaceOptions(),
 ):
+    if dir_path_ori == dir_path_dst:
+        return
     if not os.path.isdir(dir_path_ori):
         return
     if not os.path.isdir(dir_path_dst):

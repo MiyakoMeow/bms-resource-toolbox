@@ -4,6 +4,8 @@ from bms_fs import ReplaceAction, ReplaceOptions, move_elements_across_dir
 
 
 def main(src_dir: str, dst_dir: str):
+    if src_dir == dst_dir:
+        return
     move_count = 0
     for bms_dir_name in os.listdir(src_dir):
         bms_dir = os.path.join(src_dir, bms_dir_name)
