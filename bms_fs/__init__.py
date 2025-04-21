@@ -245,9 +245,22 @@ def is_dir_having_file(dir_path: str) -> bool:
     return has_file
 
 
-def dir_similarity(dir_path_a: str, dir_path_b: str) -> float:
+def bms_dir_similarity(dir_path_a: str, dir_path_b: str) -> float:
+    """两个文件夹中，非媒体文件文件名的相似度。"""
     # 相似度
-    dir_str_a = " ".join(os.listdir(dir_path_a))
-    dir_str_b = " ".join(os.listdir(dir_path_b))
-    similarity = difflib.SequenceMatcher(None, dir_str_a, dir_str_b).ratio()
-    return similarity
+    media_ext_list = (".ogg", ".wav", ".flac", ".mp4", ".wmv", ".avi", ".mpg", ".mpeg")
+
+    def fetch_dir_elements(dir_path):
+        return [
+            name for name in os.listdir(dir_path) if not name.endswith(media_ext_list)
+        ]
+
+    dir_list_a = fetch_dir_elements(dir_path_a)
+    dir_set_a = set(dir_list_a)
+    dir_list_b = fetch_dir_elements(dir_path_b)
+    dir_set_b = set(dir_list_b)
+    similarity = difflib.SequenceMatcher(
+        None, " ".join(dir_list_a), " ".join(dir_list_b)
+    ).ratio()
+    dir_set_merge = dir_set_a.intersection(dir_set_b)
+    return max(similarity, len(dir_set_merge) / min(len(dir_set_a), len(dir_set_b)))

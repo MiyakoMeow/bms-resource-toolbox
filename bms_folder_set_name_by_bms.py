@@ -7,7 +7,7 @@ from bms import BMSInfo, get_dir_bms_info
 from bms_fs import (
     ReplaceAction,
     ReplaceOptions,
-    dir_similarity,
+    bms_dir_similarity,
     get_vaild_fs_name,
     move_elements_across_dir,
     get_bms_folder_dir,
@@ -55,7 +55,7 @@ def set_dir_name_by_bms(bms_dir_path: str) -> bool:
         return True
 
     # Same dir?
-    similarity = dir_similarity(bms_dir_path, new_dir_path)
+    similarity = bms_dir_similarity(bms_dir_path, new_dir_path)
     print(f" - Directory {new_dir_path} exists! Similarity: {similarity}")
     if similarity < 0.9:
         print("- Merge canceled.")
