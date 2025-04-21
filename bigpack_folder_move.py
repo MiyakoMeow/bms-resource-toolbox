@@ -59,5 +59,9 @@ def main(src_dir: str, dst_dir: str):
 
 if __name__ == "__main__":
     src_dir = input("Input the src dir:")
+    if src_dir.startswith('"') and src_dir.endswith('"'):
+        src_dir = src_dir[1:-1]
     dst_dir = input("Input the dst dir:")
+    if dst_dir.startswith('"') and dst_dir.endswith('"'):
+        dst_dir = dst_dir[1:-1]
     main(src_dir, dst_dir)
