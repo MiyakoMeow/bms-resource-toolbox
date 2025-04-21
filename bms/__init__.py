@@ -151,13 +151,13 @@ def get_dir_bms_list(dir_path: str) -> List[BMSInfo]:
     # Scan
     for file_name in os.listdir(dir_path):
         file_path = os.path.join(dir_path, file_name)
-        if not os.path.isfile(file_path):
-            continue
         # Parse
         info: Optional[BMSInfo] = None
-        if file_name.lower().endswith((".bms", ".bme", ".bml", ".pms")):
+        if file_name.lower().endswith(
+            (".bms", ".bme", ".bml", ".pms")
+        ) and os.path.isfile(file_path):
             info = parse_bms_file(file_path, encoding)
-        elif file_name.lower().endswith((".bmson")):
+        elif file_name.lower().endswith((".bmson")) and os.path.isfile(file_path):
             info = parse_bmson_file(file_path, encoding)
         # Append
         if info is not None:
