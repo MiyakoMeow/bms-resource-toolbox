@@ -1,6 +1,6 @@
 import os
 
-from bms_fs import MoveOptions, move_elements_across_dir
+from bms_fs import ReplaceAction, ReplaceOptions, move_elements_across_dir
 
 
 def main(src_dir: str, dst_dir: str):
@@ -15,10 +15,12 @@ def main(src_dir: str, dst_dir: str):
         move_elements_across_dir(
             bms_dir,
             dst_bms_dir,
-            MoveOptions(
-                replace=True,
-                replace_skip_unique_file=True,
-                replace_save_both_unique_file=True,
+            replace_options=ReplaceOptions(
+                ext=dict(
+                    (ext, ReplaceAction.Replace)
+                    for ext in ["ogg", "flac", "mp4", "wmv", "mpg", "mpeg", "bmp"]
+                ),
+                default=ReplaceAction.CheckReplace,
             ),
         )
 

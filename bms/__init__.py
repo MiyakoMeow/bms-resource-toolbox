@@ -219,7 +219,7 @@ def extract_work_name(
     candidates = [
         (prefix, count)
         for prefix, count in prefix_counts.items()
-        if count >= max_count * 0.5  # 超过一半就可以算上
+        if count >= max_count * 0.67  # 超过2/3就可以算上
     ]
 
     # 排序规则：优先长度降序，其次次数降序，最后字典序升序

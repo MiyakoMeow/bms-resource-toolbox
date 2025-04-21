@@ -1,9 +1,10 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from enum import Enum
 import os
 import shutil
 import difflib
-from typing import List, Optional, Tuple
-from dataclasses import dataclass
+from typing import Dict, List, Optional, Tuple
+from dataclasses import dataclass, field
 
 from bms import BMSInfo
 
@@ -84,16 +85,49 @@ def get_folder_name(id: str, info: BMSInfo) -> str:
     return f"{id}. {get_vaild_fs_name(info.title)} [{get_vaild_fs_name(info.artist)}]"
 
 
+def is_same_content(file_a: str, file_b: str) -> bool:
+    if not os.path.isfile(file_a):
+        return False
+    if not os.path.isfile(file_b):
+        return False
+    fa = open(file_a, "rb")
+    fb = open(file_b, "rb")
+    result = True
+    while True:
+        ca = fa.read(1024)
+        cb = fb.read(1024)
+        if ca != cb:
+            result = False
+        if not result or not ca:
+            break
+    fa.close()
+    fb.close()
+    return result
+
+
 @dataclass
 class MoveOptions:
     print_info: bool = False
-    replace: bool = True
-    replace_skip_unique_file: bool = False
-    replace_save_both_unique_file: bool = False
+
+
+class ReplaceAction(Enum):
+    Skip = 0
+    Replace = 1
+    Rename = 2
+    CheckReplace = 12
+
+
+@dataclass
+class ReplaceOptions:
+    ext: Dict[str, ReplaceAction] = field(default_factory=dict)
+    default: ReplaceAction = ReplaceAction.Replace
 
 
 def move_elements_across_dir(
-    dir_path_ori: str, dir_path_dst: str, options: MoveOptions = MoveOptions()
+    dir_path_ori: str,
+    dir_path_dst: str,
+    options: MoveOptions = MoveOptions(),
+    replace_options: ReplaceOptions = ReplaceOptions(),
 ):
     if not os.path.isdir(dir_path_ori):
         return
@@ -101,17 +135,6 @@ def move_elements_across_dir(
         os.mkdir(dir_path_dst)
 
     next_folder_paths: List[Tuple[str, str]] = []
-
-    def is_same_content(file_a: str, file_b: str) -> bool:
-        if not os.path.isfile(file_a):
-            return False
-        if not os.path.isfile(file_b):
-            return False
-        with open(file_a, "rb") as fa:
-            with open(file_b, "rb") as fb:
-                ca = fa.read()
-                cb = fb.read()
-                return ca == cb
 
     def move_action(ori_path: str, dst_path: str):
         if options.print_info:
@@ -124,27 +147,45 @@ def move_elements_across_dir(
 
     def move_file(ori_path: str, dst_path: str):
         # Replace?
-        if options.replace:
-            if not options.replace_skip_unique_file:
-                # 不检查内容是否相同？
-                shutil.move(ori_path, dst_path)
-            elif is_same_content(ori_path, dst_path):
-                # 内容相同？
-                shutil.move(ori_path, dst_path)
-            elif options.replace_save_both_unique_file:
-                # 移动并重命名
-                file_name = os.path.split(dst_path)[1]
-                for i in range(100):
-                    name, ext = os.path.splitext(file_name)
-                    new_file_name = f"{name}.{i}.{ext}"
-                    new_dst_path = os.path.join(dir_path_dst, new_file_name)
-                    if os.path.isfile(new_dst_path):
-                        continue
-                    shutil.move(ori_path, new_dst_path)
-                    break
-        # Not exists? Move
-        elif not os.path.isfile(dst_path):
+        file_ext = os.path.splitext(ori_path)[1]
+        if file_ext.startswith("."):
+            file_ext = file_ext[1:]
+        action = replace_options.ext.get(file_ext) or replace_options.default
+
+        def action_move():
             shutil.move(ori_path, dst_path)
+
+        def action_move_rename():
+            # 移动并重命名
+            file_name = os.path.split(dst_path)[1]
+            for i in range(100):
+                name, ext = os.path.splitext(file_name)
+                if ext.startswith("."):
+                    ext = ext[1:]
+                new_file_name = f"{name}.{i}.{ext}"
+                new_dst_path = os.path.join(dir_path_dst, new_file_name)
+                if os.path.isfile(new_dst_path):
+                    continue
+                shutil.move(ori_path, new_dst_path)
+                break
+
+        match action:
+            case ReplaceAction.Replace:
+                action_move()
+            case ReplaceAction.Skip:
+                if os.path.isfile(dst_path):
+                    return
+                action_move()
+            case ReplaceAction.Rename:
+                action_move_rename()
+            case ReplaceAction.CheckReplace:
+                if not os.path.isfile(dst_path):
+                    action_move()
+                elif is_same_content(ori_path, dst_path):
+                    # 内容相同？
+                    action_move()
+                else:
+                    action_move_rename()
 
     def move_dir(ori_path: str, dst_path: str):
         # Directly move dir
@@ -154,6 +195,12 @@ def move_elements_across_dir(
             # Add child dir
             next_folder_paths.append((ori_path, dst_path))
 
+    # Check Dst Dir
+    if os.path.isdir(dir_path_ori) and not os.path.isdir(dir_path_dst):
+        shutil.move(dir_path_ori, dir_path_dst)
+        return
+
+    # Start
     with ThreadPoolExecutor(max_workers=4) as executor:
         # 提交任务
         dir_lists: List[Tuple[str, str]] = [
@@ -180,7 +227,9 @@ def move_elements_across_dir(
         move_elements_across_dir(ori_path, dst_path, options)
 
     # Clean Source
-    if options.replace or not is_dir_having_file(dir_path_ori):
+    if replace_options.default != ReplaceAction.Skip or not is_dir_having_file(
+        dir_path_ori
+    ):
         try:
             shutil.rmtree(dir_path_ori)
         except PermissionError:

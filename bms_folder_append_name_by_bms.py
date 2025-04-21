@@ -1,9 +1,9 @@
 import os
 import os.path
 import shutil
-from typing import List, Optional
+from typing import Optional
 
-from bms import BMSDifficulty, BMSInfo, get_dir_bms_info, get_dir_bms_list
+from bms import BMSInfo, get_dir_bms_info
 from bms_fs import get_bms_folder_dir, get_vaild_fs_name
 
 

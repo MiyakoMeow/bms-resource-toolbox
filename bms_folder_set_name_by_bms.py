@@ -5,7 +5,8 @@ from typing import Optional
 
 from bms import BMSInfo, get_dir_bms_info
 from bms_fs import (
-    MoveOptions,
+    ReplaceAction,
+    ReplaceOptions,
     dir_similarity,
     get_vaild_fs_name,
     move_elements_across_dir,
@@ -26,7 +27,7 @@ def set_dir_name_by_bms(bms_dir_path: str) -> bool:
             print(f" - Folder has only a file: {bms_dir_elements[0]}")
             return False
         print(" - Moving out files...")
-        move_elements_across_dir(bms_dir_inner, bms_dir_path, MoveOptions(replace=True))
+        move_elements_across_dir(bms_dir_inner, bms_dir_path)
         info = get_dir_bms_info(bms_dir_path)
 
     parent_dir, _ = os.path.split(bms_dir_path)
@@ -64,10 +65,12 @@ def set_dir_name_by_bms(bms_dir_path: str) -> bool:
     move_elements_across_dir(
         bms_dir_path,
         new_dir_path,
-        MoveOptions(
-            replace=True,
-            replace_save_both_unique_file=True,
-            replace_skip_unique_file=True,
+        replace_options=ReplaceOptions(
+            ext=dict(
+                (ext, ReplaceAction.Replace)
+                for ext in ["ogg", "flac", "mp4", "wmv", "mpg", "mpeg", "bmp"]
+            ),
+            default=ReplaceAction.CheckReplace,
         ),
     )
     return True
