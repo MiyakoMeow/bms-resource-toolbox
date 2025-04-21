@@ -19,6 +19,10 @@ def set_dir_name_by_bms(bms_dir_path: str) -> bool:
     while info is None:
         print(f"{bms_dir_path} has no bms/bmson files! Trying to move out.")
         bms_dir_elements = os.listdir(bms_dir_path)
+        if len(bms_dir_elements) == 0:
+            print(" - Empty dir! Deleted.")
+            os.rmdir(bms_dir_path)
+            return False
         if len(bms_dir_elements) != 1:
             print(f" - Element count: {len(bms_dir_elements)}")
             return False
