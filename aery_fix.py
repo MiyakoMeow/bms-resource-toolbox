@@ -1,6 +1,8 @@
 import os
+from typing import List, Tuple
 
 import bigpack_folder_move
+from bms_fs import bms_dir_similarity
 
 
 def main():
@@ -13,11 +15,15 @@ def main():
     dirs = [
         dir for dir in os.listdir(src_dir) if os.path.isdir(os.path.join(src_dir, dir))
     ]
+    # 扫描所有带aery的目录
+    aery_pair: List[Tuple[str, str, float]] = []
     for dir in dirs:
         if dir.find("Aery") == -1 and dir.find("AERY") == -1:
             continue
+        # 源目录
         dir_path = os.path.join(src_dir, dir)
         for i in range(len(dir)):
+            # 按长度寻找，排除自身，确认只剩下一个结果
             sub_len = i + 1
             scan_dirs = [
                 sub_dir
@@ -27,10 +33,29 @@ def main():
             if len(scan_dirs) != 1:
                 continue
             scan_dir = scan_dirs[0]
+            # 目标路径
             scan_dir_path = os.path.join(src_dir, scan_dir)
-            print(f"Moving: {dir_path} => {scan_dir_path}")
-            bigpack_folder_move.main(dir_path, scan_dir_path)
+            # 参数
+            similarity = bms_dir_similarity(dir_path, scan_dir_path)
+            aery_pair.append((dir_path, scan_dir_path, similarity))
             break
+    # 打印待移动的部分
+    for p in aery_pair:
+        print(p)
+
+    similarity_border = 0.95
+    confirm = input(f"Confirm? (border: {similarity_border}) [y/N]")
+    if not confirm.lower().startswith("y"):
+        return
+
+    for p in aery_pair:
+        p_from: str = p[0]
+        p_to: str = p[1]
+        p_similarity: float = p[2]
+        if p_similarity < similarity_border:
+            continue
+        print(f"Moving: {p_from} => {p_to}, similarity: {p_similarity}")
+        bigpack_folder_move.main(p_from, p_to)
 
 
 if __name__ == "__main__":
