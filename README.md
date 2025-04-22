@@ -1,6 +1,6 @@
 # [通用BMS大包生成脚本](https://gitee.com/MiyakoMeow/boftt-pack-generator-scripts)
 
-脚本地址：Gitee上搜MiyakoMeow/boftt-pack-generator-scripts
+脚本地址：Gitee上搜MiyakoMeow/bms-resource-scripts
 
 ## HQ版和LQ版怎么选？
 
@@ -36,6 +36,8 @@
 - [bms.iidx.ca](https://bms.iidx.ca/bms/BMS/BMS%20%E6%B4%BB%E5%8A%A8%E5%8C%85/BOF%20G2R/%5B2024%5D%20BOFTT/)
 
 ## BOFTT大包特殊情况列表
+
+- ！！！no.145, 185, 201, 205, 407：请手动合并更新文件夹。
 
 - no.198, 199, 245, 258, 283, 286, 287, 301 使用了62进制BMS，不兼容LR2和beatoraja 0.8.7之前的版本。
 
