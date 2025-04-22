@@ -2,7 +2,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from enum import Enum
 import os
 import shutil
-import difflib
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
 
@@ -252,19 +251,42 @@ def is_dir_having_file(dir_path: str) -> bool:
 def bms_dir_similarity(dir_path_a: str, dir_path_b: str) -> float:
     """两个文件夹中，非媒体文件文件名的相似度。"""
     # 相似度
-    media_ext_list = (".ogg", ".wav", ".flac", ".mp4", ".wmv", ".avi", ".mpg", ".mpeg")
+    media_ext_list = (
+        ".ogg",
+        ".wav",
+        ".flac",
+        ".mp4",
+        ".wmv",
+        ".avi",
+        ".mpg",
+        ".mpeg",
+        ".bmp",
+        ".jpg",
+        ".png",
+    )
 
-    def fetch_dir_elements(dir_path):
-        return [
-            name for name in os.listdir(dir_path) if not name.endswith(media_ext_list)
+    def fetch_dir_elements(dir_path) -> Tuple[List[str], List[str], List[str]]:
+        file_list: List[str] = [name or "" for name in os.listdir(dir_path)]
+        media_list: List[str] = [
+            os.path.splitext(name)[0] or ""
+            for name in file_list
+            if name.endswith(media_ext_list)
         ]
+        non_media_list: List[str] = [
+            name for name in file_list if not name.endswith(media_ext_list)
+        ]
+        return (file_list, media_list, non_media_list)
 
-    dir_list_a = fetch_dir_elements(dir_path_a)
-    dir_set_a = set(dir_list_a)
-    dir_list_b = fetch_dir_elements(dir_path_b)
-    dir_set_b = set(dir_list_b)
-    similarity = difflib.SequenceMatcher(
-        None, " ".join(dir_list_a), " ".join(dir_list_b)
-    ).ratio()
-    dir_set_merge = dir_set_a.intersection(dir_set_b)
-    return max(similarity, len(dir_set_merge) / min(len(dir_set_a), len(dir_set_b)))
+    file_set_a, media_set_a, non_media_set_a = [
+        set(e_list) for e_list in fetch_dir_elements(dir_path_a)
+    ]
+    if not file_set_a or not media_set_a or not non_media_set_a:
+        return 0.0
+    file_set_b, media_set_b, non_media_set_b = [
+        set(e_list) for e_list in fetch_dir_elements(dir_path_b)
+    ]
+    if not file_set_b or not media_set_b or not non_media_set_b:
+        return 0.0
+    media_set_merge = media_set_a.intersection(media_set_b)
+    media_ratio = len(media_set_merge) / min(len(media_set_a), len(media_set_b))
+    return media_ratio  # Use media ratio only?
