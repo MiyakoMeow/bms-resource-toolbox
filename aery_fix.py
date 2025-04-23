@@ -1,8 +1,11 @@
 import os
 from typing import List, Tuple
 
-import bigpack_folder_move
-from bms_fs import bms_dir_similarity
+from bms_fs import (
+    REPLACE_OPTION_UPDATE_PACK,
+    move_elements_across_dir,
+    bms_dir_similarity,
+)
 
 
 def main():
@@ -55,7 +58,11 @@ def main():
         if p_similarity < similarity_border:
             continue
         print(f"Moving: {p_from} => {p_to}, similarity: {p_similarity}")
-        bigpack_folder_move.main(p_from, p_to)
+        move_elements_across_dir(
+            p_from,
+            p_to,
+            replace_options=REPLACE_OPTION_UPDATE_PACK,
+        )
 
 
 if __name__ == "__main__":

@@ -116,6 +116,22 @@ class ReplaceOptions:
     default: ReplaceAction = ReplaceAction.Replace
 
 
+REPLACE_OPTION_UPDATE_PACK = ReplaceOptions(
+    ext=dict(
+        (ext, ReplaceAction.CheckReplace)
+        for ext in [
+            "bms",
+            "bml",
+            "bme",
+            "pms",
+            "txt",
+            "bmson",
+        ]
+    ),
+    default=ReplaceAction.Replace,
+)
+
+
 def move_elements_across_dir(
     dir_path_ori: str,
     dir_path_dst: str,

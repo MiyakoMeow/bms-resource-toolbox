@@ -5,8 +5,7 @@ from typing import Optional
 
 from bms import BMSInfo, get_dir_bms_info
 from bms_fs import (
-    ReplaceAction,
-    ReplaceOptions,
+    REPLACE_OPTION_UPDATE_PACK,
     bms_dir_similarity,
     get_vaild_fs_name,
     move_elements_across_dir,
@@ -72,20 +71,7 @@ def set_dir_name_by_bms(bms_dir_path: str) -> bool:
     move_elements_across_dir(
         bms_dir_path,
         new_dir_path,
-        replace_options=ReplaceOptions(
-            ext=dict(
-                (ext, ReplaceAction.CheckReplace)
-                for ext in [
-                    "bms",
-                    "bml",
-                    "bme",
-                    "pms",
-                    "txt",
-                    "bmson",
-                ]
-            ),
-            default=ReplaceAction.Replace,
-        ),
+        replace_options=REPLACE_OPTION_UPDATE_PACK,
     )
     return True
 

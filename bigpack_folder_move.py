@@ -1,6 +1,9 @@
 import os
 
-from bms_fs import ReplaceAction, ReplaceOptions, move_elements_across_dir
+from bms_fs import (
+    REPLACE_OPTION_UPDATE_PACK,
+    move_elements_across_dir,
+)
 
 
 def main(src_dir: str, dst_dir: str):
@@ -18,20 +21,7 @@ def main(src_dir: str, dst_dir: str):
         move_elements_across_dir(
             bms_dir,
             dst_bms_dir,
-            replace_options=ReplaceOptions(
-                ext=dict(
-                    (ext, ReplaceAction.CheckReplace)
-                    for ext in [
-                        "bms",
-                        "bml",
-                        "bme",
-                        "pms",
-                        "txt",
-                        "bmson",
-                    ]
-                ),
-                default=ReplaceAction.Replace,
-            ),
+            replace_options=REPLACE_OPTION_UPDATE_PACK,
         )
         move_count += 1
     if move_count > 0:
@@ -42,20 +32,7 @@ def main(src_dir: str, dst_dir: str):
     move_elements_across_dir(
         src_dir,
         dst_dir,
-        replace_options=ReplaceOptions(
-            ext=dict(
-                (ext, ReplaceAction.CheckReplace)
-                for ext in [
-                    "bms",
-                    "bml",
-                    "bme",
-                    "pms",
-                    "txt",
-                    "bmson",
-                ]
-            ),
-            default=ReplaceAction.Replace,
-        ),
+        replace_options=REPLACE_OPTION_UPDATE_PACK,
     )
 
 
