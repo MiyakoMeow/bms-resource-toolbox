@@ -6,7 +6,7 @@ from bms_media.audio import (
     AUDIO_PRESET_FLAC_FFMPEG,
 )
 
-import bms_folder_set_folder_name_by_bms
+import bms_folder_append_name_by_bms
 import bms_folder_transfer_audio
 import bms_folder_remove_unneed_media_file
 import rawpack_unzip_numeric_to_bms_folder
@@ -56,7 +56,7 @@ def main():
         os.rmdir(cache_dir)
     # Syncing folder name
     print(" > 2. Setting dir names from BMS Files")
-    bms_folder_set_folder_name_by_bms.main(root_dir=root_dir)
+    bms_folder_append_name_by_bms.main(root_dir=root_dir)
     # Parse Audio
     print(" > 3. Parsing Audio... Phase 1: WAV -> FLAC")
     bms_folder_transfer_audio.main(

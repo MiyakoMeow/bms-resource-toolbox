@@ -7,11 +7,12 @@ from bms_media.audio import (
 from fs_sync import sync_folder
 from fs_sync.preset import SYNC_PRESET_FOR_APPEND
 
-import bms_folder_set_name_by_another_folder
 import bms_folder_transfer_audio
 import bms_folder_remove_unneed_media_file
+from rawpack import get_num_set_file_names
 import remove_empty_folder
 import rawpack_unzip_numeric_to_bms_folder
+import bms_folder_copy_name_with_num
 
 
 def main():
@@ -30,7 +31,7 @@ def main():
         print("Pack dir is not vaild dir.")
         return
     # Print Packs
-    file_id_names = rawpack_unzip_numeric_to_bms_folder.get_num_set_file_names(pack_dir)
+    file_id_names = get_num_set_file_names(pack_dir)
     print(" -- There are packs in pack_dir:")
     for file_name in file_id_names:
         print(f" > {file_name}")
@@ -64,7 +65,7 @@ def main():
     )
     # Syncing folder name
     print(f" > 2. Syncing dir name from {sync_dir} to {root_dir}")
-    bms_folder_set_name_by_another_folder.main(src_dir=sync_dir, dst_dir=root_dir)
+    bms_folder_copy_name_with_num.main(src_dir=sync_dir, dst_dir=root_dir)
     # Parse Audio
     print(" > 3. Parsing Audio... Phase 1: WAV -> FLAC")
     bms_folder_transfer_audio.main(
