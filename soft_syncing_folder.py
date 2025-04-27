@@ -1,8 +1,7 @@
 import os
 from typing import Optional
 
-from fs_sync import sync_folder
-from fs_sync.preset import SYNC_PRESETS
+from bms_fs.sync import sync_folder, SYNC_PRESETS
 
 
 def main(
