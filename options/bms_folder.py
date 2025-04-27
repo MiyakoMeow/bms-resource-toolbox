@@ -4,7 +4,9 @@ import shutil
 from typing import List, Optional, Tuple
 
 from bms import BMSInfo, get_dir_bms_info
+from fs import bms_dir_similarity
 from fs.name import get_vaild_fs_name
+from fs.move import REPLACE_OPTION_UPDATE_PACK, move_elements_across_dir
 
 
 def append_artist_name(root_dir: str):
@@ -69,6 +71,87 @@ def _workdir_append_name_by_bms(work_dir: str):
     shutil.move(work_dir, new_dir_path)
 
 
+def _set_workdir_name_by_bms(work_dir: str) -> bool:
+    info: Optional[BMSInfo] = get_dir_bms_info(work_dir)
+    while info is None:
+        print(f"{work_dir} has no bms/bmson files! Trying to move out.")
+        bms_dir_elements = os.listdir(work_dir)
+        if len(bms_dir_elements) == 0:
+            print(" - Empty dir! Deleting...")
+            try:
+                os.rmdir(work_dir)
+            except PermissionError as e:
+                print(e)
+            return False
+        if len(bms_dir_elements) != 1:
+            print(f" - Element count: {len(bms_dir_elements)}")
+            return False
+        bms_dir_inner = os.path.join(work_dir, bms_dir_elements[0])
+        if not os.path.isdir(bms_dir_inner):
+            print(f" - Folder has only a file: {bms_dir_elements[0]}")
+            return False
+        print(" - Moving out files...")
+        move_elements_across_dir(bms_dir_inner, work_dir)
+        info = get_dir_bms_info(work_dir)
+
+    parent_dir, _ = os.path.split(work_dir)
+    if parent_dir is None:
+        raise Exception("Parent is None!")
+
+    if len(info.title) == 0 and len(info.artist) == 0:
+        print(f"{work_dir}: Info title and artist is EMPTY!")
+        return False
+
+    # Rename
+    new_dir_path = os.path.join(
+        parent_dir,
+        f"{get_vaild_fs_name(info.title)} [{get_vaild_fs_name(info.artist)}]",
+    )
+
+    # Same? Ignore
+    if work_dir == new_dir_path:
+        return True
+
+    print(f"{work_dir}: Rename! Title: {info.title}; Artist: {info.artist}")
+    if not os.path.isdir(new_dir_path):
+        # Move Directly
+        shutil.move(work_dir, new_dir_path)
+        return True
+
+    # Same dir?
+    similarity = bms_dir_similarity(work_dir, new_dir_path)
+    print(f" - Directory {new_dir_path} exists! Similarity: {similarity}")
+    if similarity < 0.8:
+        print(" - Merge canceled.")
+        return False
+
+    print(" - Merge start!")
+    move_elements_across_dir(
+        work_dir,
+        new_dir_path,
+        replace_options=REPLACE_OPTION_UPDATE_PACK,
+    )
+    return True
+
+
+def set_name_by_bms(root_dir: str):
+    """
+    该脚本用于重命名作品文件夹。
+    格式：“标题 [艺术家]”
+    """
+    fail_list = []
+    for dir_name in os.listdir(root_dir):
+        dir_path = os.path.join(root_dir, dir_name)
+        if not os.path.isdir(dir_path):
+            continue
+        result = _set_workdir_name_by_bms(dir_path)
+        if not result:
+            fail_list.append(dir_name)
+    if len(fail_list) > 0:
+        print("Fail Count:", len(fail_list))
+        print(fail_list)
+
+
 def copy_workdir_names(root_dir_from: str, root_dir_to: str):
     """
     该脚本使用于以下情况：
@@ -118,3 +201,16 @@ def scan_folder_similar_folders(root_dir: str, similarity_trigger: float = 0.7):
         if similarity < similarity_trigger:
             continue
         print(f"发现相似项：{former_dir_name} <=> {dir_name}")
+
+
+def undo_set_name(root_dir: str):
+    for dir_name in os.listdir(root_dir):
+        dir_path = os.path.join(root_dir, dir_name)
+        if not os.path.isdir(dir_path):
+            continue
+        new_dir_name = dir_name.split(" ")[0]
+        new_dir_path = os.path.join(root_dir, new_dir_name)
+        if dir_name == new_dir_name:
+            continue
+        print(f"Rename {dir_name} to {new_dir_name}")
+        shutil.move(dir_path, new_dir_path)
