@@ -1,7 +1,7 @@
 import os
 from typing import Tuple, List
 
-from bms_fs import get_bms_folder_dir
+from fs import get_bms_folder_dir
 from bms_media.audio import (
     AUDIO_PRESET_FLAC,
     AUDIO_PRESET_FLAC_FFMPEG,

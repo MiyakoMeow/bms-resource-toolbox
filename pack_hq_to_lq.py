@@ -1,4 +1,4 @@
-from bms_fs import get_bms_folder_dir
+from fs import get_bms_folder_dir
 from bms_media.audio import (
     AUDIO_PRESET_OGG_Q10,
 )

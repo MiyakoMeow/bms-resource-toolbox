@@ -4,8 +4,8 @@ from bms_media.audio import (
     AUDIO_PRESET_FLAC,
     AUDIO_PRESET_FLAC_FFMPEG,
 )
-from bms_fs.sync import sync_folder, SYNC_PRESET_FOR_APPEND
-from bms_fs.rawpack import get_num_set_file_names
+from fs.sync import sync_folder, SYNC_PRESET_FOR_APPEND
+from fs.rawpack import get_num_set_file_names
 
 import bms_folder_transfer_audio
 import bms_folder_remove_unneed_media_file

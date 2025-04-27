@@ -1,7 +1,7 @@
 import os
 import shutil
 
-from bms_fs import get_bms_folder_dir, is_dir_having_file
+from fs import get_bms_folder_dir, is_dir_having_file
 
 
 def main(parent_dir: str = ""):

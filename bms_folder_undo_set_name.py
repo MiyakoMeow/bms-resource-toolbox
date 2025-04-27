@@ -1,7 +1,7 @@
 import os
 import shutil
 
-from bms_fs import get_bms_folder_dir
+from fs import get_bms_folder_dir
 
 if __name__ == "__main__":
     root_dir = get_bms_folder_dir()

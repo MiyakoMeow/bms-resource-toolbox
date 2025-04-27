@@ -2,86 +2,23 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from enum import Enum
 import os
 import shutil
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 from dataclasses import dataclass, field
 
-from bms import BMSInfo
 
+def is_dir_having_file(dir_path: str) -> bool:
+    has_file = False
+    for element_name in os.listdir(dir_path):
+        element_path = os.path.join(dir_path, element_name)
+        if os.path.isfile(element_path) and os.path.getsize(element_path) > 0:
+            has_file = True
+        elif os.path.isdir(element_path):
+            has_file = has_file or is_dir_having_file(element_path)
 
-"""
-DIR
-"""
+        if has_file:
+            break
 
-_BMS_FOLDER: Optional[str] = None
-_BMS_PACK_DIR: Optional[str] = None
-
-
-def get_bms_folder_dir(tips: bool = True, use_default: bool = True) -> str:
-    global _BMS_FOLDER
-    if _BMS_FOLDER is not None:
-        return _BMS_FOLDER
-    BMS_FOLDER = os.environ.get("BMS_FOLDER")
-    if BMS_FOLDER is None:
-        BMS_FOLDER = os.path.abspath(".")
-    if tips:
-        print("Set default dir by env BMS_FOLDER")
-        print(f"Input root dir path of bms dirs (Default: {BMS_FOLDER}):", end="")
-    root_dir = input()
-    if len(root_dir.strip()) == 0:
-        if use_default:
-            root_dir = BMS_FOLDER
-        else:
-            raise Exception("Default Value Disabled.")
-    _BMS_FOLDER = root_dir
-    return _BMS_FOLDER
-
-
-def get_bms_pack_dir(tips: bool = True, use_default: bool = True) -> str:
-    global _BMS_PACK_DIR
-    if _BMS_PACK_DIR is not None:
-        return _BMS_PACK_DIR
-    BMS_PACK_DIR = os.environ.get("BMS_PACK_DIR")
-    if BMS_PACK_DIR is None:
-        BMS_PACK_DIR = os.path.abspath(".")
-    if tips:
-        print("Set default pack dir by env BMS_PACK_DIR")
-        print(f"Input dir path of bms packs (Default: {BMS_PACK_DIR}):", end="")
-    root_dir = input()
-    if len(root_dir.strip()) == 0:
-        if use_default:
-            root_dir = BMS_PACK_DIR
-        else:
-            raise Exception("Default Value Disabled.")
-    _BMS_PACK_DIR = root_dir
-    return _BMS_PACK_DIR
-
-
-"""
-FS
-"""
-
-
-def get_vaild_fs_name(ori_name: str) -> str:
-    """
-    Signs:
-    ：＼／＊？＂＜＞｜
-    """
-    return (
-        ori_name.replace(":", "：")
-        .replace("\\", "＼")
-        .replace("/", "／")
-        .replace("*", "＊")
-        .replace("?", "？")
-        .replace("!", "！")
-        .replace('"', "＂")
-        .replace("<", "＜")
-        .replace(">", "＞")
-        .replace("|", "｜")
-    )
-
-
-def get_folder_name(id: str, info: BMSInfo) -> str:
-    return f"{id}. {get_vaild_fs_name(info.title)} [{get_vaild_fs_name(info.artist)}]"
+    return has_file
 
 
 def is_same_content(file_a: str, file_b: str) -> bool:
@@ -247,62 +184,3 @@ def move_elements_across_dir(
             shutil.rmtree(dir_path_ori)
         except PermissionError:
             print(f" x PermissionError! ({dir_path_ori})")
-
-
-def is_dir_having_file(dir_path: str) -> bool:
-    has_file = False
-    for element_name in os.listdir(dir_path):
-        element_path = os.path.join(dir_path, element_name)
-        if os.path.isfile(element_path) and os.path.getsize(element_path) > 0:
-            has_file = True
-        elif os.path.isdir(element_path):
-            has_file = has_file or is_dir_having_file(element_path)
-
-        if has_file:
-            break
-
-    return has_file
-
-
-def bms_dir_similarity(dir_path_a: str, dir_path_b: str) -> float:
-    """两个文件夹中，非媒体文件文件名的相似度。"""
-    # 相似度
-    media_ext_list = (
-        ".ogg",
-        ".wav",
-        ".flac",
-        ".mp4",
-        ".wmv",
-        ".avi",
-        ".mpg",
-        ".mpeg",
-        ".bmp",
-        ".jpg",
-        ".png",
-    )
-
-    def fetch_dir_elements(dir_path) -> Tuple[List[str], List[str], List[str]]:
-        file_list: List[str] = [name or "" for name in os.listdir(dir_path)]
-        media_list: List[str] = [
-            os.path.splitext(name)[0] or ""
-            for name in file_list
-            if name.endswith(media_ext_list)
-        ]
-        non_media_list: List[str] = [
-            name for name in file_list if not name.endswith(media_ext_list)
-        ]
-        return (file_list, media_list, non_media_list)
-
-    file_set_a, media_set_a, non_media_set_a = [
-        set(e_list) for e_list in fetch_dir_elements(dir_path_a)
-    ]
-    if not file_set_a or not media_set_a or not non_media_set_a:
-        return 0.0
-    file_set_b, media_set_b, non_media_set_b = [
-        set(e_list) for e_list in fetch_dir_elements(dir_path_b)
-    ]
-    if not file_set_b or not media_set_b or not non_media_set_b:
-        return 0.0
-    media_set_merge = media_set_a.intersection(media_set_b)
-    media_ratio = len(media_set_merge) / min(len(media_set_a), len(media_set_b))
-    return media_ratio  # Use media ratio only?

@@ -1,6 +1,6 @@
 import os
 
-from bms_fs import is_dir_having_file
+from fs import is_dir_having_file
 from bms_media.audio import (
     AUDIO_PRESET_FLAC,
     AUDIO_PRESET_FLAC_FFMPEG,

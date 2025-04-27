@@ -1,7 +1,7 @@
 import os
 from typing import List
 
-from bms_fs import get_bms_folder_dir
+from fs import get_bms_folder_dir
 
 
 def main(parent_dir: str, print_dir: bool = False):

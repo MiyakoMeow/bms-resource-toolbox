@@ -4,7 +4,7 @@ import shutil
 from typing import Optional
 
 from bms import BMSInfo, get_dir_bms_info
-from bms_fs import (
+from fs import (
     REPLACE_OPTION_UPDATE_PACK,
     bms_dir_similarity,
     get_vaild_fs_name,

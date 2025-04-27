@@ -1,5 +1,22 @@
-from typing import List, Tuple, Optional
 import codecs
+from typing import Dict, List, Optional, Tuple
+
+ENCODINGS = [
+    "shift-jis",
+    "shift-jis-2004",
+    "gb2312",
+    "utf-8",
+    "gb18030",
+    "shift-jisx0213",
+]
+
+BOFTT_ID_SPECIFIC_ENCODING_TABLE: Dict[str, str] = {
+    "134": "utf-8",
+    "191": "gbk",
+    "435": "gbk",
+    "439": "gbk",
+    # 159 bms文件本身有编码问题
+}
 
 
 class PriorityDecoder:
@@ -106,7 +123,21 @@ def read_file_with_priority(
         return None
 
 
-# 示例用法
+def get_bms_file_str(file_bytes: bytes, encoding: Optional[str] = None) -> str:
+    file_str = ""
+    encoding_priority = ENCODINGS
+    if encoding:
+        encoding_priority.insert(0, encoding)
+    decoder = PriorityDecoder(encoding_priority)
+    try:
+        file_str = decoder.decode(file_bytes, errors="strict")
+    except UnicodeDecodeError:
+        file_str = file_bytes.decode("utf-8", errors="ignore")
+
+    return file_str
+
+
+# 解码器测试
 if __name__ == "__main__":
     # 测试数据
     # "こんにちは" + "①" (shift-jis不支持的字符)

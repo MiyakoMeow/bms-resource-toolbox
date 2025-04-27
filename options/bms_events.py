@@ -24,7 +24,7 @@ class BMSEvent(Enum):
             return f"https://manbow.nothing.sh/event/event.cgi?action=More_def&num={work_num}&event=146"
 
 
-def main():
+def jump_to_work_info():
     # Select Event
     print("Select BMS Event:")
     for event in BMSEvent:
@@ -75,4 +75,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    jump_to_work_info()
