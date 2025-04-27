@@ -3,7 +3,7 @@ import shutil
 from typing import List
 
 
-def rename_file(dir: str, file_name: str, input_num: int):
+def _rename_file_with_num(dir: str, file_name: str, input_num: int):
     file_path = os.path.join(dir, file_name)
     new_file_name = f"{input_num} {file_name}"
     new_file_path = os.path.join(dir, new_file_name)
@@ -12,7 +12,7 @@ def rename_file(dir: str, file_name: str, input_num: int):
     print()
 
 
-def cycle(
+def _set_num_cycle(
     dir: str,
     allow_ext: List[str] = [],
     disallow_ext: List[str] = [],
@@ -57,28 +57,21 @@ def cycle(
     if len(input_str_split) == 2:
         file_name = file_names[int(input_str_split[0])]
         input_num = int(input_str_split[1])
-        rename_file(dir, file_name, input_num)
+        _rename_file_with_num(dir, file_name, input_num)
     elif len(input_str_split) == 1:
         file_name = file_names[0]
         input_num = int(input_str_split[0])
-        rename_file(dir, file_name, input_num)
+        _rename_file_with_num(dir, file_name, input_num)
     else:
         print("Invaild input.")
         print()
 
 
-def main():
-    dir = input(f"Input dir (Default: {os.path.abspath(".")}):")
-    if len(dir.strip()) == 0:
-        dir = "."
+def set_num(dir: str):
     while True:
-        cycle(
+        _set_num_cycle(
             dir,
             allow_ext=["zip", "7z", "rar", "mp4", "bms", "bme", "bml", "pms"],
             disallow_ext=[],
             allow_others=False,
         )
-
-
-if __name__ == "__main__":
-    main()

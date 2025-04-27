@@ -1,5 +1,21 @@
 import os
+import shutil
 from typing import List, Tuple
+
+from fs.move import is_dir_having_file
+
+
+def remove_empty_folder(parent_dir: str):
+    for dir_name in os.listdir(parent_dir):
+        dir_path = os.path.join(parent_dir, dir_name)
+        if not os.path.isdir(dir_path):
+            continue
+        if not is_dir_having_file(dir_path):
+            try:
+                print(f"Remove empty dir: {dir_path}")
+                shutil.rmtree(dir_path)
+            except PermissionError:
+                print(" x PermissionError!")
 
 
 def bms_dir_similarity(dir_path_a: str, dir_path_b: str) -> float:
