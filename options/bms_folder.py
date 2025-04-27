@@ -9,7 +9,7 @@ from fs.name import get_vaild_fs_name
 from fs.move import REPLACE_OPTION_UPDATE_PACK, move_elements_across_dir
 
 
-def append_artist_name(root_dir: str):
+def append_artist_name_by_bms(root_dir: str):
     """该脚本适用于希望在作品文件夹名后添加“ [艺术家]”的情况。"""
     dir_names: List[str] = [
         dir_name
@@ -45,19 +45,19 @@ def append_artist_name(root_dir: str):
         shutil.move(from_dir_path, target_dir_path)
 
 
-def _workdir_append_name_by_bms(work_dir: str):
+def _workdir_append_name_by_bms(work_dir: str) -> bool:
     """
     该脚本适用于原有文件夹名与BMS文件无关内容的情况。
     会在文件夹名后添加“. 标题 [艺术家]”
     """
     if not os.path.split(work_dir)[-1].strip().isdigit():
-        # print(f"{dir_path} has been renamed! Skipping...")
-        return
+        print(f"{work_dir} has been renamed! Skipping...")
+        return False
 
     info: Optional[BMSInfo] = get_dir_bms_info(work_dir)
     if info is None:
         print(f"{work_dir} has no bms/bmson files!")
-        return
+        return False
 
     # Deal with info
     print(f"{work_dir} found bms title: {info.title} artist: {info.artist}")
@@ -69,6 +69,25 @@ def _workdir_append_name_by_bms(work_dir: str):
         f"{work_dir}. {get_vaild_fs_name(title)} [{get_vaild_fs_name(artist)}]"
     )
     shutil.move(work_dir, new_dir_path)
+    return True
+
+
+def append_name_by_bms(root_dir: str):
+    """
+    该脚本用于重命名作品文件夹。
+    格式：“标题 [艺术家]”
+    """
+    fail_list = []
+    for dir_name in os.listdir(root_dir):
+        dir_path = os.path.join(root_dir, dir_name)
+        if not os.path.isdir(dir_path):
+            continue
+        result = _workdir_append_name_by_bms(dir_path)
+        if not result:
+            fail_list.append(dir_name)
+    if len(fail_list) > 0:
+        print("Fail Count:", len(fail_list))
+        print(fail_list)
 
 
 def _set_workdir_name_by_bms(work_dir: str) -> bool:
@@ -152,7 +171,7 @@ def set_name_by_bms(root_dir: str):
         print(fail_list)
 
 
-def copy_workdir_names(root_dir_from: str, root_dir_to: str):
+def copy_numbered_workdir_names(root_dir_from: str, root_dir_to: str):
     """
     该脚本使用于以下情况：
     已经有一个文件夹A，它的子文件夹名为“”等带有编号+小数点的形式。

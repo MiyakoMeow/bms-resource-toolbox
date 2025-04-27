@@ -241,47 +241,22 @@ def remove_unneed_media_files(root_dir: str, rules: List[Tuple[List[str], List[s
         print(f" - Tips: {root_dir} has more than 1 mp4 files! {mp4_count}")
 
 
-PRESET_NORMAL: List[Tuple[List[str], List[str]]] = [
+REMOVE_MEDIA_RULE_ORAJA: List[Tuple[List[str], List[str]]] = [
     (["mp4"], ["avi", "wmv", "mpg", "mpeg"]),
     (["avi"], ["wmv", "mpg", "mpeg"]),
     (["flac", "wav"], ["ogg"]),
     (["flac"], ["wav"]),
     (["mpg"], ["wmv"]),
 ]
-PRESET_UPDATE_FIRST: List[Tuple[List[str], List[str]]] = [
+REMOVE_MEDIA_RULE_WAV_FILL_FLAC: List[Tuple[List[str], List[str]]] = [
     (["wav"], ["flac"]),
 ]
-PRESET_MPG_WMV: List[Tuple[List[str], List[str]]] = [
+REMOVE_MEDIA_RULE_MPG_FILL_WMV: List[Tuple[List[str], List[str]]] = [
     (["mpg"], ["wmv"]),
 ]
 
-PRESETS: List[List[Tuple[List[str], List[str]]]] = [
-    PRESET_NORMAL,
-    PRESET_UPDATE_FIRST,
-    PRESET_MPG_WMV,
+REMOVE_MEDIA_FILE_RULES: List[List[Tuple[List[str], List[str]]]] = [
+    REMOVE_MEDIA_RULE_ORAJA,
+    REMOVE_MEDIA_RULE_WAV_FILL_FLAC,
+    REMOVE_MEDIA_RULE_MPG_FILL_WMV,
 ]
-
-
-def _remove_unneed_media_files_entry(
-    root_dir: str, preset: List[Tuple[List[str], List[str]]] = []
-):
-    # Select Preset
-    if len(preset) == 0:
-        for i, preset in enumerate(PRESETS):
-            print(f"- {i}: {PRESETS[i]}")
-        selection_str = input("Select Preset (Default: 0):")
-        selection = 0
-        if len(selection_str) > 0:
-            selection = int(selection_str)
-        preset = PRESETS[selection]
-    print(f"Selected: {preset}")
-
-    # Do
-    for bms_dir_name in os.listdir(root_dir):
-        bms_dir_path = os.path.join(root_dir, bms_dir_name)
-        if not os.path.isdir(bms_dir_path):
-            continue
-        remove_unneed_media_files(
-            bms_dir_path,
-            preset,
-        )

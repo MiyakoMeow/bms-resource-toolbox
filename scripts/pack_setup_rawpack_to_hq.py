@@ -1,24 +1,25 @@
 import os
 
-from bms_media.audio import (
+from fs.move import is_dir_having_file
+from media.audio import (
     AUDIO_PRESET_FLAC,
     AUDIO_PRESET_FLAC_FFMPEG,
+    bms_folder_transfer_audio,
 )
-from fs.sync import sync_folder, SYNC_PRESET_FOR_APPEND
-from fs.rawpack import get_num_set_file_names
 
-import bms_folder_transfer_audio
-import bms_folder_remove_unneed_media_file
-import remove_empty_folder
+from options.bms_folder import append_name_by_bms
+from options.bms_folder_bigpack import (
+    REMOVE_MEDIA_RULE_ORAJA,
+    remove_unneed_media_files,
+)
 import rawpack_unzip_numeric_to_bms_folder
-import bms_folder_copy_name_with_num
 
 
 def main():
     print("BMS Pack Generator by MiyakoMeow.")
-    print(" - For Pack Update:")
+    print(" - For Pack Create:")
     print(
-        "Fast update script, from: Raw Packs set numed, to: delta bms folder just for making pack update."
+        "Fast creating pack script, from: Raw Packs set numed, to: target bms folder."
     )
     print(
         "You need to set pack num before running this script, see scripts_rawpack/rawpack_set_num.py"
@@ -30,7 +31,7 @@ def main():
         print("Pack dir is not vaild dir.")
         return
     # Print Packs
-    file_id_names = get_num_set_file_names(pack_dir)
+    file_id_names = rawpack_unzip_numeric_to_bms_folder.get_num_set_file_names(pack_dir)
     print(" -- There are packs in pack_dir:")
     for file_name in file_id_names:
         print(f" > {file_name}")
@@ -40,15 +41,6 @@ def main():
     if os.path.isdir(root_dir):
         print("Root dir is an existing dir.")
         return
-    # Input 3
-    print(
-        " - Input 3: Already exists BMS Folder path. (Input a dir path that ALREADY exists)"
-    )
-    print("This script will use this dir, just for name syncing and file checking.")
-    sync_dir = input(">")
-    if not os.path.isdir(sync_dir):
-        print("Syncing dir is not vaild dir.")
-        return
     # Confirm
     confirm = input("Sure? [y/N]")
     if not confirm.lower().startswith("y"):
@@ -57,17 +49,20 @@ def main():
     os.makedirs(root_dir, exist_ok=False)
     # Unzip
     print(f" > 1. Unzip packs from {pack_dir} to {root_dir}")
+    cache_dir = os.path.join(root_dir, "CacheDir")
     rawpack_unzip_numeric_to_bms_folder.main(
         root_dir=root_dir,
         pack_dir=pack_dir,
-        cache_dir=os.path.join(root_dir, "CacheDir"),
+        cache_dir=cache_dir,
     )
+    if not is_dir_having_file(cache_dir):
+        os.rmdir(cache_dir)
     # Syncing folder name
-    print(f" > 2. Syncing dir name from {sync_dir} to {root_dir}")
-    bms_folder_copy_name_with_num.main(src_dir=sync_dir, dst_dir=root_dir)
+    print(" > 2. Setting dir names from BMS Files")
+    append_name_by_bms(root_dir=root_dir)
     # Parse Audio
     print(" > 3. Parsing Audio... Phase 1: WAV -> FLAC")
-    bms_folder_transfer_audio.main(
+    bms_folder_transfer_audio(
         root_dir=root_dir,
         input_ext=["wav"],
         transfer_mode=[AUDIO_PRESET_FLAC, AUDIO_PRESET_FLAC_FFMPEG],
@@ -76,15 +71,7 @@ def main():
     )
     # Remove Unneed Media File
     print(" > 4. Removing Unneed Files")
-    bms_folder_remove_unneed_media_file.main(
-        root_dir=root_dir, preset=bms_folder_remove_unneed_media_file.PRESET_NORMAL
-    )
-    # Soft syncing
-    print(f" > 5. Syncing dir files from {sync_dir} to {root_dir}")
-    sync_folder(src_dir=root_dir, dst_dir=sync_dir, preset=SYNC_PRESET_FOR_APPEND)
-    # Remove Empty folder
-    print(f" > 6. Remove empty folder in {root_dir}")
-    remove_empty_folder.main(parent_dir=root_dir)
+    remove_unneed_media_files(root_dir=root_dir, rules=REMOVE_MEDIA_RULE_ORAJA)
 
 
 if __name__ == "__main__":
