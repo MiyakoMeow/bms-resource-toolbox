@@ -1,6 +1,9 @@
+from typing import Callable, List, Tuple
 import webbrowser
 
 from enum import Enum
+
+from options.base import InputType
 
 
 class BMSEvent(Enum):
@@ -72,6 +75,9 @@ def jump_to_work_info():
         else:
             print("Open BMS List.")
             webbrowser.open_new_tab(event.list_url())
+
+
+OPTIONS: List[Tuple[Callable, List[Tuple[InputType, str]]]] = [(jump_to_work_info, [])]
 
 
 if __name__ == "__main__":

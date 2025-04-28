@@ -1,12 +1,13 @@
 import difflib
 import os
 import shutil
-from typing import List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 
 from bms import BMSInfo, get_dir_bms_info
 from fs import bms_dir_similarity
 from fs.name import get_vaild_fs_name
 from fs.move import REPLACE_OPTION_UPDATE_PACK, move_elements_across_dir
+from options.base import InputType
 
 
 def append_artist_name_by_bms(root_dir: str):
@@ -90,7 +91,7 @@ def append_name_by_bms(root_dir: str):
         print(fail_list)
 
 
-def _set_workdir_name_by_bms(work_dir: str) -> bool:
+def _workdir_set_name_by_bms(work_dir: str) -> bool:
     info: Optional[BMSInfo] = get_dir_bms_info(work_dir)
     while info is None:
         print(f"{work_dir} has no bms/bmson files! Trying to move out.")
@@ -163,7 +164,7 @@ def set_name_by_bms(root_dir: str):
         dir_path = os.path.join(root_dir, dir_name)
         if not os.path.isdir(dir_path):
             continue
-        result = _set_workdir_name_by_bms(dir_path)
+        result = _workdir_set_name_by_bms(dir_path)
         if not result:
             fail_list.append(dir_name)
     if len(fail_list) > 0:
@@ -249,14 +250,8 @@ def remove_zero_sized_media_files(current_dir: str, print_dir: bool = False):
         element_path = os.path.join(current_dir, element_name)
         if os.path.isfile(element_path):
             # print(f" - Found file: {element_name}")
-            if not (
-                element_name.endswith(".ogg")
-                or element_name.endswith(".wav")
-                or element_name.endswith(".flac")
-                or element_name.endswith(".bmp")
-                or element_name.endswith(".mpg")
-                or element_name.endswith(".wmv")
-                or element_name.endswith(".mp4")
+            if not element_name.endswith(
+                (".ogg", ".wav", ".flac", ".bmp", ".mpg", ".wmv", ".mp4")
             ):
                 continue
             if os.path.getsize(element_path) > 0:
@@ -274,3 +269,14 @@ def remove_zero_sized_media_files(current_dir: str, print_dir: bool = False):
         remove_zero_sized_media_files(
             current_dir=os.path.join(current_dir, next_dir_name), print_dir=print_dir
         )
+
+
+OPTIONS: List[Tuple[Callable, List[Tuple[InputType, str]]]] = [
+    (set_name_by_bms, [(InputType.Path, "")]),
+    (append_name_by_bms, [(InputType.Path, "")]),
+    (append_artist_name_by_bms, [(InputType.Path, "")]),
+    (copy_numbered_workdir_names, [(InputType.Path, ""), (InputType.Path, "")]),
+    (scan_folder_similar_folders, [(InputType.Path, "")]),
+    (undo_set_name, [(InputType.Path, "")]),
+    (remove_zero_sized_media_files, [(InputType.Path, "")]),
+]

@@ -1,8 +1,10 @@
 import os
+from typing import Callable, List, Tuple
 
 import openpyxl
 
 from bms import get_dir_bms_info
+from options.base import InputType
 
 
 def check_num_folder(bms_dir: str, max_count: int):
@@ -12,7 +14,7 @@ def check_num_folder(bms_dir: str, max_count: int):
             print(f"{folder_path} is not exist!")
 
 
-def create_num_dir(root_dir: str, folder_count: int):
+def create_num_folders(root_dir: str, folder_count: int):
     existing_elements = os.listdir(root_dir)
     for element_name in existing_elements:
         path = f"{root_dir}/{element_name}"
@@ -65,3 +67,27 @@ def generate_work_info_table(root_dir: str):
     table_path = os.path.join(root_dir, "bms_list.xlsx")
     print(f"Saving table to {table_path}")
     workbook.save(table_path)
+
+
+OPTIONS: List[Tuple[Callable, List[Tuple[InputType, str]]]] = [
+    (
+        check_num_folder,
+        [
+            (InputType.Path, "Root Dir:"),
+            (InputType.Int, "Create Number:"),
+        ],
+    ),
+    (
+        create_num_folders,
+        [
+            (InputType.Path, "Root Dir:"),
+            (InputType.Int, "Create Number:"),
+        ],
+    ),
+    (
+        generate_work_info_table,
+        [
+            (InputType.Path, "Root Dir:"),
+        ],
+    ),
+]
