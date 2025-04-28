@@ -1,6 +1,6 @@
 import os
 import shutil
-from typing import Callable, List, Tuple
+from typing import List
 
 
 from fs.rawpack import (
@@ -9,7 +9,7 @@ from fs.rawpack import (
     unzip_file_to_cache_dir,
 )
 from fs.move import is_dir_having_file, move_elements_across_dir
-from options.base import InputType
+from options.base import Input, InputType, Option
 
 
 def unzip_numeric_to_bms_folder(
@@ -234,36 +234,30 @@ def set_file_num(dir: str):
         )
 
 
-OPTIONS: List[Tuple[Callable, List[Tuple[InputType, str]]]] = [
-    (
-        set_file_num,
-        [
-            (InputType.Path, "Pack Dir"),
-        ],
-    ),
-]
-
-OPTIONS: List[Tuple[Callable, List[Tuple[InputType, str]]]] = [
-    (
+OPTIONS: List[Option] = [
+    Option(
+        "",
         unzip_numeric_to_bms_folder,
         [
-            (InputType.Path, "Pack Dir"),
-            (InputType.Path, "Cache Dir"),
-            (InputType.Path, "Root Dir"),
+            Input(InputType.Path, "Pack Dir"),
+            Input(InputType.Path, "Cache Dir"),
+            Input(InputType.Path, "Root Dir"),
         ],
     ),
-    (
+    Option(
+        "",
         unzip_with_name_to_bms_folder,
         [
-            (InputType.Path, "Pack Dir"),
-            (InputType.Path, "Cache Dir"),
-            (InputType.Path, "Root Dir"),
+            Input(InputType.Path, "Pack Dir"),
+            Input(InputType.Path, "Cache Dir"),
+            Input(InputType.Path, "Root Dir"),
         ],
     ),
-    (
+    Option(
+        "",
         set_file_num,
         [
-            (InputType.Path, "RawFile Dir"),
+            Input(InputType.Path, "RawFile Dir"),
         ],
     ),
 ]

@@ -3,6 +3,7 @@ import os
 from fs import remove_empty_folder
 from fs.sync import sync_folder, SYNC_PRESET_FOR_APPEND
 from fs.rawpack import get_num_set_file_names
+from fs.move import is_dir_having_file
 
 from media.audio import (
     AUDIO_PRESET_FLAC,
@@ -17,14 +18,13 @@ from media.video import (
     bms_folder_transfer_video,
 )
 
+from options.base import Input, InputType, Option
 from options.bms_folder_bigpack import (
     REMOVE_MEDIA_RULE_ORAJA,
     remove_unneed_media_files,
 )
 from options.bms_folder import copy_numbered_workdir_names, append_name_by_bms
 from options.rawpack import unzip_numeric_to_bms_folder
-
-from fs.move import is_dir_having_file
 
 
 def pack_raw_to_hq(root_dir: str):
@@ -190,3 +190,38 @@ def pack_update_rawpack_to_hq(pack_dir: str, root_dir: str, sync_dir: str):
     # Remove Empty folder
     print(f" > 6. Remove empty folder in {root_dir}")
     remove_empty_folder(parent_dir=root_dir)
+
+
+OPTIONS = [
+    Option(
+        "",
+        pack_setup_rawpack_to_hq,
+        [
+            Input(InputType.Path, ""),
+            Input(InputType.Path, ""),
+        ],
+    ),
+    Option(
+        "",
+        pack_update_rawpack_to_hq,
+        [
+            Input(InputType.Path, ""),
+            Input(InputType.Path, ""),
+            Input(InputType.Path, ""),
+        ],
+    ),
+    Option(
+        "",
+        pack_raw_to_hq,
+        [
+            Input(InputType.Path, ""),
+        ],
+    ),
+    Option(
+        "",
+        pack_hq_to_lq,
+        [
+            Input(InputType.Path, ""),
+        ],
+    ),
+]

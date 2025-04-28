@@ -1,10 +1,10 @@
 import os
-from typing import Callable, List, Tuple
+from typing import List
 
 import openpyxl
 
 from bms import get_dir_bms_info
-from options.base import InputType
+from options.base import Input, InputType, Option
 
 
 def check_num_folder(bms_dir: str, max_count: int):
@@ -69,25 +69,28 @@ def generate_work_info_table(root_dir: str):
     workbook.save(table_path)
 
 
-OPTIONS: List[Tuple[Callable, List[Tuple[InputType, str]]]] = [
-    (
+OPTIONS: List[Option] = [
+    Option(
+        "",
         check_num_folder,
         [
-            (InputType.Path, "Root Dir:"),
-            (InputType.Int, "Create Number:"),
+            Input(InputType.Path, "Root Dir:"),
+            Input(InputType.Int, "Create Number:"),
         ],
     ),
-    (
+    Option(
+        "",
         create_num_folders,
         [
-            (InputType.Path, "Root Dir:"),
-            (InputType.Int, "Create Number:"),
+            Input(InputType.Path, "Root Dir:"),
+            Input(InputType.Int, "Create Number:"),
         ],
     ),
-    (
+    Option(
+        "",
         generate_work_info_table,
         [
-            (InputType.Path, "Root Dir:"),
+            Input(InputType.Path, "Root Dir:"),
         ],
     ),
 ]

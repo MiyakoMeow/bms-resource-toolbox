@@ -7,7 +7,7 @@ from fs.move import (
     REPLACE_OPTION_UPDATE_PACK,
     move_elements_across_dir,
 )
-from options.base import InputType
+from options.base import Input, InputType, Option
 
 # 日文平假名
 RE_JAPANESE_HIRAGANA = re.compile("[\u3040-\u309f]+")
@@ -290,9 +290,13 @@ def remove_unneed_media_files(
         )
 
 
-OPTIONS: List[Tuple[Callable, List[Tuple[InputType, str]]]] = [
-    (split_folders_with_first_char, [(InputType.Path, "")]),
-    (undo_split_pack, [(InputType.Path, "The target folder path.")]),
-    (merge_split_folders, [(InputType.Path, "")]),
-    (move_works_in_pack, [(InputType.Path, "From"), (InputType.Path, "To")]),
+OPTIONS: List[Option] = [
+    Option("", split_folders_with_first_char, [Input(InputType.Path, "")]),
+    Option("", undo_split_pack, [Input(InputType.Path, "The target folder path.")]),
+    Option("", merge_split_folders, [Input(InputType.Path, "")]),
+    Option(
+        "",
+        move_works_in_pack,
+        [Input(InputType.Path, "From"), Input(InputType.Path, "To")],
+    ),
 ]

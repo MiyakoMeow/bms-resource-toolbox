@@ -1,13 +1,13 @@
 import difflib
 import os
 import shutil
-from typing import Callable, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from bms import BMSInfo, get_dir_bms_info
 from fs import bms_dir_similarity
 from fs.name import get_vaild_fs_name
 from fs.move import REPLACE_OPTION_UPDATE_PACK, move_elements_across_dir
-from options.base import InputType
+from options.base import Input, InputType, Option
 
 
 def append_artist_name_by_bms(root_dir: str):
@@ -271,12 +271,16 @@ def remove_zero_sized_media_files(current_dir: str, print_dir: bool = False):
         )
 
 
-OPTIONS: List[Tuple[Callable, List[Tuple[InputType, str]]]] = [
-    (set_name_by_bms, [(InputType.Path, "")]),
-    (append_name_by_bms, [(InputType.Path, "")]),
-    (append_artist_name_by_bms, [(InputType.Path, "")]),
-    (copy_numbered_workdir_names, [(InputType.Path, ""), (InputType.Path, "")]),
-    (scan_folder_similar_folders, [(InputType.Path, "")]),
-    (undo_set_name, [(InputType.Path, "")]),
-    (remove_zero_sized_media_files, [(InputType.Path, "")]),
+OPTIONS: List[Option] = [
+    Option("", set_name_by_bms, [Input(InputType.Path, "")]),
+    Option("", append_name_by_bms, [Input(InputType.Path, "")]),
+    Option("", append_artist_name_by_bms, [Input(InputType.Path, "")]),
+    Option(
+        "",
+        copy_numbered_workdir_names,
+        [Input(InputType.Path, ""), Input(InputType.Path, "")],
+    ),
+    Option("", scan_folder_similar_folders, [Input(InputType.Path, "")]),
+    Option("", undo_set_name, [Input(InputType.Path, "")]),
+    Option("", remove_zero_sized_media_files, [Input(InputType.Path, "")]),
 ]
