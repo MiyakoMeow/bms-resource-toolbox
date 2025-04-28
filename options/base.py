@@ -2,7 +2,8 @@ from enum import Enum, auto
 
 
 class InputType(Enum):
-    String = auto()
+    Any = auto()
+    Word = auto()
     Int = auto()
     Path = auto()
     Confirm = auto()

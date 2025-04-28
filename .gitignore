@@ -9,3 +9,6 @@ cache/*
 
 # Test
 test*
+
+# Fs History
+fs/history.log
