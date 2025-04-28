@@ -12,7 +12,7 @@ from options.bms_folder_bigpack import (
     REMOVE_MEDIA_RULE_ORAJA,
     remove_unneed_media_files,
 )
-import rawpack_unzip_numeric_to_bms_folder
+from options.rawpack import unzip_numeric_to_bms_folder, get_num_set_file_names
 
 
 def main():
@@ -31,7 +31,7 @@ def main():
         print("Pack dir is not vaild dir.")
         return
     # Print Packs
-    file_id_names = rawpack_unzip_numeric_to_bms_folder.get_num_set_file_names(pack_dir)
+    file_id_names = get_num_set_file_names(pack_dir)
     print(" -- There are packs in pack_dir:")
     for file_name in file_id_names:
         print(f" > {file_name}")
@@ -50,7 +50,7 @@ def main():
     # Unzip
     print(f" > 1. Unzip packs from {pack_dir} to {root_dir}")
     cache_dir = os.path.join(root_dir, "CacheDir")
-    rawpack_unzip_numeric_to_bms_folder.main(
+    unzip_numeric_to_bms_folder(
         root_dir=root_dir,
         pack_dir=pack_dir,
         cache_dir=cache_dir,
@@ -71,7 +71,7 @@ def main():
     )
     # Remove Unneed Media File
     print(" > 4. Removing Unneed Files")
-    remove_unneed_media_files(root_dir=root_dir, rules=REMOVE_MEDIA_RULE_ORAJA)
+    remove_unneed_media_files(root_dir=root_dir, rule=REMOVE_MEDIA_RULE_ORAJA)
 
 
 if __name__ == "__main__":

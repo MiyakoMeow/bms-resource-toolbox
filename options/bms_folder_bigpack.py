@@ -15,7 +15,7 @@ RE_JAPANESE_KATAKANA = re.compile("[\u30a0-\u30ff]+")
 # 汉字
 RE_CHINESE_CHARACTER = re.compile("[\u4e00-\u9fa5]+")
 
-RULES: List[Tuple[str, Callable[[str], bool]]] = [
+FIRST_CHAR_RULES: List[Tuple[str, Callable[[str], bool]]] = [
     ("0-9", lambda name: "0" <= name[0].upper() <= "9"),
     ("ABCD", lambda name: "A" <= name[0].upper() <= "D"),
     ("EFGHIJK", lambda name: "E" <= name[0].upper() <= "K"),
@@ -29,8 +29,8 @@ RULES: List[Tuple[str, Callable[[str], bool]]] = [
 ]
 
 
-def _rules_find(name: str) -> str:
-    for group_name, func in RULES:
+def _first_char_rules_find(name: str) -> str:
+    for group_name, func in FIRST_CHAR_RULES:
         if not func(name):
             continue
         return group_name
@@ -49,7 +49,7 @@ def split_folders_with_first_char(root_dir: str):
     for element_name in os.listdir(root_dir):
         element_path = os.path.join(root_dir, element_name)
         # Find target dir
-        rule = _rules_find(element_name)
+        rule = _first_char_rules_find(element_name)
         target_dir = os.path.join(parent_dir, f"{root_folder_name} [{rule}]")
         if not os.path.isdir(target_dir):
             os.mkdir(target_dir)
@@ -184,16 +184,18 @@ def move_works_in_pack(root_dir_from: str, root_dir_to: str):
     )
 
 
-def remove_unneed_media_files(root_dir: str, rules: List[Tuple[List[str], List[str]]]):
+def _workdir_remove_unneed_media_files(
+    work_dir: str, rule: List[Tuple[List[str], List[str]]]
+):
     remove_pairs: List[Tuple[str, str]] = []
     removed_files: Set[str] = set()
-    for file_name in os.listdir(root_dir):
-        file_path = os.path.join(root_dir, file_name)
+    for file_name in os.listdir(work_dir):
+        file_path = os.path.join(work_dir, file_name)
         if not os.path.isfile(file_path):
             continue
 
         file_ext = file_name.rsplit(".")[-1]
-        for upper_exts, lower_exts in rules:
+        for upper_exts, lower_exts in rule:
             if file_ext not in upper_exts:
                 continue
             # File is empty?
@@ -212,7 +214,7 @@ def remove_unneed_media_files(root_dir: str, rules: List[Tuple[List[str], List[s
                 removed_files.add(replacing_file_path)
 
     if len(remove_pairs) > 0:
-        print(f"Entering: {root_dir}")
+        print(f"Entering: {work_dir}")
 
     # Remove file
     for file_path, replacing_file_path in remove_pairs:
@@ -223,8 +225,8 @@ def remove_unneed_media_files(root_dir: str, rules: List[Tuple[List[str], List[s
 
     # Finished: Count Ext
     ext_count: Dict[str, List[str]] = dict()
-    for file_name in os.listdir(root_dir):
-        file_path = os.path.join(root_dir, file_name)
+    for file_name in os.listdir(work_dir):
+        file_path = os.path.join(work_dir, file_name)
         if not os.path.isfile(file_path):
             continue
 
@@ -238,7 +240,7 @@ def remove_unneed_media_files(root_dir: str, rules: List[Tuple[List[str], List[s
     # Do With Ext Count
     mp4_count = ext_count.get("mp4")
     if mp4_count is not None and len(mp4_count) > 1:
-        print(f" - Tips: {root_dir} has more than 1 mp4 files! {mp4_count}")
+        print(f" - Tips: {work_dir} has more than 1 mp4 files! {mp4_count}")
 
 
 REMOVE_MEDIA_RULE_ORAJA: List[Tuple[List[str], List[str]]] = [
@@ -260,3 +262,28 @@ REMOVE_MEDIA_FILE_RULES: List[List[Tuple[List[str], List[str]]]] = [
     REMOVE_MEDIA_RULE_WAV_FILL_FLAC,
     REMOVE_MEDIA_RULE_MPG_FILL_WMV,
 ]
+
+
+def remove_unneed_media_files(
+    root_dir: str, rule: List[Tuple[List[str], List[str]]] = []
+):
+    # Select Preset
+    if len(rule) == 0:
+        for i, rule in enumerate(REMOVE_MEDIA_FILE_RULES):
+            print(f"- {i}: {REMOVE_MEDIA_FILE_RULES[i]}")
+        selection_str = input("Select Preset (Default: 0):")
+        selection = 0
+        if len(selection_str) > 0:
+            selection = int(selection_str)
+        rule = REMOVE_MEDIA_FILE_RULES[selection]
+    print(f"Selected: {rule}")
+
+    # Do
+    for bms_dir_name in os.listdir(root_dir):
+        bms_dir_path = os.path.join(root_dir, bms_dir_name)
+        if not os.path.isdir(bms_dir_path):
+            continue
+        _workdir_remove_unneed_media_files(
+            bms_dir_path,
+            rule,
+        )

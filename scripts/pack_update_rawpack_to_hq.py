@@ -1,5 +1,6 @@
 import os
 
+from fs import remove_empty_folder
 from media.audio import (
     AUDIO_PRESET_FLAC,
     AUDIO_PRESET_FLAC_FFMPEG,
@@ -13,8 +14,7 @@ from options.bms_folder_bigpack import (
     REMOVE_MEDIA_RULE_ORAJA,
     remove_unneed_media_files,
 )
-import remove_empty_folder
-import rawpack_unzip_numeric_to_bms_folder
+from options.rawpack import unzip_numeric_to_bms_folder
 
 
 def main():
@@ -60,7 +60,7 @@ def main():
     os.makedirs(root_dir, exist_ok=False)
     # Unzip
     print(f" > 1. Unzip packs from {pack_dir} to {root_dir}")
-    rawpack_unzip_numeric_to_bms_folder.main(
+    unzip_numeric_to_bms_folder(
         root_dir=root_dir,
         pack_dir=pack_dir,
         cache_dir=os.path.join(root_dir, "CacheDir"),
@@ -79,13 +79,13 @@ def main():
     )
     # Remove Unneed Media File
     print(" > 4. Removing Unneed Files")
-    remove_unneed_media_files(root_dir=root_dir, rules=REMOVE_MEDIA_RULE_ORAJA)
+    remove_unneed_media_files(root_dir=root_dir, rule=REMOVE_MEDIA_RULE_ORAJA)
     # Soft syncing
     print(f" > 5. Syncing dir files from {sync_dir} to {root_dir}")
     sync_folder(src_dir=root_dir, dst_dir=sync_dir, preset=SYNC_PRESET_FOR_APPEND)
     # Remove Empty folder
     print(f" > 6. Remove empty folder in {root_dir}")
-    remove_empty_folder.main(parent_dir=root_dir)
+    remove_empty_folder(parent_dir=root_dir)
 
 
 if __name__ == "__main__":

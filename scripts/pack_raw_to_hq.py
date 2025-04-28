@@ -26,7 +26,7 @@ def activate():
     )
     # Remove Unneed Media File
     print("Removing Unneed Files")
-    remove_unneed_media_files(root_dir, rules=REMOVE_MEDIA_RULE_ORAJA)
+    remove_unneed_media_files(root_dir, rule=REMOVE_MEDIA_RULE_ORAJA)
 
 
 if __name__ == "__main__":
