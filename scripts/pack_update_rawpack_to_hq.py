@@ -17,7 +17,7 @@ from options.bms_folder_bigpack import (
 from options.rawpack import unzip_numeric_to_bms_folder
 
 
-def main():
+def activate():
     print("BMS Pack Generator by MiyakoMeow.")
     print(" - For Pack Update:")
     print(
@@ -89,4 +89,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    activate()
