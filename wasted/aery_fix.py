@@ -1,7 +1,7 @@
 import os
 from typing import List, Tuple
 
-from bms_fs import (
+from fs import (
     REPLACE_OPTION_UPDATE_PACK,
     move_elements_across_dir,
     bms_dir_similarity,

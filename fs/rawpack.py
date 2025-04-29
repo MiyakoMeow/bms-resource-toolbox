@@ -9,7 +9,7 @@ import zipfile
 import py7zr
 import rarfile
 
-from bms_fs import move_elements_across_dir
+from fs.move import move_elements_across_dir
 
 
 def unzip_file_to_cache_dir(file_path: str, cache_dir_path: str):

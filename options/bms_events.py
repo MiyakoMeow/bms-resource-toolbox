@@ -1,6 +1,9 @@
+from typing import List
 import webbrowser
 
 from enum import Enum
+
+from options.base import Option
 
 
 class BMSEvent(Enum):
@@ -24,7 +27,7 @@ class BMSEvent(Enum):
             return f"https://manbow.nothing.sh/event/event.cgi?action=More_def&num={work_num}&event=146"
 
 
-def main():
+def jump_to_work_info():
     # Select Event
     print("Select BMS Event:")
     for event in BMSEvent:
@@ -74,5 +77,8 @@ def main():
             webbrowser.open_new_tab(event.list_url())
 
 
+OPTIONS: List[Option] = [Option("", jump_to_work_info, [])]
+
+
 if __name__ == "__main__":
-    main()
+    jump_to_work_info()
