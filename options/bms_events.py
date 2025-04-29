@@ -77,7 +77,7 @@ def jump_to_work_info():
             webbrowser.open_new_tab(event.list_url())
 
 
-OPTIONS: List[Option] = [Option("", jump_to_work_info, [])]
+OPTIONS: List[Option] = [Option(func=jump_to_work_info)]
 
 
 if __name__ == "__main__":

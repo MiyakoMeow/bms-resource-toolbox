@@ -6,6 +6,21 @@ from bms.parse import BMSInfo, parse_bms_file, parse_bmson_file
 from bms.work import extract_work_name
 
 
+BMS_FILE_EXTS = (
+    ".bms",
+    ".bme",
+    ".bml",
+    ".pms",
+)
+BMSON_FILE_EXTS = (".bmson",)
+CHART_FILE_EXTS = BMS_FILE_EXTS + BMSON_FILE_EXTS
+
+AUDIO_FILE_EXTS = (".flac", ".ogg", ".wav")
+VIDEO_FILE_EXTS = (".mp4", ".mkv", ".avi", ".wmv", ".mpg", ".mpeg")
+IMAGE_FILE_EXTS = (".jpg", ".png", ".bmp", ".svg")
+MEDIA_FILE_EXTS = AUDIO_FILE_EXTS + VIDEO_FILE_EXTS + IMAGE_FILE_EXTS
+
+
 def get_dir_bms_list(dir_path: str) -> List[BMSInfo]:
     """仅寻找该目录第一层的文件"""
     info_list: List[BMSInfo] = []
@@ -17,11 +32,9 @@ def get_dir_bms_list(dir_path: str) -> List[BMSInfo]:
         file_path = os.path.join(dir_path, file_name)
         # Parse
         info: Optional[BMSInfo] = None
-        if file_name.lower().endswith(
-            (".bms", ".bme", ".bml", ".pms")
-        ) and os.path.isfile(file_path):
+        if file_name.lower().endswith(BMS_FILE_EXTS) and os.path.isfile(file_path):
             info = parse_bms_file(file_path, encoding)
-        elif file_name.lower().endswith((".bmson")) and os.path.isfile(file_path):
+        elif file_name.lower().endswith(BMSON_FILE_EXTS) and os.path.isfile(file_path):
             info = parse_bmson_file(file_path, encoding)
         # Append
         if info is not None:

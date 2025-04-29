@@ -4,7 +4,7 @@ from typing import List
 import openpyxl
 
 from bms import get_dir_bms_info
-from options.base import Input, InputType, Option
+from options.base import Input, InputType, Option, is_root_dir
 
 
 def check_num_folder(bms_dir: str, max_count: int):
@@ -71,26 +71,26 @@ def generate_work_info_table(root_dir: str):
 
 OPTIONS: List[Option] = [
     Option(
-        "",
         check_num_folder,
-        [
+        inputs=[
             Input(InputType.Path, "Root Dir:"),
             Input(InputType.Int, "Create Number:"),
         ],
+        check_func=is_root_dir,
     ),
     Option(
-        "",
         create_num_folders,
-        [
+        inputs=[
             Input(InputType.Path, "Root Dir:"),
             Input(InputType.Int, "Create Number:"),
         ],
+        check_func=is_root_dir,
     ),
     Option(
-        "",
         generate_work_info_table,
-        [
+        inputs=[
             Input(InputType.Path, "Root Dir:"),
         ],
+        check_func=is_root_dir,
     ),
 ]

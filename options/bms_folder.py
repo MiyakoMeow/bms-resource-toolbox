@@ -7,7 +7,7 @@ from bms import BMSInfo, get_dir_bms_info
 from fs import bms_dir_similarity
 from fs.name import get_vaild_fs_name
 from fs.move import REPLACE_OPTION_UPDATE_PACK, move_elements_across_dir
-from options.base import Input, InputType, Option
+from options.base import Input, InputType, Option, is_root_dir
 
 
 def append_artist_name_by_bms(root_dir: str):
@@ -272,15 +272,29 @@ def remove_zero_sized_media_files(current_dir: str, print_dir: bool = False):
 
 
 OPTIONS: List[Option] = [
-    Option("", set_name_by_bms, [Input(InputType.Path, "")]),
-    Option("", append_name_by_bms, [Input(InputType.Path, "")]),
-    Option("", append_artist_name_by_bms, [Input(InputType.Path, "")]),
+    Option(set_name_by_bms, inputs=[Input(InputType.Path, "")], check_func=is_root_dir),
     Option(
-        "",
-        copy_numbered_workdir_names,
-        [Input(InputType.Path, ""), Input(InputType.Path, "")],
+        append_name_by_bms, inputs=[Input(InputType.Path, "")], check_func=is_root_dir
     ),
-    Option("", scan_folder_similar_folders, [Input(InputType.Path, "")]),
-    Option("", undo_set_name, [Input(InputType.Path, "")]),
-    Option("", remove_zero_sized_media_files, [Input(InputType.Path, "")]),
+    Option(
+        append_artist_name_by_bms,
+        inputs=[Input(InputType.Path, "")],
+        check_func=is_root_dir,
+    ),
+    Option(
+        copy_numbered_workdir_names,
+        inputs=[Input(InputType.Path, ""), Input(InputType.Path, "")],
+        check_func=is_root_dir,
+    ),
+    Option(
+        scan_folder_similar_folders,
+        inputs=[Input(InputType.Path, "")],
+        check_func=is_root_dir,
+    ),
+    Option(undo_set_name, inputs=[Input(InputType.Path, "")], check_func=is_root_dir),
+    Option(
+        remove_zero_sized_media_files,
+        inputs=[Input(InputType.Path, "")],
+        check_func=is_root_dir,
+    ),
 ]

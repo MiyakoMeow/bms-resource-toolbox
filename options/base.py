@@ -1,7 +1,9 @@
 from enum import Enum, auto
-from typing import Any, Callable, List
 from dataclasses import dataclass, field
+import os
+from typing import Any, Callable, List, Optional
 
+from bms import CHART_FILE_EXTS, MEDIA_FILE_EXTS
 from fs.input import input_path
 
 
@@ -40,18 +42,92 @@ class Input:
                 return input(f"{'Input:'} [y/N]:").lower().startswith("y")
 
 
+class ConfirmType(Enum):
+    NoConfirm = auto()
+    DefaultYes = auto()
+    DefaultNo = auto()
+
+
 @dataclass
 class Option:
-    name: str
-    func: Callable
+    func: Callable[..., None]
+    name: str = ""
     inputs: List[Input] = field(default_factory=list)
+    check_func: Optional[Callable[..., bool]] = None
+    confirm: ConfirmType = ConfirmType.DefaultYes
 
-    def exec(self):
+    def exec(self) -> None:
         print(self.name if self.name else self.func.__name__)
+        # Input
         args = []
         for i, input in enumerate(self.inputs):
             print(
                 f"Input {i + 1}/{len(self.inputs)}, Type: {input.type}, Desc: {input.description}"
             )
             args.append(input.input())
+        # Check
+        if self.check_func is not None:
+            if not self.check_func(*args):
+                print(" - exec: Check Failed.")
+                return
+        # Confirm
+        match self.confirm:
+            case ConfirmType.NoConfirm:
+                pass
+            case ConfirmType.DefaultYes:
+                confirm = "Confirm? [Y/n]:"
+                go_pass = len(confirm) == 0 or confirm.lower().startswith("y")
+                if not go_pass:
+                    return
+            case ConfirmType.DefaultNo:
+                confirm = "Confirm? [y/N]:"
+                go_pass = confirm.lower().startswith("y")
+                if not go_pass:
+                    return
+        # Exec
         self.func(*args)
+
+
+def is_root_dir(*root_dir: str) -> bool:
+    for dir in root_dir:
+        result = (
+            len(
+                [
+                    file
+                    for file in os.listdir(dir)
+                    if file.endswith(CHART_FILE_EXTS + MEDIA_FILE_EXTS)
+                    and os.path.isfile(os.path.join(dir, file))
+                ]
+            )
+            == 0
+        )
+        if not result:
+            return False
+    return True
+
+
+def is_work_dir(*root_dir: str) -> bool:
+    for dir in root_dir:
+        result = (
+            len(
+                [
+                    file
+                    for file in os.listdir(dir)
+                    if file.endswith(CHART_FILE_EXTS)
+                    and os.path.isfile(os.path.join(dir, file))
+                ]
+            )
+            > 0
+            and len(
+                [
+                    file
+                    for file in os.listdir(dir)
+                    if file.endswith(MEDIA_FILE_EXTS)
+                    and os.path.isfile(os.path.join(dir, file))
+                ]
+            )
+            > 0
+        )
+        if not result:
+            return False
+    return True

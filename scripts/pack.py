@@ -71,18 +71,12 @@ def pack_hq_to_lq(root_dir: str):
     )
 
 
-def pack_setup_rawpack_to_hq(pack_dir: str, root_dir: str):
-    """
-    BMS Pack Generator by MiyakoMeow.
-    - For Pack Create:
-    Fast creating pack script, from: Raw Packs set numed, to: target bms folder.
-    You need to set pack num before running this script, see options/rawpack.py => set_file_num
-    """
+def _pack_setup_rawpack_to_hq_check(pack_dir: str, root_dir: str) -> bool:
     # Input 1
     print(" - Input 1: Pack dir path")
     if not os.path.isdir(pack_dir):
         print("Pack dir is not vaild dir.")
-        return
+        return False
     # Print Packs
     file_id_names = get_num_set_file_names(pack_dir)
     print(" -- There are packs in pack_dir:")
@@ -92,11 +86,17 @@ def pack_setup_rawpack_to_hq(pack_dir: str, root_dir: str):
     print(" - Input 2: BMS Cache Folder path. (Input a dir path that NOT exists)")
     if os.path.isdir(root_dir):
         print("Root dir is an existing dir.")
-        return
-    # Confirm
-    confirm = input("Sure? [y/N]")
-    if not confirm.lower().startswith("y"):
-        return
+        return False
+    return True
+
+
+def pack_setup_rawpack_to_hq(pack_dir: str, root_dir: str):
+    """
+    BMS Pack Generator by MiyakoMeow.
+    - For Pack Create:
+    Fast creating pack script, from: Raw Packs set numed, to: target bms folder.
+    You need to set pack num before running this script, see options/rawpack.py => set_file_num
+    """
     # Setup
     os.makedirs(root_dir, exist_ok=False)
     # Unzip
@@ -126,18 +126,14 @@ def pack_setup_rawpack_to_hq(pack_dir: str, root_dir: str):
     remove_unneed_media_files(root_dir=root_dir, rule=REMOVE_MEDIA_RULE_ORAJA)
 
 
-def pack_update_rawpack_to_hq(pack_dir: str, root_dir: str, sync_dir: str):
-    """
-    BMS Pack Generator by MiyakoMeow.
-     - For Pack Update:
-    Fast update script, from: Raw Packs set numed, to: delta bms folder just for making pack update.
-    You need to set pack num before running this script, see scripts_rawpack/rawpack_set_num.py
-    """
+def _pack_update_rawpack_to_hq_check(
+    pack_dir: str, root_dir: str, sync_dir: str
+) -> bool:
     # Input 1
     print(" - Input 1: Pack dir path")
     if not os.path.isdir(pack_dir):
         print("Pack dir is not vaild dir.")
-        return
+        return False
     # Print Packs
     file_id_names = get_num_set_file_names(pack_dir)
     print(" -- There are packs in pack_dir:")
@@ -147,7 +143,7 @@ def pack_update_rawpack_to_hq(pack_dir: str, root_dir: str, sync_dir: str):
     print(" - Input 2: BMS Cache Folder path. (Input a dir path that NOT exists)")
     if os.path.isdir(root_dir):
         print("Root dir is an existing dir.")
-        return
+        return False
     # Input 3
     print(
         " - Input 3: Already exists BMS Folder path. (Input a dir path that ALREADY exists)"
@@ -155,11 +151,17 @@ def pack_update_rawpack_to_hq(pack_dir: str, root_dir: str, sync_dir: str):
     print("This script will use this dir, just for name syncing and file checking.")
     if not os.path.isdir(sync_dir):
         print("Syncing dir is not vaild dir.")
-        return
-    # Confirm
-    confirm = input("Sure? [y/N]")
-    if not confirm.lower().startswith("y"):
-        return
+        return False
+    return True
+
+
+def pack_update_rawpack_to_hq(pack_dir: str, root_dir: str, sync_dir: str):
+    """
+    BMS Pack Generator by MiyakoMeow.
+     - For Pack Update:
+    Fast update script, from: Raw Packs set numed, to: delta bms folder just for making pack update.
+    You need to set pack num before running this script, see scripts_rawpack/rawpack_set_num.py
+    """
     # Setup
     os.makedirs(root_dir, exist_ok=False)
     # Unzip
@@ -194,33 +196,30 @@ def pack_update_rawpack_to_hq(pack_dir: str, root_dir: str, sync_dir: str):
 
 OPTIONS = [
     Option(
-        "",
-        pack_setup_rawpack_to_hq,
-        [
+        func=pack_setup_rawpack_to_hq,
+        inputs=[
             Input(InputType.Path, ""),
             Input(InputType.Path, ""),
         ],
     ),
     Option(
-        "",
-        pack_update_rawpack_to_hq,
-        [
+        func=pack_update_rawpack_to_hq,
+        check_func=_pack_update_rawpack_to_hq_check,
+        inputs=[
             Input(InputType.Path, ""),
             Input(InputType.Path, ""),
             Input(InputType.Path, ""),
         ],
     ),
     Option(
-        "",
-        pack_raw_to_hq,
-        [
+        func=pack_raw_to_hq,
+        inputs=[
             Input(InputType.Path, ""),
         ],
     ),
     Option(
-        "",
-        pack_hq_to_lq,
-        [
+        func=pack_hq_to_lq,
+        inputs=[
             Input(InputType.Path, ""),
         ],
     ),

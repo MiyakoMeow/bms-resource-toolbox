@@ -236,27 +236,24 @@ def set_file_num(dir: str):
 
 OPTIONS: List[Option] = [
     Option(
-        "",
         unzip_numeric_to_bms_folder,
-        [
+        inputs=[
             Input(InputType.Path, "Pack Dir"),
             Input(InputType.Path, "Cache Dir"),
             Input(InputType.Path, "Root Dir"),
         ],
     ),
     Option(
-        "",
         unzip_with_name_to_bms_folder,
-        [
+        inputs=[
             Input(InputType.Path, "Pack Dir"),
             Input(InputType.Path, "Cache Dir"),
             Input(InputType.Path, "Root Dir"),
         ],
     ),
     Option(
-        "",
         set_file_num,
-        [
+        inputs=[
             Input(InputType.Path, "RawFile Dir"),
         ],
     ),
