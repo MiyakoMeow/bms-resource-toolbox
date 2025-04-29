@@ -80,7 +80,7 @@
 
 - 2024.12.11 11:10 更新所有登陆情报修正作品。
 
-- 2024.12.20 22:00 更新所有登陆情报修正作品。停止更新。
+- 2024.12.20 22:00 更新所有登陆情报修正作品。此后改为不定期更新。
 
 ## 脚本使用方式
 
@@ -92,7 +92,7 @@
 
 - [Python](https://python.org)
 
-> 版本至少为3.7。
+> 版本至少为3.10。
 
 - [ffmpeg](https://ffmpeg.org)
 
@@ -122,13 +122,13 @@ pip install py7zr rarfile
 - 不知道在哪？那就先记住你下载的文件所在的目录，在步骤2和步骤3中填入就好。
 - 建议不要将下载的BMS压缩包/媒体文件和其它文件放在同一目录下，以免在步骤2中误识别造成困扰。
 
-2. 运行`rawpack_set_num.py`，填入步骤1中目录，手动给每个文件的文件名前打上编号。
+2. 运行`rawpack_set_num`，填入步骤1中目录，手动给每个文件的文件名前打上编号。
 
 > - 直接回车刷新文件列表
 > - 输入一个数字A：给文件列表中的第一个文件打上编号A
 > - 输入两个数字A、B：给文件列表中，下标为A的文件，即第（A+1）个文件，打上编号B
 
-3. 运行`pack_setup_rawpack_to_hq.py`。
+3. 运行`pack_setup_rawpack_to_hq`。
 
 - 先填入步骤1中目录。
 - 后填入解压目标文件夹（要求该文件夹不存在，后续程序会创建该文件夹）。
@@ -136,7 +136,8 @@ pip install py7zr rarfile
 - 以下为示例：
 
 ```commandline
-python setup_rawpack_to_hq.py
+python main.py
+（选择pack_setup_raw_to_hq)
 D:\BMSPacks
 E:\BMSCharts\BOFTT
 y
@@ -164,7 +165,8 @@ y
 - 以下为示例：
 
 ```commandline
-python update_rawpack_to_hq.py
+python main.py
+（选择pack_update_raw_to_hq)
 D:\BMSPacks
 E:\BMSCharts\BOFTTCache
 E:\BMSCharts\BOFTT

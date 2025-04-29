@@ -1,3 +1,5 @@
+import subprocess
+
 import options.bms_events
 import options.bms_folder
 import options.bms_folder_bigpack
@@ -15,7 +17,24 @@ OPTIONS = (
 )
 
 
+def check_exec() -> bool:
+    cmds = ["flac --version", "ffmpeg -version", "oggenc -v"]
+    for cmd in cmds:
+        pass
+        run = subprocess.run(
+            cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE
+        )
+        if run.returncode != 0:
+            print(f'Run "{cmd}" failed.')
+            return False
+    return True
+
+
 def main():
+    print("Checking exec...")
+    if not check_exec():
+        print("Check exec failed. See README.md to install necessary suits.")
+        return
     print("功能列表如下：")
     for i, option in enumerate(OPTIONS):
         print(f" - {i}: {option.name if option.name else option.func.__name__}")
