@@ -272,29 +272,42 @@ def remove_zero_sized_media_files(current_dir: str, print_dir: bool = False):
 
 
 OPTIONS: List[Option] = [
-    Option(set_name_by_bms, inputs=[Input(InputType.Path, "")], check_func=is_root_dir),
     Option(
-        append_name_by_bms, inputs=[Input(InputType.Path, "")], check_func=is_root_dir
+        set_name_by_bms,
+        inputs=[Input(InputType.Path, "Root Dir")],
+        check_func=is_root_dir,
+    ),
+    Option(
+        append_name_by_bms,
+        inputs=[Input(InputType.Path, "Root Dir")],
+        check_func=is_root_dir,
     ),
     Option(
         append_artist_name_by_bms,
-        inputs=[Input(InputType.Path, "")],
+        inputs=[Input(InputType.Path, "Root Dir")],
         check_func=is_root_dir,
     ),
     Option(
         copy_numbered_workdir_names,
-        inputs=[Input(InputType.Path, ""), Input(InputType.Path, "")],
+        inputs=[
+            Input(InputType.Path, "Src Root Dir"),
+            Input(InputType.Path, "Dst Root Dir"),
+        ],
         check_func=is_root_dir,
     ),
     Option(
         scan_folder_similar_folders,
-        inputs=[Input(InputType.Path, "")],
+        inputs=[Input(InputType.Path, "Root Dir")],
         check_func=is_root_dir,
     ),
-    Option(undo_set_name, inputs=[Input(InputType.Path, "")], check_func=is_root_dir),
+    Option(
+        undo_set_name,
+        inputs=[Input(InputType.Path, "Root Dir")],
+        check_func=is_root_dir,
+    ),
     Option(
         remove_zero_sized_media_files,
-        inputs=[Input(InputType.Path, "")],
+        inputs=[Input(InputType.Path, "Root Dir")],
         check_func=is_root_dir,
     ),
 ]

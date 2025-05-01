@@ -12,7 +12,6 @@ class InputType(Enum):
     Word = auto()
     Int = auto()
     Path = auto()
-    Confirm = auto()
 
 
 @dataclass
@@ -20,26 +19,26 @@ class Input:
     type: InputType = InputType.Any
     description: str = ""
 
-    def input(self) -> Any:
-        match self:
+    def exec_input(self) -> Any:
+        match self.type:
             case InputType.Any:
                 return input("Input:")
             case InputType.Word:
-                w_str = input("Input:")
+                tips = "Input a word:"
+                w_str = input(tips)
                 while w_str.find(" ") != -1:
                     print("Requires a word. Re-input.")
-                    w_str = input("Input:")
+                    w_str = input(tips)
                 return w_str
             case InputType.Int:
-                w_str = input("Input:")
+                tips = "Input a number:"
+                w_str = input(tips)
                 while not w_str.isdigit():
                     print("Requires a number. Re-input.")
-                    w_str = input("Input:")
+                    w_str = input(tips)
                 return int(w_str)
             case InputType.Path:
-                return input_path("Input:")
-            case InputType.Confirm:
-                return input(f"{'Input:'} [y/N]:").lower().startswith("y")
+                return input_path()
 
 
 class ConfirmType(Enum):
@@ -60,11 +59,13 @@ class Option:
         print(self.name if self.name else self.func.__name__)
         # Input
         args = []
-        for i, input in enumerate(self.inputs):
+        for i, input_arg in enumerate(self.inputs):
             print(
-                f"Input {i + 1}/{len(self.inputs)}, Type: {input.type}, Desc: {input.description}"
+                f"Input {i + 1}/{len(self.inputs)}, Type: {input_arg.type}, Desc: {input_arg.description}"
             )
-            args.append(input.input())
+            res = input_arg.exec_input()
+            print(f' - Input: "{res}"')
+            args.append(res)
         # Check
         if self.check_func is not None:
             if not self.check_func(*args):
@@ -75,12 +76,12 @@ class Option:
             case ConfirmType.NoConfirm:
                 pass
             case ConfirmType.DefaultYes:
-                confirm = "Confirm? [Y/n]:"
+                confirm = input("Confirm? [Y/n]:")
                 go_pass = len(confirm) == 0 or confirm.lower().startswith("y")
                 if not go_pass:
                     return
             case ConfirmType.DefaultNo:
-                confirm = "Confirm? [y/N]:"
+                confirm = input("Confirm? [y/N]:")
                 go_pass = confirm.lower().startswith("y")
                 if not go_pass:
                     return

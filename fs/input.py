@@ -9,7 +9,7 @@ _CURRENT_DIR = os.path.dirname(_CURRENT_PATH)
 _LOG_FILE_PATH = os.path.join(_CURRENT_DIR, "history.log")
 
 
-def input_path(tips: str = "") -> str:
+def input_path() -> str:
     if not os.path.isfile(_LOG_FILE_PATH):
         with open(_LOG_FILE_PATH, "w") as f:
             f.write("\n")
@@ -18,8 +18,6 @@ def input_path(tips: str = "") -> str:
         paths = [path.lstrip() for path in f.readlines()]
         paths = [path for path in paths if len(path) > 0]
     # Tips
-    if len(tips) > 0:
-        print(tips)
     # Select Path
     if len(paths) > 0:
         print("Input path start. These are paths used before:")
@@ -29,9 +27,18 @@ def input_path(tips: str = "") -> str:
         "Input path directly, or input a number(index) above to select:"
     )
     selection = paths[int(selection_str)] if selection_str.isdigit() else selection_str
+    # Dealing
+    selection = selection.lstrip()
+    if selection.endswith("\n"):
+        selection = selection[:-1]
+    if selection.endswith("\r"):
+        selection = selection[:-1]
+    if selection.startswith('"') and selection.endswith('"'):
+        selection = selection[1:-1]
+    # Save
     if not selection_str.isdigit():
         with open(_LOG_FILE_PATH, "a") as f:
-            f.write(selection_str)
+            f.write(selection)
             f.write("\n")
     return selection
 
