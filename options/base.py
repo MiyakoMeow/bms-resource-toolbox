@@ -132,3 +132,7 @@ def is_work_dir(*root_dir: str) -> bool:
         if not result:
             return False
     return True
+
+
+def is_not_a_dir(dir: str) -> bool:
+    return not os.path.isdir(dir)

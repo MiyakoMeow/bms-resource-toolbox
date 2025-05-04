@@ -7,7 +7,7 @@ from fs.move import (
     REPLACE_OPTION_UPDATE_PACK,
     move_elements_across_dir,
 )
-from options.base import Input, InputType, Option, is_root_dir
+from options.base import Input, InputType, Option, is_not_a_dir, is_root_dir
 
 # 日文平假名
 RE_JAPANESE_HIRAGANA = re.compile("[\u3040-\u309f]+")
@@ -299,16 +299,19 @@ OPTIONS: List[Option] = [
     Option(
         undo_split_pack,
         inputs=[Input(InputType.Path, "The target folder path.")],
-        check_func=is_root_dir,
-    ),
-    Option(
-        merge_split_folders,
-        inputs=[Input(InputType.Path, "")],
-        check_func=is_root_dir,
+        check_func=is_not_a_dir,
     ),
     Option(
         move_works_in_pack,
         inputs=[Input(InputType.Path, "From"), Input(InputType.Path, "To")],
         check_func=is_root_dir,
+    ),
+]
+
+OPTIONS_LEGACY: List[Option] = [
+    Option(
+        merge_split_folders,
+        inputs=[Input(InputType.Path, "")],
+        check_func=is_not_a_dir,
     ),
 ]
