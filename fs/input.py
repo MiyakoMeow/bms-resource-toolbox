@@ -17,6 +17,13 @@ def input_path() -> str:
     with open(_LOG_FILE_PATH, "r") as f:
         paths = [path.lstrip() for path in f.readlines()]
         paths = [path for path in paths if len(path) > 0]
+        paths = [(path[:-1] if path.endswith("\n") else path) for path in paths]
+        paths = [(path[:-1] if path.endswith("\r") else path) for path in paths]
+        paths = [
+            (path[1:-1] if path.startswith('"') and path.endswith('"') else path)
+            for path in paths
+        ]
+        paths = [path.lstrip() for path in paths]
     # Tips
     # Select Path
     if len(paths) > 0:
@@ -27,14 +34,6 @@ def input_path() -> str:
         "Input path directly, or input a number(index) above to select:"
     )
     selection = paths[int(selection_str)] if selection_str.isdigit() else selection_str
-    # Dealing
-    selection = selection.lstrip()
-    if selection.endswith("\n"):
-        selection = selection[:-1]
-    if selection.endswith("\r"):
-        selection = selection[:-1]
-    if selection.startswith('"') and selection.endswith('"'):
-        selection = selection[1:-1]
     # Save
     if not selection_str.isdigit():
         with open(_LOG_FILE_PATH, "a") as f:
