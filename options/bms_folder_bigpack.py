@@ -293,16 +293,19 @@ def remove_unneed_media_files(
 OPTIONS: List[Option] = [
     Option(
         split_folders_with_first_char,
+        name="BMS大包目录：将该目录下的作品，按照首字符分成多个文件夹",
         inputs=[Input(InputType.Path, "")],
         check_func=is_root_dir,
     ),
     Option(
         undo_split_pack,
+        name="BMS大包目录：（撤销操作）将该目录下的作品，按照首字符分成多个文件夹",
         inputs=[Input(InputType.Path, "The target folder path.")],
         check_func=is_not_a_dir,
     ),
     Option(
         move_works_in_pack,
+        name="BMS大包目录：将目录A下的作品，移动到目录B（自动合并）",
         inputs=[Input(InputType.Path, "From"), Input(InputType.Path, "To")],
         check_func=is_root_dir,
     ),

@@ -197,30 +197,34 @@ def pack_update_rawpack_to_hq(pack_dir: str, root_dir: str, sync_dir: str):
 OPTIONS = [
     Option(
         func=pack_setup_rawpack_to_hq,
+        name="大包生成脚本：原包 -> HQ版大包",
         inputs=[
-            Input(InputType.Path, ""),
-            Input(InputType.Path, ""),
+            Input(InputType.Path, "Pack Dir"),
+            Input(InputType.Path, "Root Dir"),
         ],
     ),
     Option(
         func=pack_update_rawpack_to_hq,
+        name="大包更新脚本：原包 -> HQ版大包",
         check_func=_pack_update_rawpack_to_hq_check,
         inputs=[
-            Input(InputType.Path, ""),
-            Input(InputType.Path, ""),
-            Input(InputType.Path, ""),
+            Input(InputType.Path, "Pack Dir"),
+            Input(InputType.Path, "Root Dir"),
+            Input(InputType.Path, "Sync Dir"),
         ],
     ),
     Option(
         func=pack_raw_to_hq,
+        name="BMS大包脚本：原包 -> HQ版大包",
         inputs=[
-            Input(InputType.Path, ""),
+            Input(InputType.Path, "Root Dir"),
         ],
     ),
     Option(
         func=pack_hq_to_lq,
+        name="BMS大包脚本：HQ版大包 -> LQ版大包",
         inputs=[
-            Input(InputType.Path, ""),
+            Input(InputType.Path, "Root Dir"),
         ],
     ),
 ]

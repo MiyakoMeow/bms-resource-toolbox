@@ -274,21 +274,25 @@ def remove_zero_sized_media_files(current_dir: str, print_dir: bool = False):
 OPTIONS: List[Option] = [
     Option(
         set_name_by_bms,
+        name="BMS根目录：按照BMS设置文件夹名",
         inputs=[Input(InputType.Path, "Root Dir")],
         check_func=is_root_dir,
     ),
     Option(
         append_name_by_bms,
+        name="BMS根目录：按照BMS追加文件夹名",
         inputs=[Input(InputType.Path, "Root Dir")],
         check_func=is_root_dir,
     ),
     Option(
         append_artist_name_by_bms,
+        name="BMS根目录：按照BMS追加文件夹艺术家名",
         inputs=[Input(InputType.Path, "Root Dir")],
         check_func=is_root_dir,
     ),
     Option(
         copy_numbered_workdir_names,
+        name="BMS根目录：克隆带编号的文件夹名",
         inputs=[
             Input(InputType.Path, "Src Root Dir"),
             Input(InputType.Path, "Dst Root Dir"),
@@ -297,6 +301,7 @@ OPTIONS: List[Option] = [
     ),
     Option(
         scan_folder_similar_folders,
+        name="BMS根目录：扫描相似文件夹名",
         inputs=[Input(InputType.Path, "Root Dir")],
         check_func=is_root_dir,
     ),
@@ -307,6 +312,7 @@ OPTIONS: List[Option] = [
     ),
     Option(
         remove_zero_sized_media_files,
+        name="BMS根目录：移除大小为0的媒体文件",
         inputs=[Input(InputType.Path, "Root Dir")],
         check_func=is_root_dir,
     ),

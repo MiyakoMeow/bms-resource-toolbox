@@ -237,6 +237,7 @@ def set_file_num(dir: str):
 OPTIONS: List[Option] = [
     Option(
         unzip_numeric_to_bms_folder,
+        name="BMS原文件：将赋予编号的文件，解压或放置至指定根目录下，带对应编号的作品目录（自动处理文件夹嵌套）",
         inputs=[
             Input(InputType.Path, "Pack Dir"),
             Input(InputType.Path, "Cache Dir"),
@@ -245,6 +246,7 @@ OPTIONS: List[Option] = [
     ),
     Option(
         unzip_with_name_to_bms_folder,
+        name="BMS原文件：将文件，解压或放置至指定根目录下，对应原文件名的作品目录（自动处理文件夹嵌套）",
         inputs=[
             Input(InputType.Path, "Pack Dir"),
             Input(InputType.Path, "Cache Dir"),
@@ -253,6 +255,7 @@ OPTIONS: List[Option] = [
     ),
     Option(
         set_file_num,
+        name="BMS原文件：赋予编号",
         inputs=[
             Input(InputType.Path, "RawFile Dir"),
         ],

@@ -72,6 +72,7 @@ def generate_work_info_table(root_dir: str):
 OPTIONS: List[Option] = [
     Option(
         check_num_folder,
+        name="BMS活动目录：检查各个的编号对应的文件夹是否存在",
         inputs=[
             Input(InputType.Path, "Root Dir:"),
             Input(InputType.Int, "Create Number:"),
@@ -80,6 +81,7 @@ OPTIONS: List[Option] = [
     ),
     Option(
         create_num_folders,
+        name="BMS活动目录：创建只带有编号的空文件夹",
         inputs=[
             Input(InputType.Path, "Root Dir:"),
             Input(InputType.Int, "Create Number:"),
@@ -88,6 +90,7 @@ OPTIONS: List[Option] = [
     ),
     Option(
         generate_work_info_table,
+        name="BMS活动目录：生成活动作品的xlsx表格",
         inputs=[
             Input(InputType.Path, "Root Dir:"),
         ],
