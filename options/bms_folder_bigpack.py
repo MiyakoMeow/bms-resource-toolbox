@@ -5,6 +5,7 @@ import shutil
 
 from fs.move import (
     REPLACE_OPTION_UPDATE_PACK,
+    is_dir_having_file,
     move_elements_across_dir,
 )
 from options.base import Input, InputType, Option, is_not_a_dir, is_root_dir
@@ -290,6 +291,24 @@ def remove_unneed_media_files(
         )
 
 
+def move_out_works(target_root_dir: str):
+    for root_dir_name in os.listdir(target_root_dir):
+        root_dir_path = os.path.join(target_root_dir, root_dir_name)
+        if not os.path.isdir(root_dir_path):
+            continue
+        for work_dir_name in os.listdir(root_dir_path):
+            work_dir_path = os.path.join(root_dir_path, work_dir_name)
+            target_work_dir_path = os.path.join(target_root_dir, work_dir_name)
+            # Deal with song dir
+            move_elements_across_dir(
+                work_dir_path,
+                target_work_dir_path,
+                replace_options=REPLACE_OPTION_UPDATE_PACK,
+            )
+        if not is_dir_having_file(root_dir_path):
+            os.rmdir(root_dir_path)
+
+
 OPTIONS: List[Option] = [
     Option(
         split_folders_with_first_char,
@@ -308,6 +327,11 @@ OPTIONS: List[Option] = [
         name="BMS大包目录：将目录A下的作品，移动到目录B（自动合并）",
         inputs=[Input(InputType.Path, "From"), Input(InputType.Path, "To")],
         check_func=is_root_dir,
+    ),
+    Option(
+        move_out_works,
+        name="BMS大包父目录：移出一层目录（自动合并）",
+        inputs=[Input(InputType.Path, "Target Root Dir")],
     ),
 ]
 
