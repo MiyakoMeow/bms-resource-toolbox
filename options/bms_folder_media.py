@@ -13,6 +13,7 @@ def transfer_audio(root_dir: str):
         selection = input(f"输入数字选择目标格式（0-{len(AUDIO_PRESETS)}）：")
     preset = AUDIO_PRESETS[int(selection)]
     # 执行
+    print("Start Exec...")
     bms_folder_transfer_audio(
         root_dir,
         input_ext=list(AUDIO_FILE_EXTS),
@@ -32,6 +33,7 @@ def transfer_video(root_dir: str):
         selection = input(f"输入数字选择目标格式（0-{len(VIDEO_PRESETS)}）：")
     preset = VIDEO_PRESETS[int(selection)]
     # 执行
+    print("Start Exec...")
     bms_folder_transfer_video(
         root_dir,
         input_exts=list(VIDEO_FILE_EXTS),
@@ -60,4 +62,3 @@ OPTIONS = [
         check_func=is_root_dir,
     ),
 ]
-
