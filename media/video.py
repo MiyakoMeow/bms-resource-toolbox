@@ -131,6 +131,15 @@ VIDEO_PRESET_MPEG1VIDEO_480P = VideoPreset(
     "ffmpeg", "-hide_banner -i", FLITER_480P, "mpg", "mpeg1video", "-an -b:v 1500k"
 )
 
+VIDEO_PRESETS = [
+    VIDEO_PRESET_AVI_512X512,
+    VIDEO_PRESET_WMV2_512X512,
+    VIDEO_PRESET_MPEG1VIDEO_512X512,
+    VIDEO_PRESET_AVI_480P,
+    VIDEO_PRESET_WMV2_480P,
+    VIDEO_PRESET_MPEG1VIDEO_480P,
+]
+
 
 def get_prefered_preset_list(file_path: str) -> List[VideoPreset]:
     video_size = get_video_size(file_path)

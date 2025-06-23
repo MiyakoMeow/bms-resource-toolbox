@@ -4,6 +4,7 @@ import options.bms_events
 import options.bms_folder
 import options.bms_folder_bigpack
 import options.bms_folder_event
+import options.bms_folder_media
 import options.rawpack
 import scripts.pack
 
@@ -12,6 +13,7 @@ OPTIONS = (
     + options.bms_folder.OPTIONS
     + options.bms_folder_bigpack.OPTIONS
     + options.bms_folder_event.OPTIONS
+    + options.bms_folder_media.OPTIONS
     + options.rawpack.OPTIONS
     + scripts.pack.OPTIONS
 )

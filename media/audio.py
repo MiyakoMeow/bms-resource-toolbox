@@ -38,6 +38,15 @@ AUDIO_PRESET_FLAC = AudioPreset(
 )
 AUDIO_PRESET_FLAC_FFMPEG = AudioPreset("ffmpeg", "flac", "")
 
+AUDIO_PRESETS = [
+    AUDIO_PRESET_FLAC,
+    AUDIO_PRESET_WAV_FROM_FLAC,
+    AUDIO_PRESET_OGG_Q10,
+    AUDIO_PRESET_FLAC_FFMPEG,
+    AUDIO_PRESET_WAV_FFMPEG,
+    AUDIO_PRESET_OGG_FFMPEG,
+]
+
 
 def _get_audio_precess_cmd(
     file_path: str,
