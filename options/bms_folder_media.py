@@ -45,7 +45,7 @@ def transfer_video(root_dir: str):
 OPTIONS = [
     Option(
         func=transfer_audio,
-        name="BMS大包：音频文件转换",
+        name="BMS根目录：音频文件转换",
         inputs=[
             Input(InputType.Path, "Root Dir"),
         ],
@@ -53,10 +53,11 @@ OPTIONS = [
     ),
     Option(
         func=transfer_audio,
-        name="BMS大包：视频文件转换",
+        name="BMS根目录：视频文件转换",
         inputs=[
             Input(InputType.Path, "Root Dir"),
         ],
         check_func=is_root_dir,
     ),
 ]
+
