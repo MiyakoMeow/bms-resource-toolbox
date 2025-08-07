@@ -11,6 +11,8 @@ use smol::{
     stream::StreamExt,
 };
 
+use crate::bms::{BMS_FILE_EXTS, BMSON_FILE_EXTS};
+
 use super::{is_dir_having_file, is_file_same_content};
 
 /// 与 Python 同名枚举
@@ -46,17 +48,14 @@ impl ReplaceOptions {
 /// 默认更新包策略
 pub fn replace_options_update_pack() -> ReplaceOptions {
     ReplaceOptions {
-        ext: [
-            ("bms", ReplaceAction::CheckReplace),
-            ("bml", ReplaceAction::CheckReplace),
-            ("bme", ReplaceAction::CheckReplace),
-            ("pms", ReplaceAction::CheckReplace),
-            ("txt", ReplaceAction::CheckReplace),
-            ("bmson", ReplaceAction::CheckReplace),
-        ]
-        .iter()
-        .map(|(k, v)| ((*k).to_string(), *v))
-        .collect(),
+        ext: {
+            BMS_FILE_EXTS
+                .iter()
+                .chain(BMSON_FILE_EXTS)
+                .chain(&["txt"])
+                .map(|ext| (ext.to_string(), ReplaceAction::CheckReplace))
+                .collect()
+        },
         default: ReplaceAction::Replace,
     }
 }

@@ -240,7 +240,6 @@ pub async fn sync_folder(
 
         // 执行
         if !dst_file_exists || !same {
-            let src_mtime = fs::metadata(&src_path).await?.modified()?;
             match preset.exec {
                 SoftSyncExec::None => {}
                 SoftSyncExec::Copy => {
