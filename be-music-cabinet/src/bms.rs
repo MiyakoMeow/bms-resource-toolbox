@@ -1,3 +1,4 @@
+pub mod bms_event;
 pub mod work;
 
 use std::{cell::LazyCell, collections::HashMap, fs::FileType, path::Path};
@@ -146,4 +147,44 @@ pub async fn get_dir_bms_info(dir: &Path) -> io::Result<Option<Bms>> {
                 map
             });
     Ok(Some(bms))
+}
+
+/// work_dir: 作品目录，目录下一定有BMS文件
+pub async fn is_work_dir(dir: &Path) -> io::Result<bool> {
+    let mut read_dir = fs::read_dir(dir).await?;
+    while let Some(entry) = read_dir.next().await {
+        let entry = entry?;
+        let file_type: FileType = entry.file_type().await?;
+        if !file_type.is_file() {
+            continue;
+        }
+        let file_path = entry.path();
+        #[allow(clippy::borrow_interior_mutable_const)]
+        if file_path
+            .extension()
+            .and_then(|s| s.to_str())
+            .filter(|s| CHART_FILE_EXTS.contains(s))
+            .is_some()
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+/// root_dir: 作品集目录，work_dir的上一层
+pub async fn is_root_dir(dir: &Path) -> io::Result<bool> {
+    let mut read_dir = fs::read_dir(dir).await?;
+    while let Some(entry) = read_dir.next().await {
+        let entry = entry?;
+        let file_type: FileType = entry.file_type().await?;
+        if !file_type.is_dir() {
+            continue;
+        }
+        let dir_path = entry.path();
+        if is_work_dir(&dir_path).await? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
