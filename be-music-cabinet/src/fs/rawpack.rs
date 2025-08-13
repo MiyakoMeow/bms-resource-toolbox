@@ -190,15 +190,14 @@ pub async fn move_out_files_in_folder_in_cache_dir(
     }
 
     // 提示多个 mp4
-    if let Some(mp4) = file_ext_count.get("mp4") {
-        if mp4.len() > 1 {
-            println!(
-                " - Tips: {} has more than 1 mp4 files! {:?}",
-                cache_dir_path.display(),
-                mp4
-            );
-        }
+    if let Some(mp4) = file_ext_count.get("mp4")
+        && mp4.len() > 1
+    {
+        println!(
+            " - Tips: {} has more than 1 mp4 files! {:?}",
+            cache_dir_path.display(),
+            mp4
+        );
     }
-
     Ok(true)
 }

@@ -110,12 +110,11 @@ pub async fn move_elements_across_dir(
         }
 
         // 清理空目录
-        if replace_options.default != ReplaceAction::Skip
-            || !is_dir_having_file(&current_ori).await?
+        if (replace_options.default != ReplaceAction::Skip
+            || !is_dir_having_file(&current_ori).await?)
+            && let Err(e) = fs::remove_dir_all(&current_ori).await
         {
-            if let Err(e) = fs::remove_dir_all(&current_ori).await {
-                eprintln!(" x PermissionError! ({}) - {}", current_ori.display(), e);
-            }
+            eprintln!(" x PermissionError! ({}) - {}", current_ori.display(), e);
         }
     }
 

@@ -121,10 +121,10 @@ fn extract_work_name_post_process(
                 // 检查是否是闭括号
                 else if let Some(&(last_open, _)) = stack.last() {
                     // 查找匹配的闭括号
-                    if let Some(&(_, close)) = PAIRS.iter().find(|&&(open, _)| open == last_open) {
-                        if c == close {
-                            stack.pop();
-                        }
+                    if let Some(&(_, close)) = PAIRS.iter().find(|&&(open, _)| open == last_open)
+                        && c == close
+                    {
+                        stack.pop();
                     }
                 }
             }
