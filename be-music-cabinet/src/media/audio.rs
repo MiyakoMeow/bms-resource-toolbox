@@ -154,11 +154,11 @@ async fn transfer_audio_in_directory(
             continue;
         }
 
-        if let Some(ext) = path.extension().and_then(OsStr::to_str) {
-            if input_extensions.iter().any(|e| e.eq_ignore_ascii_case(ext)) {
-                total_files += 1;
-                tasks.push(path.clone());
-            }
+        if let Some(ext) = path.extension().and_then(OsStr::to_str)
+            && input_extensions.iter().any(|e| e.eq_ignore_ascii_case(ext))
+        {
+            total_files += 1;
+            tasks.push(path.clone());
         }
     }
 
@@ -183,11 +183,11 @@ async fn transfer_audio_in_directory(
             // 检查输出文件是否存在
             if output_path.exists() {
                 if remove_existing {
-                    if let Ok(metadata) = fs::metadata(&output_path).await {
-                        if metadata.len() > 0 {
-                            println!("Removing existing file: {}", output_path.display());
-                            let _ = remove_file(&output_path).await;
-                        }
+                    if let Ok(metadata) = fs::metadata(&output_path).await
+                        && metadata.len() > 0
+                    {
+                        println!("Removing existing file: {}", output_path.display());
+                        let _ = remove_file(&output_path).await;
                     }
                 } else {
                     println!("Skipping existing file: {}", output_path.display());
@@ -212,14 +212,12 @@ async fn transfer_audio_in_directory(
                 match output {
                     Ok(output) if output.status.success() => {
                         // 转换成功
-                        if remove_on_success {
-                            if let Err(e) = remove_file(&file_path).await {
-                                eprintln!(
-                                    "Error deleting original file: {} - {}",
-                                    file_path.display(),
-                                    e
-                                );
-                            }
+                        if remove_on_success && let Err(e) = remove_file(&file_path).await {
+                            eprintln!(
+                                "Error deleting original file: {} - {}",
+                                file_path.display(),
+                                e
+                            );
                         }
                         success = true;
                         break;
@@ -257,14 +255,12 @@ async fn transfer_audio_in_directory(
             fallback_files.push(file_path.file_name().unwrap().to_string_lossy().to_string());
 
             // 所有预设尝试失败后删除原文件
-            if remove_on_fail {
-                if let Err(e) = remove_file(&file_path).await {
-                    eprintln!(
-                        "Error deleting failed file: {} - {}",
-                        file_path.display(),
-                        e
-                    );
-                }
+            if remove_on_fail && let Err(e) = remove_file(&file_path).await {
+                eprintln!(
+                    "Error deleting failed file: {} - {}",
+                    file_path.display(),
+                    e
+                );
             }
         }
     }

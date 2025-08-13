@@ -330,11 +330,9 @@ async fn process_videos_in_directory(
 
         // 根据配置确定使用的预设
         let mut presets_to_try = preset_names.to_vec();
-        if use_preferred {
-            if let Ok(preferred) = get_preferred_presets(&file_path).await {
-                presets_to_try = preferred;
-                presets_to_try.extend(preset_names); // 添加原始预设作为备选
-            }
+        if use_preferred && let Ok(preferred) = get_preferred_presets(&file_path).await {
+            presets_to_try = preferred;
+            presets_to_try.extend(preset_names); // 添加原始预设作为备选
         }
 
         // 尝试每个预设直到成功
@@ -379,10 +377,8 @@ async fn process_videos_in_directory(
                     success = true;
 
                     // 删除原文件
-                    if remove_original {
-                        if let Err(e) = remove_file(&file_path).await {
-                            eprintln!("Failed to remove original file: {e}");
-                        }
+                    if remove_original && let Err(e) = remove_file(&file_path).await {
+                        eprintln!("Failed to remove original file: {e}");
                     }
                     break; // 成功，跳出预设循环
                 }
