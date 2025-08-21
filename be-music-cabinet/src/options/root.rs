@@ -65,8 +65,11 @@ pub async fn copy_numbered_workdir_names(
 ///
 /// # Example
 /// ```
+/// use be_music_cabinet::options::root::scan_folder_similar_folders;
+/// use std::io;
+///
 /// #[tokio::main]
-/// async fn main() -> anyhow::Result<()> {
+/// async fn main() -> io::Result<()> {
 ///     scan_folder_similar_folders("./", 0.7).await?;
 ///     Ok(())
 /// }

@@ -173,7 +173,7 @@ pub async fn sync_folder(
             if !dst_path.exists() {
                 fs::create_dir_all(&dst_path).await?;
             }
-            sync_folder(&src_path, &dst_path, preset).await?;
+            Box::pin(sync_folder(&src_path, &dst_path, preset)).await?;
             continue;
         }
 
