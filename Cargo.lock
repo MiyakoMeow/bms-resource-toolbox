@@ -191,6 +191,8 @@ dependencies = [
  "encoding_rs",
  "futures",
  "num_cpus",
+ "once_cell",
+ "regex",
  "serde",
  "serde_json",
  "sevenz-rust",
