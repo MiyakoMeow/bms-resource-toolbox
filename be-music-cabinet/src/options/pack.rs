@@ -155,6 +155,7 @@ pub async fn pack_hq_to_lq(root_dir: impl AsRef<Path>) -> io::Result<()> {
 }
 
 /// 检查大包生成脚本的输入参数
+#[allow(unused)]
 fn pack_setup_rawpack_to_hq_check(pack_dir: &Path, root_dir: &Path) -> bool {
     // Input 1
     println!(" - Input 1: Pack dir path");
@@ -189,8 +190,8 @@ fn pack_setup_rawpack_to_hq_check(pack_dir: &Path, root_dir: &Path) -> bool {
 /// 大包生成脚本：原包 -> HQ版大包
 /// BMS Pack Generator by MiyakoMeow.
 /// - For Pack Create:
-/// Fast creating pack script, from: Raw Packs set numed, to: target bms folder.
-/// You need to set pack num before running this script, see options/rawpack.rs => set_file_num
+///   Fast creating pack script, from: Raw Packs set numed, to: target bms folder.
+///   You need to set pack num before running this script, see options/rawpack.rs => set_file_num
 pub async fn pack_setup_rawpack_to_hq(
     pack_dir: impl AsRef<Path>,
     root_dir: impl AsRef<Path>,
@@ -250,6 +251,7 @@ pub async fn pack_setup_rawpack_to_hq(
 }
 
 /// 检查大包更新脚本的输入参数
+#[allow(unused)]
 fn pack_update_rawpack_to_hq_check(pack_dir: &Path, root_dir: &Path, sync_dir: &Path) -> bool {
     // Input 1
     println!(" - Input 1: Pack dir path");
@@ -292,8 +294,8 @@ fn pack_update_rawpack_to_hq_check(pack_dir: &Path, root_dir: &Path, sync_dir: &
 /// 大包更新脚本：原包 -> HQ版大包
 /// BMS Pack Generator by MiyakoMeow.
 /// - For Pack Update:
-/// Fast update script, from: Raw Packs set numed, to: delta bms folder just for making pack update.
-/// You need to set pack num before running this script, see scripts_rawpack/rawpack_set_num.py
+///   Fast update script, from: Raw Packs set numed, to: delta bms folder just for making pack update.
+///   You need to set pack num before running this script, see scripts_rawpack/rawpack_set_num.py
 pub async fn pack_update_rawpack_to_hq(
     pack_dir: impl AsRef<Path>,
     root_dir: impl AsRef<Path>,

@@ -323,7 +323,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
                 WorkCommands::UndoSetName { dir, set_type } => {
                     println!("撤销设置目录名: {}", dir.display());
-                    undo_set_name(&dir, get_set_name_type(&set_type)).await?;
+                    undo_set_name(dir, get_set_name_type(set_type)).await?;
                     println!("撤销完成");
                 }
                 WorkCommands::RemoveEmptyMedia { dir } => {
@@ -427,17 +427,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Bms { command } => match command {
             BmsCommands::ParseBms { file } => {
                 println!("解析BMS文件: {}", file.display());
-                let result = parse_bms_file(&file).await?;
+                let result = parse_bms_file(file).await?;
                 println!("解析结果: {:?}", result);
             }
             BmsCommands::ParseBmson { file } => {
                 println!("解析BMSON文件: {}", file.display());
-                let result = parse_bmson_file(&file).await?;
+                let result = parse_bmson_file(file).await?;
                 println!("解析结果: {:?}", result);
             }
             BmsCommands::GetBmsList { dir } => {
                 println!("获取BMS文件列表: {}", dir.display());
-                let results = get_dir_bms_list(&dir).await?;
+                let results = get_dir_bms_list(dir).await?;
                 println!("找到 {} 个BMS文件", results.len());
                 for (i, bms) in results.iter().enumerate() {
                     println!("  {}. {:?}", i + 1, bms);
@@ -445,7 +445,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             BmsCommands::GetBmsInfo { dir } => {
                 println!("获取BMS信息: {}", dir.display());
-                let result = get_dir_bms_info(&dir).await?;
+                let result = get_dir_bms_info(dir).await?;
                 match result {
                     Some(info) => println!("BMS信息: {:?}", info),
                     None => println!("未找到BMS信息"),
@@ -453,24 +453,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             BmsCommands::IsWorkDir { dir } => {
                 println!("检查是否为工作目录: {}", dir.display());
-                let result = is_work_dir(&dir).await?;
+                let result = is_work_dir(dir).await?;
                 println!("是否为工作目录: {}", result);
             }
             BmsCommands::IsRootDir { dir } => {
                 println!("检查是否为根目录: {}", dir.display());
-                let result = is_root_dir(&dir).await?;
+                let result = is_root_dir(dir).await?;
                 println!("是否为根目录: {}", result);
             }
         },
         Commands::Fs { command } => match command {
             FsCommands::IsFileSame { file1, file2 } => {
                 println!("检查文件内容是否相同: {} <-> {}", file1.display(), file2.display());
-                let result = is_file_same_content(&file1, &file2).await?;
+                let result = is_file_same_content(file1, file2).await?;
                 println!("文件内容是否相同: {}", result);
             }
             FsCommands::IsDirHavingFile { dir } => {
                 println!("检查目录是否包含文件: {}", dir.display());
-                let result = is_dir_having_file(&dir).await?;
+                let result = is_dir_having_file(dir).await?;
                 println!("目录是否包含文件: {}", result);
             }
             FsCommands::RemoveEmptyFolders { dir } => {
