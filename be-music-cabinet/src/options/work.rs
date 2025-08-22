@@ -4,12 +4,16 @@ use smol::{fs, io, stream::StreamExt};
 
 use crate::{
     bms::get_dir_bms_info,
-    fs::moving::{move_elements_across_dir, replace_options_update_pack},
+    fs::{
+        get_vaild_fs_name,
+        moving::{move_elements_across_dir, replace_options_update_pack},
+    },
 };
 
 pub const DEFAULT_TITLE: &str = "!!! UnknownTitle !!!";
 pub const DEFAULT_ARTIST: &str = "!!! UnknownArtist !!!";
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BmsFolderSetNameType {
     /// 适用于希望直接替换目录名为“标题 [艺术家]”的情况
     ReplaceTitleArtist = 0,
@@ -35,6 +39,7 @@ pub async fn set_name_by_bms(work_dir: &Path, set_type: BmsFolderSetNameType) ->
         BmsFolderSetNameType::AppendTitleArtist => format!("{work_dir_name} {title} [{artist}]"),
         BmsFolderSetNameType::AppendArtist => format!("{work_dir_name} [{artist}]"),
     };
+    let target_dir_name = get_vaild_fs_name(&target_dir_name);
     let target_work_dir = work_dir
         .parent()
         .ok_or(io::Error::other("Dir name not exists"))?

@@ -16,7 +16,10 @@ use crate::{
         pack::{
             pack_hq_to_lq, pack_raw_to_hq, pack_setup_rawpack_to_hq, pack_update_rawpack_to_hq,
         },
-        root::{copy_numbered_workdir_names, scan_folder_similar_folders},
+        root::{
+            copy_numbered_workdir_names, scan_folder_similar_folders,
+            set_name_by_bms as root_set_name_by_bms,
+        },
         root_bigpack::{
             get_remove_media_rule_mpg_fill_wmv, get_remove_media_rule_oraja,
             get_remove_media_rule_wav_fill_flac, merge_split_folders, move_out_works,
@@ -205,6 +208,16 @@ pub enum RootEventCommands {
 
 #[derive(Subcommand)]
 pub enum RootCommands {
+    /// 根据BMS文件设置目录名
+    SetName {
+        /// 根目录路径
+        #[arg(value_name = "DIR")]
+        dir: PathBuf,
+        /// 设置类型: replace_title_artist, append_title_artist, append_artist
+        /// 详见 [`get_set_name_type`]
+        #[arg(long, default_value = "replace")]
+        set_type: String,
+    },
     /// 复制编号工作目录名
     CopyNumberedNames {
         /// 源目录路径
@@ -315,10 +328,10 @@ pub enum PackCommands {
 
 fn get_set_name_type(set_type: &str) -> BmsFolderSetNameType {
     match set_type {
-        "replace_title_artist" => BmsFolderSetNameType::ReplaceTitleArtist,
-        "append_title_artist" => BmsFolderSetNameType::AppendTitleArtist,
+        "replace" | "replace_title_artist" => BmsFolderSetNameType::ReplaceTitleArtist,
+        "append" | "append_title_artist" => BmsFolderSetNameType::AppendTitleArtist,
         "append_artist" => BmsFolderSetNameType::AppendArtist,
-        _ => BmsFolderSetNameType::AppendTitleArtist,
+        _ => BmsFolderSetNameType::ReplaceTitleArtist,
     }
 }
 
@@ -342,6 +355,13 @@ pub async fn run_command(command: &Commands) -> Result<(), Box<dyn std::error::E
             }
         },
         Commands::Root { command } => match command {
+            RootCommands::SetName { dir, set_type } => {
+                println!("设置目录名: {}", dir.display());
+                let set_type = get_set_name_type(set_type);
+                println!("设置类型: {:?}", set_type);
+                root_set_name_by_bms(dir, set_type).await?;
+                println!("设置完成");
+            }
             RootCommands::CopyNumberedNames { from, to } => {
                 println!("复制编号工作目录名: {} -> {}", from.display(), to.display());
                 copy_numbered_workdir_names(from, to).await?;

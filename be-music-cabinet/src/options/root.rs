@@ -4,6 +4,21 @@ use futures::StreamExt;
 use smol::{fs, io};
 use strsim::jaro_winkler;
 
+use super::work::BmsFolderSetNameType;
+
+pub async fn set_name_by_bms(root_dir: &Path, set_type: BmsFolderSetNameType) -> io::Result<()> {
+    let mut entries = fs::read_dir(root_dir).await?;
+    while let Some(entry) = entries.next().await {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            super::work::set_name_by_bms(&path, set_type).await?;
+        }
+    }
+
+    Ok(())
+}
+
 /// 该脚本使用于以下情况：
 /// 已经有一个文件夹A，它的子文件夹名为“”等带有编号+小数点的形式。
 /// 现在有另一个文件夹B，它的子文件夹名都只有编号。
