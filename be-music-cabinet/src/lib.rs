@@ -44,32 +44,32 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    /// 工作目录相关操作
+    /// Work directory related operations
     Work {
         #[command(subcommand)]
         command: WorkCommands,
     },
-    /// 根目录相关操作
+    /// Root directory related operations
     Root {
         #[command(subcommand)]
         command: RootCommands,
     },
-    /// 大包处理相关操作
+    /// Pack processing related operations
     Pack {
         #[command(subcommand)]
         command: PackCommands,
     },
-    /// BMS文件相关操作
+    /// BMS file related operations
     Bms {
         #[command(subcommand)]
         command: BmsCommands,
     },
-    /// 文件系统相关操作
+    /// File system related operations
     Fs {
         #[command(subcommand)]
         command: FsCommands,
     },
-    /// 根目录事件相关操作
+    /// Root directory event related operations
     RootEvent {
         #[command(subcommand)]
         command: RootEventCommands,
@@ -78,27 +78,27 @@ pub enum Commands {
 
 #[derive(Subcommand)]
 pub enum WorkCommands {
-    /// 根据BMS文件设置目录名
+    /// Set directory name based on BMS file
     SetName {
-        /// 工作目录路径
+        /// Work directory path
         #[arg(value_name = "DIR")]
         dir: PathBuf,
-        /// 设置类型: replace_title_artist, append_title_artist, append_artist
+        /// Set type: replace_title_artist, append_title_artist, append_artist
         #[arg(long, default_value = "append_title_artist")]
         set_type: String,
     },
-    /// 撤销设置目录名
+    /// Undo directory name setting
     UndoSetName {
-        /// 工作目录路径
+        /// Work directory path
         #[arg(value_name = "DIR")]
         dir: PathBuf,
-        /// 设置类型: replace_title_artist, append_title_artist, append_artist
+        /// Set type: replace_title_artist, append_title_artist, append_artist
         #[arg(long, default_value = "append_title_artist")]
         set_type: String,
     },
-    /// 移除零字节媒体文件
+    /// Remove zero-byte media files
     RemoveEmptyMedia {
-        /// 工作目录路径
+        /// Work directory path
         #[arg(value_name = "DIR")]
         dir: PathBuf,
     },
@@ -106,39 +106,39 @@ pub enum WorkCommands {
 
 #[derive(Subcommand)]
 pub enum BmsCommands {
-    /// 解析BMS文件
+    /// Parse BMS file
     ParseBms {
-        /// BMS文件路径
+        /// BMS file path
         #[arg(value_name = "FILE")]
         file: PathBuf,
     },
-    /// 解析BMSON文件
+    /// Parse BMSON file
     ParseBmson {
-        /// BMSON文件路径
+        /// BMSON file path
         #[arg(value_name = "FILE")]
         file: PathBuf,
     },
-    /// 获取目录中的BMS文件列表
+    /// Get BMS file list in directory
     GetBmsList {
-        /// 目录路径
+        /// Directory path
         #[arg(value_name = "DIR")]
         dir: PathBuf,
     },
-    /// 获取目录中的BMS信息
+    /// Get BMS information in directory
     GetBmsInfo {
-        /// 目录路径
+        /// Directory path
         #[arg(value_name = "DIR")]
         dir: PathBuf,
     },
-    /// 检查是否为工作目录
+    /// Check if it's a work directory
     IsWorkDir {
-        /// 目录路径
+        /// Directory path
         #[arg(value_name = "DIR")]
         dir: PathBuf,
     },
-    /// 检查是否为根目录
+    /// Check if it's a root directory
     IsRootDir {
-        /// 目录路径
+        /// Directory path
         #[arg(value_name = "DIR")]
         dir: PathBuf,
     },
@@ -146,33 +146,33 @@ pub enum BmsCommands {
 
 #[derive(Subcommand)]
 pub enum FsCommands {
-    /// 检查两个文件内容是否相同
+    /// Check if two files have the same content
     IsFileSame {
-        /// 第一个文件路径
+        /// First file path
         #[arg(value_name = "FILE1")]
         file1: PathBuf,
-        /// 第二个文件路径
+        /// Second file path
         #[arg(value_name = "FILE2")]
         file2: PathBuf,
     },
-    /// 检查目录是否包含文件
+    /// Check if directory contains files
     IsDirHavingFile {
-        /// 目录路径
+        /// Directory path
         #[arg(value_name = "DIR")]
         dir: PathBuf,
     },
-    /// 移除空文件夹
+    /// Remove empty folders
     RemoveEmptyFolders {
-        /// 父目录路径
+        /// Parent directory path
         #[arg(value_name = "DIR")]
         dir: PathBuf,
     },
-    /// 计算BMS目录相似度
+    /// Calculate BMS directory similarity
     BmsDirSimilarity {
-        /// 第一个目录路径
+        /// First directory path
         #[arg(value_name = "DIR1")]
         dir1: PathBuf,
-        /// 第二个目录路径
+        /// Second directory path
         #[arg(value_name = "DIR2")]
         dir2: PathBuf,
     },
@@ -180,27 +180,27 @@ pub enum FsCommands {
 
 #[derive(Subcommand)]
 pub enum RootEventCommands {
-    /// 检查编号文件夹
+    /// Check numbered folders
     CheckNumFolder {
-        /// 根目录路径
+        /// Root directory path
         #[arg(value_name = "DIR")]
         dir: PathBuf,
-        /// 最大数量
+        /// Maximum count
         #[arg(value_name = "MAX")]
         max: usize,
     },
-    /// 创建编号文件夹
+    /// Create numbered folders
     CreateNumFolders {
-        /// 根目录路径
+        /// Root directory path
         #[arg(value_name = "DIR")]
         dir: PathBuf,
-        /// 文件夹数量
+        /// Folder count
         #[arg(value_name = "COUNT")]
         count: usize,
     },
-    /// 生成工作信息表
+    /// Generate work information table
     GenerateWorkInfoTable {
-        /// 根目录路径
+        /// Root directory path
         #[arg(value_name = "DIR")]
         dir: PathBuf,
     },
@@ -208,82 +208,82 @@ pub enum RootEventCommands {
 
 #[derive(Subcommand)]
 pub enum RootCommands {
-    /// 根据BMS文件设置目录名
+    /// Set directory name based on BMS file
     SetName {
-        /// 根目录路径
+        /// Root directory path
         #[arg(value_name = "DIR")]
         dir: PathBuf,
-        /// 设置类型: replace_title_artist, append_title_artist, append_artist
-        /// 详见 [`get_set_name_type`]
+        /// Set type: replace_title_artist, append_title_artist, append_artist
+        /// See [`get_set_name_type`] for details
         #[arg(long, default_value = "replace")]
         set_type: String,
     },
-    /// 复制编号工作目录名
+    /// Copy numbered work directory names
     CopyNumberedNames {
-        /// 源目录路径
+        /// Source directory path
         #[arg(value_name = "FROM")]
         from: PathBuf,
-        /// 目标目录路径
+        /// Target directory path
         #[arg(value_name = "TO")]
         to: PathBuf,
     },
-    /// 按首字符分割文件夹
+    /// Split folders by first character
     SplitByFirstChar {
-        /// 根目录路径
+        /// Root directory path
         #[arg(value_name = "DIR")]
         dir: PathBuf,
     },
-    /// 撤销分割操作
+    /// Undo split operation
     UndoSplit {
-        /// 目标目录路径
+        /// Target directory path
         #[arg(value_name = "DIR")]
         dir: PathBuf,
     },
-    /// 合并分割的文件夹
+    /// Merge split folders
     MergeSplit {
-        /// 根目录路径
+        /// Root directory path
         #[arg(value_name = "DIR")]
         dir: PathBuf,
     },
-    /// 移动作品
+    /// Move works
     MoveWorks {
-        /// 源目录路径
+        /// Source directory path
         #[arg(value_name = "FROM")]
         from: PathBuf,
-        /// 目标目录路径
+        /// Target directory path
         #[arg(value_name = "TO")]
         to: PathBuf,
     },
-    /// 移出一层目录
+    /// Move out one level directory
     MoveOutWorks {
-        /// 目标根目录路径
+        /// Target root directory path
         #[arg(value_name = "DIR")]
         dir: PathBuf,
     },
-    /// 移动同名作品
+    /// Move works with same name
     MoveSameName {
-        /// 源目录路径
+        /// Source directory path
         #[arg(value_name = "FROM")]
         from: PathBuf,
-        /// 目标目录路径
+        /// Target directory path
         #[arg(value_name = "TO")]
         to: PathBuf,
     },
-    /// 移除不需要的媒体文件
+    /// Remove unnecessary media files
     RemoveUnneedMedia {
-        /// 根目录路径
+        /// Root directory path
         #[arg(value_name = "DIR")]
         dir: PathBuf,
-        /// 规则类型: oraja, wav_fill_flac, mpg_fill_wmv
+        /// Rule type: oraja, wav_fill_flac, mpg_fill_wmv
         #[arg(long, default_value = "oraja")]
         rule: String,
     },
-    /// 扫描相似文件夹
+    /// Scan similar folders
     ScanSimilarFolders {
-        /// 根目录路径
+        /// Root directory path
         #[arg(value_name = "DIR")]
         dir: PathBuf,
-        /// 相似度阈值
+        /// Similarity threshold
         #[arg(long, default_value = "0.7")]
         similarity: f64,
     },
@@ -291,36 +291,36 @@ pub enum RootCommands {
 
 #[derive(Subcommand)]
 pub enum PackCommands {
-    /// 原包 -> HQ版大包
+    /// Raw pack -> HQ pack
     RawToHq {
-        /// 根目录路径
+        /// Root directory path
         #[arg(value_name = "DIR")]
         dir: PathBuf,
     },
-    /// HQ版大包 -> LQ版大包
+    /// HQ pack -> LQ pack
     HqToLq {
-        /// 根目录路径
+        /// Root directory path
         #[arg(value_name = "DIR")]
         dir: PathBuf,
     },
-    /// 大包生成脚本：原包 -> HQ版大包
+    /// Pack generation script: Raw pack -> HQ pack
     SetupRawpackToHq {
-        /// 包目录路径
+        /// Pack directory path
         #[arg(value_name = "PACK_DIR")]
         pack_dir: PathBuf,
-        /// 根目录路径
+        /// Root directory path
         #[arg(value_name = "ROOT_DIR")]
         root_dir: PathBuf,
     },
-    /// 大包更新脚本：原包 -> HQ版大包
+    /// Pack update script: Raw pack -> HQ pack
     UpdateRawpackToHq {
-        /// 包目录路径
+        /// Pack directory path
         #[arg(value_name = "PACK_DIR")]
         pack_dir: PathBuf,
-        /// 根目录路径
+        /// Root directory path
         #[arg(value_name = "ROOT_DIR")]
         root_dir: PathBuf,
-        /// 同步目录路径
+        /// Sync directory path
         #[arg(value_name = "SYNC_DIR")]
         sync_dir: PathBuf,
     },
@@ -339,66 +339,78 @@ pub async fn run_command(command: &Commands) -> Result<(), Box<dyn std::error::E
     match command {
         Commands::Work { command } => match command {
             WorkCommands::SetName { dir, set_type } => {
-                println!("设置目录名: {}", dir.display());
+                println!("Setting directory name: {}", dir.display());
                 set_name_by_bms(dir, get_set_name_type(set_type)).await?;
-                println!("设置完成");
+                println!("Setting completed");
             }
             WorkCommands::UndoSetName { dir, set_type } => {
-                println!("撤销设置目录名: {}", dir.display());
+                println!("Undoing directory name setting: {}", dir.display());
                 undo_set_name(dir, get_set_name_type(set_type)).await?;
-                println!("撤销完成");
+                println!("Undo completed");
             }
             WorkCommands::RemoveEmptyMedia { dir } => {
-                println!("移除零字节媒体文件: {}", dir.display());
+                println!("Removing zero-byte media files: {}", dir.display());
                 remove_zero_sized_media_files(dir).await?;
-                println!("移除完成");
+                println!("Removal completed");
             }
         },
         Commands::Root { command } => match command {
             RootCommands::SetName { dir, set_type } => {
-                println!("设置目录名: {}", dir.display());
+                println!("Setting directory name: {}", dir.display());
                 let set_type = get_set_name_type(set_type);
-                println!("设置类型: {:?}", set_type);
+                println!("Set type: {:?}", set_type);
                 root_set_name_by_bms(dir, set_type).await?;
-                println!("设置完成");
+                println!("Setting completed");
             }
             RootCommands::CopyNumberedNames { from, to } => {
-                println!("复制编号工作目录名: {} -> {}", from.display(), to.display());
+                println!(
+                    "Copying numbered work directory names: {} -> {}",
+                    from.display(),
+                    to.display()
+                );
                 copy_numbered_workdir_names(from, to).await?;
-                println!("复制完成");
+                println!("Copy completed");
             }
             RootCommands::SplitByFirstChar { dir } => {
-                println!("按首字符分割文件夹: {}", dir.display());
+                println!("Splitting folders by first character: {}", dir.display());
                 split_folders_with_first_char(dir).await?;
-                println!("分割完成");
+                println!("Split completed");
             }
             RootCommands::UndoSplit { dir } => {
-                println!("撤销分割操作: {}", dir.display());
+                println!("Undoing split operation: {}", dir.display());
                 undo_split_pack(dir).await?;
-                println!("撤销完成");
+                println!("Undo completed");
             }
             RootCommands::MergeSplit { dir } => {
-                println!("合并分割的文件夹: {}", dir.display());
+                println!("Merging split folders: {}", dir.display());
                 merge_split_folders(dir).await?;
-                println!("合并完成");
+                println!("Merge completed");
             }
             RootCommands::MoveWorks { from, to } => {
-                println!("移动作品: {} -> {}", from.display(), to.display());
+                println!("Moving works: {} -> {}", from.display(), to.display());
                 move_works_in_pack(from, to).await?;
-                println!("移动完成");
+                println!("Move completed");
             }
             RootCommands::MoveOutWorks { dir } => {
-                println!("移出一层目录: {}", dir.display());
+                println!("Moving out one level directory: {}", dir.display());
                 move_out_works(dir).await?;
-                println!("移出完成");
+                println!("Move out completed");
             }
             RootCommands::MoveSameName { from, to } => {
-                println!("移动同名作品: {} -> {}", from.display(), to.display());
+                println!(
+                    "Moving works with same name: {} -> {}",
+                    from.display(),
+                    to.display()
+                );
                 move_works_with_same_name(from, to).await?;
-                println!("移动完成");
+                println!("Move completed");
             }
             RootCommands::RemoveUnneedMedia { dir, rule } => {
-                println!("移除不需要的媒体文件: {} (规则: {})", dir.display(), rule);
+                println!(
+                    "Removing unnecessary media files: {} (rule: {})",
+                    dir.display(),
+                    rule
+                );
                 let rule_config = match rule.as_str() {
                     "oraja" => Some(get_remove_media_rule_oraja()),
                     "wav_fill_flac" => Some(get_remove_media_rule_wav_fill_flac()),
@@ -406,40 +418,40 @@ pub async fn run_command(command: &Commands) -> Result<(), Box<dyn std::error::E
                     _ => None,
                 };
                 remove_unneed_media_files(dir, rule_config).await?;
-                println!("移除完成");
+                println!("Removal completed");
             }
             RootCommands::ScanSimilarFolders { dir, similarity } => {
                 println!(
-                    "扫描相似文件夹: {} (相似度阈值: {})",
+                    "Scanning similar folders: {} (similarity threshold: {})",
                     dir.display(),
                     similarity
                 );
                 let results = scan_folder_similar_folders(dir, *similarity).await?;
                 for (former, current, sim) in results {
-                    println!("相似度 {:.3}: {} <-> {}", sim, former, current);
+                    println!("Similarity {:.3}: {} <-> {}", sim, former, current);
                 }
-                println!("扫描完成");
+                println!("Scan completed");
             }
         },
         Commands::Pack { command } => match command {
             PackCommands::RawToHq { dir } => {
-                println!("原包 -> HQ版大包: {}", dir.display());
+                println!("Raw pack -> HQ pack: {}", dir.display());
                 pack_raw_to_hq(dir).await?;
-                println!("转换完成");
+                println!("Conversion completed");
             }
             PackCommands::HqToLq { dir } => {
-                println!("HQ版大包 -> LQ版大包: {}", dir.display());
+                println!("HQ pack -> LQ pack: {}", dir.display());
                 pack_hq_to_lq(dir).await?;
-                println!("转换完成");
+                println!("Conversion completed");
             }
             PackCommands::SetupRawpackToHq { pack_dir, root_dir } => {
                 println!(
-                    "大包生成脚本: {} -> {}",
+                    "Pack generation script: {} -> {}",
                     pack_dir.display(),
                     root_dir.display()
                 );
                 pack_setup_rawpack_to_hq(pack_dir, root_dir).await?;
-                println!("生成完成");
+                println!("Generation completed");
             }
             PackCommands::UpdateRawpackToHq {
                 pack_dir,
@@ -447,101 +459,109 @@ pub async fn run_command(command: &Commands) -> Result<(), Box<dyn std::error::E
                 sync_dir,
             } => {
                 println!(
-                    "大包更新脚本: {} -> {} (同步: {})",
+                    "Pack update script: {} -> {} (sync: {})",
                     pack_dir.display(),
                     root_dir.display(),
                     sync_dir.display()
                 );
                 pack_update_rawpack_to_hq(pack_dir, root_dir, sync_dir).await?;
-                println!("更新完成");
+                println!("Update completed");
             }
         },
         Commands::Bms { command } => match command {
             BmsCommands::ParseBms { file } => {
-                println!("解析BMS文件: {}", file.display());
+                println!("Parsing BMS file: {}", file.display());
                 let result = parse_bms_file(file).await?;
-                println!("解析结果: {:?}", result);
+                println!("Parse result: {:?}", result);
             }
             BmsCommands::ParseBmson { file } => {
-                println!("解析BMSON文件: {}", file.display());
+                println!("Parsing BMSON file: {}", file.display());
                 let result = parse_bmson_file(file).await?;
-                println!("解析结果: {:?}", result);
+                println!("Parse result: {:?}", result);
             }
             BmsCommands::GetBmsList { dir } => {
-                println!("获取BMS文件列表: {}", dir.display());
+                println!("Getting BMS file list: {}", dir.display());
                 let results = get_dir_bms_list(dir).await?;
-                println!("找到 {} 个BMS文件", results.len());
+                println!("Found {} BMS files", results.len());
                 for (i, bms) in results.iter().enumerate() {
                     println!("  {}. {:?}", i + 1, bms);
                 }
             }
             BmsCommands::GetBmsInfo { dir } => {
-                println!("获取BMS信息: {}", dir.display());
+                println!("Getting BMS information: {}", dir.display());
                 let result = get_dir_bms_info(dir).await?;
                 match result {
-                    Some(info) => println!("BMS信息: {:?}", info),
-                    None => println!("未找到BMS信息"),
+                    Some(info) => println!("BMS information: {:?}", info),
+                    None => println!("No BMS information found"),
                 }
             }
             BmsCommands::IsWorkDir { dir } => {
-                println!("检查是否为工作目录: {}", dir.display());
+                println!("Checking if it's a work directory: {}", dir.display());
                 let result = is_work_dir(dir).await?;
-                println!("是否为工作目录: {}", result);
+                println!("Is work directory: {}", result);
             }
             BmsCommands::IsRootDir { dir } => {
-                println!("检查是否为根目录: {}", dir.display());
+                println!("Checking if it's a root directory: {}", dir.display());
                 let result = is_root_dir(dir).await?;
-                println!("是否为根目录: {}", result);
+                println!("Is root directory: {}", result);
             }
         },
         Commands::Fs { command } => match command {
             FsCommands::IsFileSame { file1, file2 } => {
                 println!(
-                    "检查文件内容是否相同: {} <-> {}",
+                    "Checking if files have same content: {} <-> {}",
                     file1.display(),
                     file2.display()
                 );
                 let result = is_file_same_content(file1, file2).await?;
-                println!("文件内容是否相同: {}", result);
+                println!("Files have same content: {}", result);
             }
             FsCommands::IsDirHavingFile { dir } => {
-                println!("检查目录是否包含文件: {}", dir.display());
+                println!("Checking if directory contains files: {}", dir.display());
                 let result = is_dir_having_file(dir).await?;
-                println!("目录是否包含文件: {}", result);
+                println!("Directory contains files: {}", result);
             }
             FsCommands::RemoveEmptyFolders { dir } => {
-                println!("移除空文件夹: {}", dir.display());
+                println!("Removing empty folders: {}", dir.display());
                 remove_empty_folders(dir).await?;
-                println!("移除完成");
+                println!("Removal completed");
             }
             FsCommands::BmsDirSimilarity { dir1, dir2 } => {
                 println!(
-                    "计算BMS目录相似度: {} <-> {}",
+                    "Calculating BMS directory similarity: {} <-> {}",
                     dir1.display(),
                     dir2.display()
                 );
                 let result = bms_dir_similarity(&dir1, &dir2).await?;
-                println!("相似度: {:.3}", result);
+                println!("Similarity: {:.3}", result);
             }
         },
         Commands::RootEvent { command } => match command {
             RootEventCommands::CheckNumFolder { dir, max } => {
-                println!("检查编号文件夹: {} (最大数量: {})", dir.display(), max);
+                println!(
+                    "Checking numbered folders: {} (max count: {})",
+                    dir.display(),
+                    max
+                );
                 let results = check_num_folder(dir, *max).await?;
-                println!("找到 {} 个编号文件夹", results.len());
+                println!("Found {} numbered folders", results.len());
                 for path in results {
                     println!("  {}", path.display());
                 }
             }
             RootEventCommands::CreateNumFolders { dir, count } => {
-                println!("创建编号文件夹: {} (数量: {})", dir.display(), count);
+                println!(
+                    "Creating numbered folders: {} (count: {})",
+                    dir.display(),
+                    count
+                );
                 create_num_folders(dir, *count).await?;
-                println!("创建完成");
+                println!("Creation completed");
             }
             RootEventCommands::GenerateWorkInfoTable { dir } => {
-                println!("生成工作信息表: {}", dir.display());
+                println!("Generating work information table: {}", dir.display());
                 generate_work_info_table(dir).await?;
-                println!("生成完成");
+                println!("Generation completed");
             }
         },
     }

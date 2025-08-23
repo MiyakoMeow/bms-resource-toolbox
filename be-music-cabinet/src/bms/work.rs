@@ -1,73 +1,73 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
-/// 从多个标题中提取共同的作品名（改进版）
+/// Extract common work name from multiple titles (improved version)
 ///
-/// # 参数
-/// - `titles`: 包含多个标题的切片
-/// - `remove_unclosed_pair`: 是否移除未闭合括号对（默认为 true）
-/// - `remove_tailing_sign_list`: 需要移除的尾部符号列表（默认为空）
+/// # Parameters
+/// - `titles`: slice containing multiple titles
+/// - `remove_unclosed_pair`: whether to remove unclosed bracket pairs (default: true)
+/// - `remove_tailing_sign_list`: list of trailing symbols to remove (default: empty)
 ///
-/// # 返回值
-/// 提取出的共同作品名（经过后处理）
+/// # Returns
+/// Extracted common work name (post-processed)
 pub fn extract_work_name(
     titles: &[&str],
     remove_unclosed_pair: bool,
     remove_tailing_sign_list: &[&str],
 ) -> String {
-    // 如果标题列表为空，直接返回空字符串
+    // If title list is empty, return empty string directly
     if titles.is_empty() {
         return "[!!! EMPTY !!!]".to_string();
     }
 
-    // 使用 HashMap 统计所有可能前缀的出现次数
+    // Use HashMap to count occurrences of all possible prefixes
     let mut prefix_counts: HashMap<String, usize> = HashMap::new();
 
-    // 遍历每个标题
+    // Iterate through each title
     for &title in titles {
-        // 生成标题的所有前缀（按字符长度）
+        // Generate all prefixes of the title (by character length)
         for i in 1..=title.chars().count() {
-            // 获取前 i 个字符组成的前缀
+            // Get prefix composed of first i characters
             let prefix: String = title.chars().take(i).collect();
-            // 更新前缀计数
+            // Update prefix count
             *prefix_counts.entry(prefix).or_insert(0) += 1;
         }
     }
 
-    // 找出最大出现次数
+    // Find maximum occurrence count
     let max_count = *prefix_counts.values().max().unwrap_or(&0);
 
-    // 筛选候选前缀：出现次数超过最大次数的 2/3
+    // Filter candidate prefixes: occurrence count exceeds 2/3 of maximum count
     let mut candidates: Vec<(String, usize)> = prefix_counts
         .into_iter()
         .filter(|(_, count)| *count as f32 >= max_count as f32 * 0.67)
         .collect();
 
-    // 对候选前缀排序（优先长度降序，其次次数降序，最后字典序升序）
+    // Sort candidate prefixes (priority: length descending, then count descending, finally lexicographic ascending)
     candidates.sort_by(|a, b| {
-        // 1. 按长度降序排序
+        // 1. Sort by length descending
         let len_cmp = b.0.len().cmp(&a.0.len());
         if len_cmp != Ordering::Equal {
             return len_cmp;
         }
 
-        // 2. 按出现次数降序排序
+        // 2. Sort by occurrence count descending
         let count_cmp = b.1.cmp(&a.1);
         if count_cmp != Ordering::Equal {
             return count_cmp;
         }
 
-        // 3. 按字典序升序排序
+        // 3. Sort by lexicographic ascending
         a.0.cmp(&b.0)
     });
 
-    // 提取最优候选（若存在则取第一个，否则为空字符串）
+    // Extract optimal candidate (take first if exists, otherwise empty string)
     let best_candidate = candidates
         .first()
         .map(|(s, _)| s.clone())
         .unwrap_or_default();
 
-    // 对最优候选进行后处理
+    // Post-process the optimal candidate
     extract_work_name_post_process(
         &best_candidate,
         remove_unclosed_pair,
@@ -75,24 +75,24 @@ pub fn extract_work_name(
     )
 }
 
-/// 作品名后处理函数：移除未闭合括号和尾部符号
+/// Work name post-processing function: remove unclosed brackets and trailing symbols
 ///
-/// # 参数
-/// - `s`: 原始字符串
-/// - `remove_unclosed_pair`: 是否处理未闭合括号
-/// - `remove_tailing_sign_list`: 需要移除的尾部符号列表
+/// # Parameters
+/// - `s`: original string
+/// - `remove_unclosed_pair`: whether to process unclosed brackets
+/// - `remove_tailing_sign_list`: list of trailing symbols to remove
 ///
-/// # 返回值
-/// 处理后的字符串
+/// # Returns
+/// Processed string
 fn extract_work_name_post_process(
     s: &str,
     remove_unclosed_pair: bool,
     remove_tailing_sign_list: &[&str],
 ) -> String {
-    // 先去除首尾空白字符
+    // First remove leading and trailing whitespace
     let mut result = s.trim().to_string();
 
-    // 定义支持的括号对（包含全角和半角）
+    // Define supported bracket pairs (including full-width and half-width)
     const PAIRS: [(char, char); 7] = [
         ('(', ')'),
         ('[', ']'),
@@ -103,24 +103,24 @@ fn extract_work_name_post_process(
         ('【', '】'),
     ];
 
-    // 循环处理直到没有变化
+    // Loop until no changes
     loop {
         let mut changed = false;
 
-        // 处理未闭合括号
+        // Process unclosed brackets
         if remove_unclosed_pair {
-            // 存储括号状态（括号字符 + 字节位置）
+            // Store bracket state (bracket character + byte position)
             let mut stack: Vec<(char, usize)> = Vec::new();
 
-            // 遍历字符串的每个字符（带字节索引）
+            // Iterate through each character of the string (with byte index)
             for (byte_idx, c) in result.char_indices() {
-                // 检查是否是开括号
+                // Check if it's an opening bracket
                 if PAIRS.iter().any(|&(open, _)| c == open) {
                     stack.push((c, byte_idx));
                 }
-                // 检查是否是闭括号
+                // Check if it's a closing bracket
                 else if let Some(&(last_open, _)) = stack.last() {
-                    // 查找匹配的闭括号
+                    // Find matching closing bracket
                     if let Some(&(_, close)) = PAIRS.iter().find(|&&(open, _)| open == last_open)
                         && c == close
                     {
@@ -129,30 +129,30 @@ fn extract_work_name_post_process(
                 }
             }
 
-            // 如果存在未闭合括号
+            // If there are unclosed brackets
             if let Some(&(_, unmatched_pos)) = stack.last() {
-                // 截断到第一个未匹配括号的位置
+                // Truncate to the position of the first unmatched bracket
                 result.truncate(unmatched_pos);
-                // 移除截断后的尾部空白
+                // Remove trailing whitespace after truncation
                 result = result.trim_end().to_string();
                 changed = true;
             }
         }
 
-        // 处理尾部符号
+        // Process trailing symbols
         for &sign in remove_tailing_sign_list {
             if result.ends_with(sign) {
-                // 移除匹配的尾部符号
+                // Remove matching trailing symbol
                 result.truncate(result.len() - sign.len());
-                // 移除尾部空白
+                // Remove trailing whitespace
                 result = result.trim_end().to_string();
                 changed = true;
-                // 一次只移除一个符号，然后重新检查
+                // Only remove one symbol at a time, then recheck
                 break;
             }
         }
 
-        // 如果没有变化则结束处理
+        // End processing if no changes
         if !changed {
             break;
         }

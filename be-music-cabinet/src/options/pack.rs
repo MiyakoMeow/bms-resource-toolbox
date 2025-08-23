@@ -18,7 +18,7 @@ use crate::{
     },
 };
 
-/// 解压数字命名的包文件到BMS文件夹
+/// Extract numerically named pack files to BMS folders
 async fn unzip_numeric_to_bms_folder(
     root_dir: impl AsRef<Path>,
     pack_dir: impl AsRef<Path>,
@@ -28,7 +28,7 @@ async fn unzip_numeric_to_bms_folder(
     let pack_dir = pack_dir.as_ref();
     let cache_dir = cache_dir.as_ref();
 
-    // 获取数字命名的文件列表
+    // Get list of numerically named files
     let file_names = get_num_set_file_names(pack_dir)?;
 
     for file_name in file_names {
@@ -41,20 +41,20 @@ async fn unzip_numeric_to_bms_folder(
 
         println!("Processing pack file: {}", file_name);
 
-        // 解压到缓存目录
+        // Extract to cache directory
         unzip_file_to_cache_dir(&file_path, cache_dir).await?;
 
-        // 整理缓存目录中的文件
+        // Organize files in cache directory
         if !move_out_files_in_folder_in_cache_dir(cache_dir).await? {
             println!("Failed to process cache directory for {}", file_name);
             continue;
         }
 
-        // 创建目标目录
+        // Create target directory
         let target_dir = root_dir.join(id_str);
         fs::create_dir_all(&target_dir).await?;
 
-        // 移动文件到目标目录
+        // Move files to target directory
         move_elements_across_dir(
             cache_dir,
             &target_dir,
@@ -73,7 +73,7 @@ async fn unzip_numeric_to_bms_folder(
     Ok(())
 }
 
-/// 移除空文件夹
+/// Remove empty folders
 async fn remove_empty_folder(parent_dir: impl AsRef<Path>) -> io::Result<()> {
     let parent_dir = parent_dir.as_ref();
     let mut entries = fs::read_dir(parent_dir).await?;
@@ -83,10 +83,10 @@ async fn remove_empty_folder(parent_dir: impl AsRef<Path>) -> io::Result<()> {
         let path = entry.path();
 
         if path.is_dir() {
-            // 递归移除子目录中的空文件夹
+            // Recursively remove empty folders in subdirectories
             Box::pin(remove_empty_folder(&path)).await?;
 
-            // 检查当前目录是否为空
+            // Check if current directory is empty
             let mut check_entries = fs::read_dir(&path).await?;
             if check_entries.next().await.is_none() {
                 fs::remove_dir(&path).await?;
@@ -98,7 +98,7 @@ async fn remove_empty_folder(parent_dir: impl AsRef<Path>) -> io::Result<()> {
     Ok(())
 }
 
-/// 原包 -> HQ版大包
+/// Raw pack -> HQ pack
 /// This function is for parsing Raw version to HQ version. Just for beatoraja/Qwilight players.
 pub async fn pack_raw_to_hq(root_dir: impl AsRef<Path>) -> io::Result<()> {
     let root_dir = root_dir.as_ref();
@@ -122,7 +122,7 @@ pub async fn pack_raw_to_hq(root_dir: impl AsRef<Path>) -> io::Result<()> {
     Ok(())
 }
 
-/// HQ版大包 -> LQ版大包
+/// HQ pack -> LQ pack
 /// This file is for parsing HQ version to LQ version. Just for LR2 players.
 pub async fn pack_hq_to_lq(root_dir: impl AsRef<Path>) -> io::Result<()> {
     let root_dir = root_dir.as_ref();
@@ -154,7 +154,7 @@ pub async fn pack_hq_to_lq(root_dir: impl AsRef<Path>) -> io::Result<()> {
     Ok(())
 }
 
-/// 检查大包生成脚本的输入参数
+/// Check input parameters for pack generation script
 #[allow(unused)]
 fn pack_setup_rawpack_to_hq_check(pack_dir: &Path, root_dir: &Path) -> bool {
     // Input 1
@@ -187,7 +187,7 @@ fn pack_setup_rawpack_to_hq_check(pack_dir: &Path, root_dir: &Path) -> bool {
     true
 }
 
-/// 大包生成脚本：原包 -> HQ版大包
+/// Pack generation script: Raw pack -> HQ pack
 /// BMS Pack Generator by MiyakoMeow.
 /// - For Pack Create:
 ///   Fast creating pack script, from: Raw Packs set numed, to: target bms folder.
@@ -212,7 +212,7 @@ pub async fn pack_setup_rawpack_to_hq(
     fs::create_dir_all(&cache_dir).await?;
     unzip_numeric_to_bms_folder(root_dir, pack_dir, &cache_dir).await?;
 
-    // 检查缓存目录是否为空，如果为空则删除
+    // Check if cache directory is empty, delete if empty
     if cache_dir.exists() {
         let mut cache_entries = fs::read_dir(&cache_dir).await?;
         if cache_entries.next().await.is_none() {
@@ -250,7 +250,7 @@ pub async fn pack_setup_rawpack_to_hq(
     Ok(())
 }
 
-/// 检查大包更新脚本的输入参数
+/// Check input parameters for pack update script
 #[allow(unused)]
 fn pack_update_rawpack_to_hq_check(pack_dir: &Path, root_dir: &Path, sync_dir: &Path) -> bool {
     // Input 1
@@ -291,7 +291,7 @@ fn pack_update_rawpack_to_hq_check(pack_dir: &Path, root_dir: &Path, sync_dir: &
     true
 }
 
-/// 大包更新脚本：原包 -> HQ版大包
+/// Pack update script: Raw pack -> HQ pack
 /// BMS Pack Generator by MiyakoMeow.
 /// - For Pack Update:
 ///   Fast update script, from: Raw Packs set numed, to: delta bms folder just for making pack update.
@@ -370,7 +370,7 @@ mod tests {
                 .await
                 .expect("Failed to create test dir");
 
-            // 创建一些空文件夹
+            // Create some empty folders
             let empty_dir1 = test_dir.join("empty1");
             let empty_dir2 = test_dir.join("empty2");
             let non_empty_dir = test_dir.join("non_empty");
@@ -385,17 +385,17 @@ mod tests {
                 .await
                 .expect("Failed to create non_empty dir");
 
-            // 在non_empty_dir中创建一个文件
+            // Create a file in non_empty_dir
             fs::write(non_empty_dir.join("test.txt"), "test")
                 .await
                 .expect("Failed to write test file");
 
-            // 执行移除空文件夹操作
+            // Execute remove empty folders operation
             remove_empty_folder(&test_dir)
                 .await
                 .expect("Failed to remove empty folders");
 
-            // 验证结果
+            // Verify results
             assert!(!empty_dir1.exists(), "empty_dir1 should be removed");
             assert!(!empty_dir2.exists(), "empty_dir2 should be removed");
             assert!(non_empty_dir.exists(), "non_empty_dir should still exist");
@@ -424,17 +424,17 @@ mod tests {
                 .await
                 .expect("Failed to create cache dir");
 
-            // 创建一个模拟的数字命名文件（非实际压缩文件）
+            // Create a mock numerically named file (not actual compressed file)
             let test_file = pack_dir.join("001 Test Song.txt");
             fs::write(&test_file, "test content")
                 .await
                 .expect("Failed to create test file");
 
-            // 这个测试主要验证函数结构是否正确，实际解压需要真实的压缩文件
-            // 由于我们没有真实的压缩文件，这里只验证不会panic
+            // This test mainly verifies if the function structure is correct, actual extraction requires real compressed files
+            // Since we don't have real compressed files, we only verify it doesn't panic
             let result = unzip_numeric_to_bms_folder(&root_dir, &pack_dir, &cache_dir).await;
 
-            // 验证函数执行完成（即使可能失败也不应该panic）
+            // Verify function execution completes (should not panic even if it fails)
             assert!(
                 result.is_ok() || result.is_err(),
                 "Function should complete without panicking"

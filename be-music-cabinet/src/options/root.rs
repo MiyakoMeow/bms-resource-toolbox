@@ -19,10 +19,10 @@ pub async fn set_name_by_bms(root_dir: &Path, set_type: BmsFolderSetNameType) ->
     Ok(())
 }
 
-/// 该脚本使用于以下情况：
-/// 已经有一个文件夹A，它的子文件夹名为“”等带有编号+小数点的形式。
-/// 现在有另一个文件夹B，它的子文件夹名都只有编号。
-/// 将A中的子文件夹名，同步给B的对应的子文件夹。
+/// This script is used for the following scenario:
+/// There is already a folder A, whose subfolder names are in the form of "number + decimal point" like "1.1".
+/// Now there is another folder B, whose subfolder names are only numbers.
+/// Copy the subfolder names from A to the corresponding subfolders in B.
 pub async fn copy_numbered_workdir_names(
     root_dir_from: impl AsRef<Path>,
     root_dir_to: impl AsRef<Path>,
@@ -30,7 +30,7 @@ pub async fn copy_numbered_workdir_names(
     let root_from = root_dir_from.as_ref();
     let root_to = root_dir_to.as_ref();
 
-    // 收集 root_from 下所有目录名
+    // Collect all directory names under root_from
     let mut src_names = Vec::new();
     let mut entries = fs::read_dir(root_from).await?;
     while let Some(entry) = entries.next().await {
@@ -43,7 +43,7 @@ pub async fn copy_numbered_workdir_names(
         }
     }
 
-    // 处理 root_to 下的目录
+    // Process directories under root_to
     let mut dst_entries = fs::read_dir(root_to).await?;
     while let Some(entry) = dst_entries.next().await {
         let entry = entry?;
@@ -55,7 +55,7 @@ pub async fn copy_numbered_workdir_names(
         let dir_name = entry.file_name();
         let dir_name_str = dir_name.to_string_lossy();
 
-        // 取第一段数字（空格或点号之前）
+        // Take the first segment of numbers (before space or dot)
         let dir_num = dir_name_str
             .split_whitespace()
             .next()
@@ -63,7 +63,7 @@ pub async fn copy_numbered_workdir_names(
             .unwrap_or_default();
 
         if dir_num.chars().all(|c| c.is_ascii_digit()) {
-            // 在 src_names 中找以 dir_num 开头的目录
+            // Find directory starting with dir_num in src_names
             if let Some(src_name) = src_names.iter().find(|n| n.starts_with(dir_num)) {
                 let target_path = root_to.join(src_name);
                 println!("Rename {:?} -> {}", path.display(), src_name);
@@ -75,8 +75,8 @@ pub async fn copy_numbered_workdir_names(
     Ok(())
 }
 
-/// 异步扫描 `root_dir` 下的子目录，并按字典序两两比对相似度。
-/// 当相似度 ≥ `similarity_trigger` 时，打印这一对目录。
+/// Asynchronously scan subdirectories under `root_dir` and compare similarity between pairs in lexicographic order.
+/// When similarity ≥ `similarity_trigger`, print this pair of directories.
 ///
 /// # Example
 /// ```
@@ -93,7 +93,7 @@ pub async fn scan_folder_similar_folders(
     root_dir: impl AsRef<Path>,
     similarity_trigger: f64,
 ) -> io::Result<Vec<(String, String, f64)>> {
-    // 读目录 -> 收集所有子目录的名字（相对名）
+    // Read directory -> collect all subdirectory names (relative names)
     let mut entries = fs::read_dir(root_dir.as_ref()).await?;
     let mut dir_names = Vec::new();
 
@@ -105,15 +105,15 @@ pub async fn scan_folder_similar_folders(
         }
     }
 
-    // 按字典序排序
+    // Sort in lexicographic order
     dir_names.sort_unstable();
 
-    // 顺序扫描相邻两项
+    // Scan adjacent items in order
     let print_tasks = dir_names
         .windows(2)
         .filter_map(|w| {
             let (former, current) = (&w[0], &w[1]);
-            let similarity = jaro_winkler(former, current); // ← 改动在这里
+            let similarity = jaro_winkler(former, current); // ← Change is here
             (similarity >= similarity_trigger).then_some((
                 former.to_string(),
                 current.to_string(),

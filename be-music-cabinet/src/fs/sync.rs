@@ -4,7 +4,7 @@ use smol::{fs, io, stream::StreamExt};
 
 use super::is_file_same_content;
 
-/// 与 Python SoftSyncExec 等价
+/// Equivalent to Python SoftSyncExec
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SoftSyncExec {
     None,
@@ -15,14 +15,14 @@ pub enum SoftSyncExec {
 impl std::fmt::Display for SoftSyncExec {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SoftSyncExec::None => write!(f, "无操作"),
-            SoftSyncExec::Copy => write!(f, "使用复制命令"),
-            SoftSyncExec::Move => write!(f, "使用移动命令"),
+            SoftSyncExec::None => write!(f, "No operation"),
+            SoftSyncExec::Copy => write!(f, "Use copy command"),
+            SoftSyncExec::Move => write!(f, "Use move command"),
         }
     }
 }
 
-/// 同步预设
+/// Sync preset
 #[derive(Debug, Clone)]
 pub struct SoftSyncPreset {
     pub name: String,
@@ -42,7 +42,7 @@ pub struct SoftSyncPreset {
 impl Default for SoftSyncPreset {
     fn default() -> Self {
         Self {
-            name: "本地文件同步预设".into(),
+            name: "Local file sync preset".into(),
             allow_src_exts: Vec::new(),
             disallow_src_exts: Vec::new(),
             allow_other_exts: true,
@@ -59,43 +59,49 @@ impl Default for SoftSyncPreset {
 
 impl std::fmt::Display for SoftSyncPreset {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}：{}", self.name, self.exec)?;
+        write!(f, "{}: {}", self.name, self.exec)?;
         if self.allow_other_exts {
-            write!(f, " 允许同步未定义扩展名")?;
+            write!(f, " Allow sync undefined extensions")?;
         }
         if !self.allow_src_exts.is_empty() {
-            write!(f, " 允许扩展名：{:?}", self.allow_src_exts)?;
+            write!(f, " Allow extensions: {:?}", self.allow_src_exts)?;
         }
         if !self.disallow_src_exts.is_empty() {
-            write!(f, " 拒绝扩展名：{:?}", self.disallow_src_exts)?;
+            write!(f, " Reject extensions: {:?}", self.disallow_src_exts)?;
         }
         if self.remove_src_same_files {
-            write!(f, " 移除源中相对于目标，不需要同步的文件")?;
+            write!(
+                f,
+                " Remove files in source that don't need sync relative to target"
+            )?;
         }
         if self.remove_dst_extra_files {
-            write!(f, " 移除目标文件夹相对源文件夹的多余文件")?;
+            write!(
+                f,
+                " Remove extra files in target folder relative to source folder"
+            )?;
         }
         if self.check_file_mtime {
-            write!(f, " 检查修改时间")?;
+            write!(f, " Check modification time")?;
         }
         if self.check_file_size {
-            write!(f, " 检查大小")?;
+            write!(f, " Check size")?;
         }
         if self.check_file_sha512 {
-            write!(f, " 检查SHA-512")?;
+            write!(f, " Check SHA-512")?;
         }
         Ok(())
     }
 }
 
-/* ---------- 预设 ---------- */
+/* ---------- Presets ---------- */
 pub fn preset_default() -> SoftSyncPreset {
     SoftSyncPreset::default()
 }
 
 pub fn preset_for_append() -> SoftSyncPreset {
     SoftSyncPreset {
-        name: "同步预设（用于更新包）".into(),
+        name: "Sync preset (for update pack)".into(),
         check_file_size: true,
         check_file_mtime: false,
         check_file_sha512: true,
@@ -134,7 +140,7 @@ pub fn preset_cache() -> SoftSyncPreset {
     }
 }
 
-/// 递归同步
+/// Recursive sync
 pub async fn sync_folder(
     src_dir: impl AsRef<Path>,
     dst_dir: impl AsRef<Path>,
@@ -149,7 +155,7 @@ pub async fn sync_folder(
     let mut dst_remove_files = Vec::new();
     let mut dst_remove_dirs = Vec::new();
 
-    // 收集目录条目
+    // Collect directory entries
     let mut src_entries = fs::read_dir(src_dir).await?;
     let mut dst_entries = fs::read_dir(dst_dir).await?;
     let mut src_map = HashMap::new();
@@ -164,7 +170,7 @@ pub async fn sync_folder(
         dst_map.insert(e.file_name(), e);
     }
 
-    // 1. 处理源
+    // 1. Process source
     for (name, entry) in src_map {
         let src_path = entry.path();
         let dst_path = dst_dir.join(&name);
@@ -177,7 +183,7 @@ pub async fn sync_folder(
             continue;
         }
 
-        // 处理文件
+        // Process file
         let Some(ext) = name
             .to_str()
             .and_then(|s| s.rsplit_once('.').map(|(_, e)| e.to_ascii_lowercase()))
@@ -185,7 +191,7 @@ pub async fn sync_folder(
             continue;
         };
 
-        // 扩展名校验
+        // Extension validation
         let mut ext_ok = preset.allow_other_exts;
         if preset.allow_src_exts.iter().any(|e| e == &ext) {
             ext_ok = true;
@@ -197,7 +203,7 @@ pub async fn sync_folder(
             continue;
         }
 
-        // 扩展名绑定检查
+        // Extension binding check
         let mut bound = false;
         for (from, to) in &preset.no_activate_ext_bound_pairs {
             if from.iter().any(|e| e == &ext) {
@@ -217,7 +223,7 @@ pub async fn sync_folder(
             continue;
         }
 
-        // 检查目标文件
+        // Check target file
         let dst_file_exists = dst_path.exists();
         let mut same = dst_file_exists;
         if dst_file_exists {
@@ -228,7 +234,7 @@ pub async fn sync_folder(
                 same &= src_md.len() == dst_md.len();
             }
             if preset.check_file_mtime && same {
-                // 比较 mtime 秒级即可
+                // Compare mtime at second level is sufficient
                 let src_mtime = src_md.modified()?;
                 let dst_mtime = dst_md.modified()?;
                 same &= src_mtime == dst_mtime;
@@ -238,7 +244,7 @@ pub async fn sync_folder(
             }
         }
 
-        // 执行
+        // Execute
         if !dst_file_exists || !same {
             match preset.exec {
                 SoftSyncExec::None => {}
@@ -259,7 +265,7 @@ pub async fn sync_folder(
         }
     }
 
-    // 2. 清理目标多余条目
+    // 2. Clean up extra target entries
     if preset.remove_dst_extra_files {
         for (name, entry) in dst_map {
             let src_path = src_dir.join(&name);
@@ -277,7 +283,7 @@ pub async fn sync_folder(
         }
     }
 
-    // 打印
+    // Print
     let has_any = !src_copy_files.is_empty()
         || !src_move_files.is_empty()
         || !src_remove_files.is_empty()

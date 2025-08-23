@@ -1,6 +1,6 @@
-//! be-music-cabinet 基本使用示例
+//! be-music-cabinet basic usage example
 //!
-//! 这个示例展示了如何使用 be-music-cabinet 的各种功能
+//! This example demonstrates how to use various features of be-music-cabinet
 
 use be_music_cabinet::options::{
     pack::{pack_hq_to_lq, pack_raw_to_hq},
@@ -11,55 +11,55 @@ use std::path::Path;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("be-music-cabinet 基本使用示例");
+    println!("be-music-cabinet basic usage example");
     println!("================================");
 
-    // 示例1: 设置BMS文件夹名称
-    println!("\n1. 设置BMS文件夹名称");
+    // Example 1: Set BMS folder name
+    println!("\n1. Set BMS folder name");
     let bms_dir = Path::new("./example_bms_folder");
     if bms_dir.exists() {
-        println!("设置目录名: {}", bms_dir.display());
+        println!("Setting directory name: {}", bms_dir.display());
         set_name_by_bms(bms_dir, BmsFolderSetNameType::AppendTitleArtist).await?;
-        println!("设置完成");
+        println!("Setting completed");
     } else {
-        println!("示例目录不存在: {}", bms_dir.display());
+        println!("Example directory does not exist: {}", bms_dir.display());
     }
 
-    // 示例2: 移除不需要的媒体文件
-    println!("\n2. 移除不需要的媒体文件");
+    // Example 2: Remove unnecessary media files
+    println!("\n2. Remove unnecessary media files");
     let root_dir = Path::new("./example_root");
     if root_dir.exists() {
-        println!("移除不需要的媒体文件: {}", root_dir.display());
+        println!("Removing unnecessary media files: {}", root_dir.display());
         remove_unneed_media_files(root_dir, Some(get_remove_media_rule_oraja())).await?;
-        println!("移除完成");
+        println!("Removal completed");
     } else {
-        println!("示例目录不存在: {}", root_dir.display());
+        println!("Example directory does not exist: {}", root_dir.display());
     }
 
-    // 示例3: 原包转HQ版大包
-    println!("\n3. 原包转HQ版大包");
+    // Example 3: Raw pack to HQ pack
+    println!("\n3. Raw pack to HQ pack");
     let raw_dir = Path::new("./example_raw");
     if raw_dir.exists() {
-        println!("转换原包到HQ版: {}", raw_dir.display());
+        println!("Converting raw pack to HQ: {}", raw_dir.display());
         pack_raw_to_hq(raw_dir).await?;
-        println!("转换完成");
+        println!("Conversion completed");
     } else {
-        println!("示例目录不存在: {}", raw_dir.display());
+        println!("Example directory does not exist: {}", raw_dir.display());
     }
 
-    // 示例4: HQ版转LQ版大包
-    println!("\n4. HQ版转LQ版大包");
+    // Example 4: HQ pack to LQ pack
+    println!("\n4. HQ pack to LQ pack");
     let hq_dir = Path::new("./example_hq");
     if hq_dir.exists() {
-        println!("转换HQ版到LQ版: {}", hq_dir.display());
+        println!("Converting HQ pack to LQ: {}", hq_dir.display());
         pack_hq_to_lq(hq_dir).await?;
-        println!("转换完成");
+        println!("Conversion completed");
     } else {
-        println!("示例目录不存在: {}", hq_dir.display());
+        println!("Example directory does not exist: {}", hq_dir.display());
     }
 
-    println!("\n示例执行完成！");
-    println!("\n要使用命令行版本，请运行:");
+    println!("\nExample execution completed!");
+    println!("\nTo use the command line version, run:");
     println!("  be-music-cabinet --help");
     println!("  be-music-cabinet work --help");
     println!("  be-music-cabinet root --help");

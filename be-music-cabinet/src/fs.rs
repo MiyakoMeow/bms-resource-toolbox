@@ -27,7 +27,7 @@ pub fn get_vaild_fs_name(ori_name: &str) -> String {
         .replace("|", "｜")
 }
 
-/// 快速判断两个文件内容是否一致（SHA256）
+/// Quick check if two files have the same content (SHA256)
 pub async fn is_file_same_content(a: &Path, b: &Path) -> io::Result<bool> {
     async fn sha256(path: &Path) -> io::Result<Output<Sha3_512>> {
         let mut file = fs::File::open(path).await?;
@@ -47,7 +47,7 @@ pub async fn is_file_same_content(a: &Path, b: &Path) -> io::Result<bool> {
     Ok(a == b)
 }
 
-/// 判断目录是否“包含文件”
+/// Check if directory "contains files"
 pub async fn is_dir_having_file(dir: &Path) -> io::Result<bool> {
     let mut entries = fs::read_dir(dir).await?;
     while let Some(entry) = entries.next().await {
@@ -60,14 +60,14 @@ pub async fn is_dir_having_file(dir: &Path) -> io::Result<bool> {
     Ok(false)
 }
 
-/// 常见媒体扩展名
+/// Common media extensions
 pub const MEDIA_EXT_LIST: &[&str] = {
     &[
         ".ogg", ".wav", ".flac", ".mp4", ".wmv", ".avi", ".mpg", ".mpeg", ".bmp", ".jpg", ".png",
     ]
 };
 
-/// 删除 parent_dir 下所有空目录
+/// Remove all empty directories under parent_dir
 pub async fn remove_empty_folders(parent_dir: impl AsRef<Path>) -> io::Result<()> {
     let parent = parent_dir.as_ref();
     let mut entries = fs::read_dir(parent).await?;
@@ -88,7 +88,7 @@ pub async fn remove_empty_folders(parent_dir: impl AsRef<Path>) -> io::Result<()
     Ok(())
 }
 
-/// 目录三元组：(所有文件，媒体文件 stem，非媒体文件)
+/// Directory triple: (all files, media file stems, non-media files)
 #[derive(Debug, Default)]
 #[allow(unused)]
 struct DirElements {
@@ -129,7 +129,7 @@ async fn fetch_dir_elements(dir: impl AsRef<Path>) -> io::Result<DirElements> {
     })
 }
 
-/// 计算两个目录的相似度（按媒体文件 stem 的交集 / 较小集合）
+/// Calculate similarity between two directories (intersection of media file stems / smaller set)
 pub async fn bms_dir_similarity(
     dir_a: impl AsRef<Path>,
     dir_b: impl AsRef<Path>,

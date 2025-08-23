@@ -7,7 +7,7 @@ use smol::{fs, io};
 
 use crate::fs::moving::{MoveOptions, move_elements_across_dir};
 
-/// 解压支持的归档到指定缓存目录
+/// Extract supported archives to specified cache directory
 pub async fn unzip_file_to_cache_dir(
     file_path: impl AsRef<Path>,
     cache_dir_path: impl AsRef<Path>,
@@ -30,7 +30,7 @@ pub async fn unzip_file_to_cache_dir(
         "7z" => extract_7z(file_path, cache_dir_path).await?,
         "rar" => extract_rar(file_path, cache_dir_path).await?,
         _ => {
-            // 非归档 => 按空格后部分复制
+            // Not an archive => copy after space
             let target_name = file_name
                 .split_once(' ')
                 .map(|(_, s)| s)
@@ -53,7 +53,7 @@ async fn extract_zip(src: &Path, dst: &Path) -> io::Result<()> {
 /* ---------- 7z ---------- */
 async fn extract_7z(src: &Path, dst: &Path) -> io::Result<()> {
     println!("Extracting {} to {} (7z)", src.display(), dst.display());
-    // sevenz-rust 是同步库，spawn_blocking
+    // sevenz-rust is a synchronous library, spawn_blocking
     let src = src.to_path_buf();
     let dst = dst.to_path_buf();
     smol::block_on(async move { sevenz_rust::decompress_file(&src, &dst) })
@@ -63,7 +63,7 @@ async fn extract_7z(src: &Path, dst: &Path) -> io::Result<()> {
 /* ---------- RAR ---------- */
 async fn extract_rar(src: &Path, dst: &Path) -> io::Result<()> {
     println!("Extracting {} to {} (RAR)", src.display(), dst.display());
-    // unrar 是同步库
+    // unrar is a synchronous library
     let src = src.to_path_buf();
     let dst = dst.to_path_buf();
     let mut archive =
@@ -87,7 +87,7 @@ async fn extract_rar(src: &Path, dst: &Path) -> io::Result<()> {
     })
 }
 
-/// 从包目录里提取“数字前缀”文件名列表
+/// Extract "numeric prefix" file name list from pack directory
 pub fn get_num_set_file_names(pack_dir: impl AsRef<Path>) -> io::Result<Vec<String>> {
     let mut res = Vec::new();
     for entry in std::fs::read_dir(pack_dir.as_ref())? {
@@ -101,7 +101,7 @@ pub fn get_num_set_file_names(pack_dir: impl AsRef<Path>) -> io::Result<Vec<Stri
     Ok(res)
 }
 
-/// 将缓存目录里的下一层文件/目录平铺到当前层
+/// Flatten next level files/directories in cache directory to current level
 pub async fn move_out_files_in_folder_in_cache_dir(
     cache_dir_path: impl AsRef<Path>,
 ) -> io::Result<bool> {
@@ -115,7 +115,7 @@ pub async fn move_out_files_in_folder_in_cache_dir(
     loop {
         let mut inner_dir_name = None;
 
-        // 重新扫描目录
+        // Rescan directory
         let mut entries = fs::read_dir(cache_dir_path).await?;
         while let Some(entry) = entries.next().await {
             let entry = entry?;
@@ -152,7 +152,7 @@ pub async fn move_out_files_in_folder_in_cache_dir(
             break;
         }
 
-        // 将内层目录内容移动到当前层
+        // Move inner directory contents to current level
         if let Some(name) = inner_dir_name {
             let inner_path = cache_dir_path.join(&name);
             let inner_inner = inner_path.join(&name);
@@ -189,7 +189,7 @@ pub async fn move_out_files_in_folder_in_cache_dir(
         return Ok(false);
     }
 
-    // 提示多个 mp4
+    // Warn about multiple mp4 files
     if let Some(mp4) = file_ext_count.get("mp4")
         && mp4.len() > 1
     {

@@ -100,7 +100,7 @@ pub async fn get_dir_bms_list(dir: &Path) -> io::Result<Vec<BmsOutput>> {
     Ok(bms_list)
 }
 
-/// 获取一整个目录的BMS信息（信息整合）
+/// Get BMS information for an entire directory (information integration)
 pub async fn get_dir_bms_info(dir: &Path) -> io::Result<Option<Bms>> {
     let bms_list = get_dir_bms_list(dir).await?;
     if bms_list.is_empty() {
@@ -149,7 +149,7 @@ pub async fn get_dir_bms_info(dir: &Path) -> io::Result<Option<Bms>> {
     Ok(Some(bms))
 }
 
-/// work_dir: 作品目录，目录下一定有BMS文件
+/// work_dir: work directory, must contain BMS files
 pub async fn is_work_dir(dir: &Path) -> io::Result<bool> {
     let mut read_dir = fs::read_dir(dir).await?;
     while let Some(entry) = read_dir.next().await {
@@ -172,7 +172,7 @@ pub async fn is_work_dir(dir: &Path) -> io::Result<bool> {
     Ok(false)
 }
 
-/// root_dir: 作品集目录，work_dir的上一层
+/// root_dir: work collection directory, parent of work_dir
 pub async fn is_root_dir(dir: &Path) -> io::Result<bool> {
     let mut read_dir = fs::read_dir(dir).await?;
     while let Some(entry) = read_dir.next().await {

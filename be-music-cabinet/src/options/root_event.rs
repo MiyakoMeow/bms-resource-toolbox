@@ -7,7 +7,7 @@ use xlsxwriter::{Workbook, XlsxError};
 
 use crate::bms::get_dir_bms_info;
 
-/// 1. 检查 1..=max 的纯数字文件夹是否缺失
+/// 1. Check if pure numeric folders from 1..=max are missing
 pub async fn check_num_folder(root: &Path, max: usize) -> io::Result<Vec<PathBuf>> {
     let mut missing = Vec::new();
     for id in 1..=max {
@@ -19,7 +19,7 @@ pub async fn check_num_folder(root: &Path, max: usize) -> io::Result<Vec<PathBuf
     Ok(missing)
 }
 
-/// 2. 若纯数字文件夹不存在则新建
+/// 2. Create new folders if pure numeric folders don't exist
 pub async fn create_num_folders(root: &Path, count: usize) -> io::Result<()> {
     let mut futs = Vec::new();
     for id in 1..=count {
@@ -30,9 +30,9 @@ pub async fn create_num_folders(root: &Path, count: usize) -> io::Result<()> {
     Ok(())
 }
 
-/// 3. 扫描根目录下所有数字文件夹，写入 bms_list.xlsx
+/// 3. Scan all numeric folders under root directory and write to bms_list.xlsx
 pub async fn generate_work_info_table(root: &Path) -> io::Result<()> {
-    // 先收集所有数字文件夹
+    // First collect all numeric folders
     let mut dir_ids = Vec::new();
     let mut entries = fs::read_dir(root).await?;
     while let Some(entry) = entries.next().await {
@@ -45,7 +45,7 @@ pub async fn generate_work_info_table(root: &Path) -> io::Result<()> {
     }
     dir_ids.sort_unstable_by_key(|(id, _)| *id);
 
-    // 并行读取 info.toml
+    // Read info.toml in parallel
     let info_futs: Vec<_> = dir_ids
         .iter()
         .map(|(id, path)| {
@@ -59,13 +59,13 @@ pub async fn generate_work_info_table(root: &Path) -> io::Result<()> {
         .collect();
     let infos: Vec<_> = try_join_all(info_futs).await?;
 
-    // 写 Excel
+    // Write Excel
     async {
         let xlsx_path = root.join("bms_list.xlsx");
         let workbook = Workbook::new(&xlsx_path.to_string_lossy())?;
         let mut sheet = workbook.add_worksheet(Some("BMS List"))?;
 
-        // 写表头
+        // Write headers
         sheet.write_string(0, 0, "ID", None)?;
         sheet.write_string(0, 1, "Title", None)?;
         sheet.write_string(0, 2, "Artist", None)?;

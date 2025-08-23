@@ -15,15 +15,15 @@ pub const DEFAULT_ARTIST: &str = "!!! UnknownArtist !!!";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BmsFolderSetNameType {
-    /// 适用于希望直接替换目录名为“标题 [艺术家]”的情况
+    /// Suitable for cases where you want to directly replace directory name with "Title [Artist]"
     ReplaceTitleArtist = 0,
-    /// 适用于希望在作品文件夹名后添加“标题 [艺术家]”的情况
+    /// Suitable for cases where you want to append "Title [Artist]" after work folder name
     AppendTitleArtist = 1,
-    /// 适用于希望在作品文件夹名后添加“ [艺术家]”的情况
+    /// Suitable for cases where you want to append " [Artist]" after work folder name
     AppendArtist = 2,
 }
 
-/// 该脚本适用于希望在作品文件夹名后添加“标题 [艺术家]”的情况
+/// This script is suitable for cases where you want to append "Title [Artist]" after work folder name
 pub async fn set_name_by_bms(work_dir: &Path, set_type: BmsFolderSetNameType) -> io::Result<()> {
     let bms_info = get_dir_bms_info(work_dir)
         .await?
@@ -82,12 +82,12 @@ pub async fn undo_set_name(work_dir: &Path, set_type: BmsFolderSetNameType) -> i
     Ok(())
 }
 
-/// 删除 work_dir 及其子目录中所有 0 字节文件（循环版，smol 2）。
+/// Remove all 0-byte files in work_dir and its subdirectories (loop version, smol 2).
 pub async fn remove_zero_sized_media_files(work_dir: impl AsRef<Path>) -> io::Result<()> {
     let mut stack = VecDeque::new();
     stack.push_back(work_dir.as_ref().to_path_buf());
 
-    // 存放异步删除任务
+    // Store async deletion tasks
     let mut tasks = Vec::new();
 
     while let Some(dir) = stack.pop_back() {
@@ -98,19 +98,19 @@ pub async fn remove_zero_sized_media_files(work_dir: impl AsRef<Path>) -> io::Re
             let meta = entry.metadata().await?;
 
             if meta.is_file() && meta.len() == 0 {
-                // 异步删除，任务句柄放进 Vec
+                // Async deletion, task handle goes into Vec
                 tasks.push(smol::spawn(async move {
                     fs::remove_file(&path).await?;
                     Ok::<(), io::Error>(())
                 }));
             } else if meta.is_dir() {
-                // 继续压栈
+                // Continue pushing to stack
                 stack.push_back(path);
             }
         }
     }
 
-    // 等待所有删除任务完成
+    // Wait for all deletion tasks to complete
     for task in tasks {
         task.await?;
     }

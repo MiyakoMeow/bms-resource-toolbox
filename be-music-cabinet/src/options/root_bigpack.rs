@@ -8,13 +8,13 @@ use smol::{fs, io, stream::StreamExt};
 
 use crate::fs::moving::{move_elements_across_dir, replace_options_update_pack};
 
-// 日文平假名
+// Japanese hiragana
 static RE_JAPANESE_HIRAGANA: once_cell::sync::Lazy<Regex> =
     once_cell::sync::Lazy::new(|| Regex::new(r"[\u{3040}-\u{309f}]+").unwrap());
-// 日文片假名
+// Japanese katakana
 static RE_JAPANESE_KATAKANA: once_cell::sync::Lazy<Regex> =
     once_cell::sync::Lazy::new(|| Regex::new(r"[\u{30a0}-\u{30ff}]+").unwrap());
-// 汉字
+// Chinese characters
 static RE_CHINESE_CHARACTER: once_cell::sync::Lazy<Regex> =
     once_cell::sync::Lazy::new(|| Regex::new(r"[\u{4e00}-\u{9fa5}]+").unwrap());
 
@@ -80,7 +80,7 @@ const FIRST_CHAR_RULES: &[FirstCharRule] = &[
         },
     },
     FirstCharRule {
-        name: "平假名",
+        name: "平假",
         func: |name: &str| {
             name.chars()
                 .next()
@@ -89,7 +89,7 @@ const FIRST_CHAR_RULES: &[FirstCharRule] = &[
         },
     },
     FirstCharRule {
-        name: "片假名",
+        name: "片假",
         func: |name: &str| {
             name.chars()
                 .next()
@@ -98,7 +98,7 @@ const FIRST_CHAR_RULES: &[FirstCharRule] = &[
         },
     },
     FirstCharRule {
-        name: "汉字",
+        name: "字",
         func: |name: &str| {
             name.chars()
                 .next()
@@ -118,10 +118,10 @@ fn first_char_rules_find(name: &str) -> &'static str {
             return rule.name;
         }
     }
-    "未分类"
+    "Uncategorized"
 }
 
-/// 将该目录下的作品，按照首字符分成多个文件夹
+/// Split works in this directory into multiple folders according to first character
 pub async fn split_folders_with_first_char(root_dir: impl AsRef<Path>) -> io::Result<()> {
     let root_dir = root_dir.as_ref();
     let root_folder_name = root_dir
@@ -169,7 +169,7 @@ pub async fn split_folders_with_first_char(root_dir: impl AsRef<Path>) -> io::Re
     Ok(())
 }
 
-/// （撤销操作）将该目录下的作品，按照首字符分成多个文件夹
+/// (Undo operation) Split works in this directory into multiple folders according to first character
 pub async fn undo_split_pack(root_dir: impl AsRef<Path>) -> io::Result<()> {
     let root_dir = root_dir.as_ref();
     let root_folder_name = root_dir
@@ -222,7 +222,7 @@ pub async fn undo_split_pack(root_dir: impl AsRef<Path>) -> io::Result<()> {
     Ok(())
 }
 
-/// 合并分割的文件夹
+/// Merge split folders
 pub async fn merge_split_folders(root_dir: impl AsRef<Path>) -> io::Result<()> {
     let root_dir = root_dir.as_ref();
     let mut dir_names = Vec::new();
@@ -329,7 +329,7 @@ pub async fn merge_split_folders(root_dir: impl AsRef<Path>) -> io::Result<()> {
     Ok(())
 }
 
-/// 将目录A下的作品，移动到目录B（自动合并）
+/// Move works from directory A to directory B (auto merge)
 pub async fn move_works_in_pack(
     root_dir_from: impl AsRef<Path>,
     root_dir_to: impl AsRef<Path>,
@@ -385,7 +385,7 @@ pub async fn move_works_in_pack(
     Ok(())
 }
 
-/// 移出一层目录（自动合并）
+/// Move out one level directory (auto merge)
 pub async fn move_out_works(target_root_dir: impl AsRef<Path>) -> io::Result<()> {
     let target_root_dir = target_root_dir.as_ref();
     let mut entries = fs::read_dir(target_root_dir).await?;
@@ -431,7 +431,7 @@ pub async fn move_out_works(target_root_dir: impl AsRef<Path>) -> io::Result<()>
     Ok(())
 }
 
-/// 移除不需要的媒体文件
+/// Remove unnecessary media files
 async fn workdir_remove_unneed_media_files(
     work_dir: &Path,
     rule: &[(Vec<String>, Vec<String>)],
@@ -570,7 +570,7 @@ pub fn get_remove_media_file_rules() -> Vec<Vec<(Vec<String>, Vec<String>)>> {
     ]
 }
 
-/// 移除不需要的媒体文件
+/// Remove unnecessary media files
 pub async fn remove_unneed_media_files(
     root_dir: impl AsRef<Path>,
     rule: Option<Vec<(Vec<String>, Vec<String>)>>,
@@ -609,7 +609,7 @@ pub async fn remove_unneed_media_files(
     Ok(())
 }
 
-/// 将源文件夹(dir_from)中，文件名相似的子文件夹，合并到目标文件夹(dir_to)中的对应子文件夹
+/// Merge subfolders with similar names from source folder (dir_from) to corresponding subfolders in target folder (dir_to)
 pub async fn move_works_with_same_name(
     root_dir_from: impl AsRef<Path>,
     root_dir_to: impl AsRef<Path>,
@@ -617,21 +617,21 @@ pub async fn move_works_with_same_name(
     let root_dir_from = root_dir_from.as_ref();
     let root_dir_to = root_dir_to.as_ref();
 
-    // 验证输入路径是否存在且为目录
+    // Verify input paths exist and are directories
     if !root_dir_from.is_dir() {
         return Err(io::Error::other(format!(
-            "源路径不存在或不是目录: {}",
+            "Source path does not exist or is not a directory: {}",
             root_dir_from.display()
         )));
     }
     if !root_dir_to.is_dir() {
         return Err(io::Error::other(format!(
-            "目标路径不存在或不是目录: {}",
+            "Target path does not exist or is not a directory: {}",
             root_dir_to.display()
         )));
     }
 
-    // 获取源目录中的所有直接子文件夹
+    // Get all direct subfolders in source directory
     let mut from_subdirs = Vec::new();
     let mut from_entries = fs::read_dir(root_dir_from).await?;
     while let Some(entry) = from_entries.next().await {
@@ -644,7 +644,7 @@ pub async fn move_works_with_same_name(
         }
     }
 
-    // 获取目标目录中的所有直接子文件夹
+    // Get all direct subfolders in target directory
     let mut to_subdirs = Vec::new();
     let mut to_entries = fs::read_dir(root_dir_to).await?;
     while let Some(entry) = to_entries.next().await {
@@ -659,11 +659,11 @@ pub async fn move_works_with_same_name(
 
     let mut pairs = Vec::new();
 
-    // 遍历源目录的每个子文件夹
+    // Iterate through each subfolder in source directory
     for from_dir_name in &from_subdirs {
         let from_dir_path = root_dir_from.join(from_dir_name);
 
-        // 查找匹配的目标子文件夹（名称包含源文件夹名）
+        // Find matching target subfolder (name contains source folder name)
         for to_dir_name in &to_subdirs {
             if to_dir_name.contains(from_dir_name) {
                 let to_dir_path = root_dir_to.join(to_dir_name);
@@ -682,19 +682,19 @@ pub async fn move_works_with_same_name(
         println!(" -> {} => {}", from_dir_name, to_dir_name);
     }
 
-    println!("是否合并？[y/N]");
+    println!("Merge? [y/N]");
     let mut input = String::new();
     std::io::stdin().read_line(&mut input)?;
 
     if !input.trim().to_lowercase().starts_with('y') {
-        println!("操作已取消");
+        println!("Operation cancelled");
         return Ok(());
     }
 
-    // 将源文件夹内容合并到每个匹配的目标文件夹
+    // Merge source folder contents to each matching target folder
     for (_, from_dir_path, _, target_path) in pairs {
         println!(
-            "合并: '{}' -> '{}'",
+            "Merge: '{}' -> '{}'",
             from_dir_path.display(),
             target_path.display()
         );
@@ -722,10 +722,10 @@ mod tests {
         assert_eq!(first_char_rules_find("LMN"), "LMNOPQ");
         assert_eq!(first_char_rules_find("RST"), "RST");
         assert_eq!(first_char_rules_find("UVW"), "UVWXYZ");
-        assert_eq!(first_char_rules_find("あいう"), "平假名");
-        assert_eq!(first_char_rules_find("アイウ"), "片假名");
-        assert_eq!(first_char_rules_find("中文"), "汉字");
-        assert_eq!(first_char_rules_find(""), "未分类");
+        assert_eq!(first_char_rules_find("あいう"), "平假");
+        assert_eq!(first_char_rules_find("アイウ"), "片假");
+        assert_eq!(first_char_rules_find("中文"), "字");
+        assert_eq!(first_char_rules_find(""), "Uncategorized");
     }
 
     #[test]

@@ -15,19 +15,19 @@ use smol::{
     stream::StreamExt,
 };
 
-/// 音频处理预设配置
+/// Audio processing preset configuration
 #[derive(Debug, Clone)]
 pub struct AudioPreset {
-    /// 执行器名称 (如 "ffmpeg", "oggenc")
+    /// Executor name (e.g., "ffmpeg", "oggenc")
     executor: String,
-    /// 输出格式 (如 "ogg", "flac")
+    /// Output format (e.g., "ogg", "flac")
     output_format: String,
-    /// 附加参数 (可为空)
+    /// Additional arguments (can be empty)
     arguments: Option<String>,
 }
 
 impl AudioPreset {
-    /// 创建新的音频预设
+    /// Create new audio preset
     fn new(executor: &str, output_format: &str, arguments: Option<&str>) -> Self {
         Self {
             executor: executor.to_string(),
@@ -63,15 +63,15 @@ pub const AUDIO_PRESETS: LazyCell<HashMap<&'static str, AudioPreset>> = LazyCell
     map
 });
 
-/// 获取处理音频文件的命令字符串
+/// Get command string for processing audio files
 ///
-/// # 参数
-/// - `input_path`: 输入文件路径
-/// - `output_path`: 输出文件路径
-/// - `preset`: 使用的音频预设
+/// # Parameters
+/// - `input_path`: input file path
+/// - `output_path`: output file path
+/// - `preset`: audio preset to use
 ///
-/// # 返回值
-/// 生成的命令行字符串
+/// # Returns
+/// Generated command line string
 fn get_audio_command(
     input_path: &Path,
     output_path: &Path,
@@ -110,18 +110,18 @@ fn get_audio_command(
     }
 }
 
-/// 在指定目录中转换音频文件
+/// Convert audio files in specified directory
 ///
-/// # 参数
-/// - `dir_path`: 目标目录路径
-/// - `input_extensions`: 要处理的输入文件扩展名列表
-/// - `presets`: 按顺序尝试的预设列表
-/// - `remove_on_success`: 转换成功后删除原文件
-/// - `remove_on_fail`: 所有尝试失败后删除原文件
-/// - `remove_existing`: 是否覆盖已存在的输出文件
+/// # Parameters
+/// - `dir_path`: target directory path
+/// - `input_extensions`: list of input file extensions to process
+/// - `presets`: list of presets to try in order
+/// - `remove_on_success`: remove original file after successful conversion
+/// - `remove_on_fail`: remove original file after all attempts fail
+/// - `remove_existing`: whether to overwrite existing output files
 ///
-/// # 返回值
-/// 转换操作是否完全成功
+/// # Returns
+/// Whether the conversion operation was completely successful
 async fn transfer_audio_in_directory(
     dir_path: &Path,
     input_extensions: &[&str],
@@ -136,7 +136,7 @@ async fn transfer_audio_in_directory(
     let mut has_error = false;
     let mut last_error = None;
 
-    // 根据是否在C盘确定并发限制（非C盘使用更多线程）
+    // Determine concurrency limit based on whether it's on C drive (use more threads for non-C drives)
     let is_hdd = !dir_path.starts_with("C:");
     let max_workers = if is_hdd {
         num_cpus::get().min(24)
@@ -145,7 +145,7 @@ async fn transfer_audio_in_directory(
     };
     let semaphore = Arc::new(Semaphore::new(max_workers));
 
-    // 收集需要处理的文件
+    // Collect files to process
     let mut entries = fs::read_dir(dir_path).await?;
     while let Some(entry) = entries.next().await {
         let entry = entry?;
@@ -171,7 +171,7 @@ async fn transfer_audio_in_directory(
         println!("Using presets: {presets:?}");
     }
 
-    // 处理每个文件
+    // Process each file
     for file_path in tasks {
         let mut current_preset_index = 0;
         let mut success = false;
@@ -180,7 +180,7 @@ async fn transfer_audio_in_directory(
             let preset = &presets[current_preset_index];
             let output_path = file_path.with_extension(&preset.output_format);
 
-            // 检查输出文件是否存在
+            // Check if output file exists
             if output_path.exists() {
                 if remove_existing {
                     if let Ok(metadata) = fs::metadata(&output_path).await
@@ -196,22 +196,22 @@ async fn transfer_audio_in_directory(
                 }
             }
 
-            // 获取并执行命令
+            // Get and execute command
             if let Some(cmd) = get_audio_command(&file_path, &output_path, preset) {
                 let permit = semaphore.clone().acquire_arc().await;
 
-                // 执行转换命令
+                // Execute conversion command
                 #[cfg(target_family = "windows")]
                 let program = "powershell";
                 #[cfg(not(target_family = "windows"))]
                 let program = "sh";
                 let output = Command::new(program).arg("-c").arg(&cmd).output().await;
 
-                drop(permit); // 释放信号量
+                drop(permit); // Release semaphore
 
                 match output {
                     Ok(output) if output.status.success() => {
-                        // 转换成功
+                        // Conversion successful
                         if remove_on_success && let Err(e) = remove_file(&file_path).await {
                             eprintln!(
                                 "Error deleting original file: {} - {}",
@@ -223,7 +223,7 @@ async fn transfer_audio_in_directory(
                         break;
                     }
                     Ok(output) => {
-                        // 转换失败
+                        // Conversion failed
                         println!(
                             "Preset failed [{}]: {} -> {}",
                             preset.executor,
@@ -233,7 +233,7 @@ async fn transfer_audio_in_directory(
                         last_error = Some((file_path.clone(), output));
                     }
                     Err(e) => {
-                        // 命令执行错误
+                        // Command execution error
                         eprintln!("Command execution error: {e}");
                         last_error = Some((
                             file_path.clone(),
@@ -254,7 +254,7 @@ async fn transfer_audio_in_directory(
             has_error = true;
             fallback_files.push(file_path.file_name().unwrap().to_string_lossy().to_string());
 
-            // 所有预设尝试失败后删除原文件
+            // Remove original file after all preset attempts fail
             if remove_on_fail && let Err(e) = remove_file(&file_path).await {
                 eprintln!(
                     "Error deleting failed file: {} - {}",
@@ -265,7 +265,7 @@ async fn transfer_audio_in_directory(
         }
     }
 
-    // 输出处理结果
+    // Output processing results
     if total_files > 0 {
         println!("Processed {} files in {}", total_files, dir_path.display());
     }
@@ -290,15 +290,15 @@ async fn transfer_audio_in_directory(
     Ok(!has_error)
 }
 
-/// 处理根目录下的所有BMS文件夹
+/// Process all BMS folders under root directory
 ///
-/// # 参数
-/// - `root_dir`: 根目录路径
-/// - `input_extensions`: 输入文件扩展名列表
-/// - `preset_names`: 要使用的预设名称列表
-/// - `remove_on_success`: 成功时删除原文件
-/// - `remove_on_fail`: 失败时删除原文件
-/// - `skip_on_fail`: 遇到错误时跳过后续处理
+/// # Parameters
+/// - `root_dir`: root directory path
+/// - `input_extensions`: list of input file extensions
+/// - `preset_names`: list of preset names to use
+/// - `remove_on_success`: remove original file on success
+/// - `remove_on_fail`: remove original file on failure
+/// - `skip_on_fail`: skip subsequent processing on error
 pub async fn process_bms_folders(
     root_dir: &Path,
     input_extensions: &[&str],
@@ -307,7 +307,7 @@ pub async fn process_bms_folders(
     remove_on_fail: bool,
     skip_on_fail: bool,
 ) -> io::Result<()> {
-    // 将预设名称解析为预设对象
+    // Parse preset names into preset objects
     let presets: Vec<AudioPreset> = preset_names
         .iter()
         .filter_map(|name| {
@@ -321,7 +321,7 @@ pub async fn process_bms_folders(
         io::Error::other("No valid presets provided");
     }
 
-    // 遍历根目录下的所有子目录
+    // Iterate through all subdirectories under root directory
     let mut entries = fs::read_dir(root_dir).await?;
     while let Some(entry) = entries.next().await {
         let entry = entry?;
@@ -337,7 +337,7 @@ pub async fn process_bms_folders(
             &presets,
             remove_on_success,
             remove_on_fail,
-            true, // 总是覆盖已存在文件
+            true, // Always overwrite existing files
         )
         .await
         {

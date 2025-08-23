@@ -1,30 +1,30 @@
-# be-music-cabinet 命令行应用
+# be-music-cabinet Command Line Application
 
-be-music-cabinet 是一个用于管理BMS音乐文件的命令行工具，提供了丰富的功能来组织和处理BMS文件。
+be-music-cabinet is a command line tool for managing BMS music files, providing rich functionality to organize and process BMS files.
 
-## 安装
+## Installation
 
 ```bash
 cargo build --release
 ```
 
-编译后的可执行文件位于 `target/release/be-music-cabinet.exe`
+The compiled executable is located at `target/release/be-music-cabinet.exe`
 
-## 基本用法
+## Basic Usage
 
 ```bash
 be-music-cabinet <COMMAND>
 ```
 
-## 命令分类
+## Command Categories
 
-### 1. 工作目录操作 (work)
+### 1. Work Directory Operations (work)
 
-处理单个BMS工作目录的操作。
+Operations for processing individual BMS work directories.
 
-#### 设置目录名
+#### Set Directory Name
 ```bash
-# 根据BMS文件设置目录名
+# Set directory name based on BMS file
 be-music-cabinet work set-name <DIR> [--set-type <TYPE>]
 
 # 示例
@@ -32,39 +32,39 @@ be-music-cabinet work set-name ./MyBMSFolder
 be-music-cabinet work set-name ./MyBMSFolder --set-type append_title_artist
 ```
 
-设置类型选项：
-- `replace_title_artist`: 替换为标题+艺术家
-- `append_title_artist`: 追加标题+艺术家（默认）
-- `append_artist`: 仅追加艺术家
+Set type options:
+- `replace_title_artist`: Replace with title+artist
+- `append_title_artist`: Append title+artist (default)
+- `append_artist`: Append artist only
 
-#### 撤销设置目录名
+#### Undo Set Directory Name
 ```bash
-# 撤销设置目录名
+# Undo set directory name
 be-music-cabinet work undo-set-name <DIR> [--set-type <TYPE>]
 
-# 示例
+# Examples
 be-music-cabinet work undo-set-name ./MyBMSFolder
 ```
 
-#### 移除零字节媒体文件
+#### Remove Zero-byte Media Files
 ```bash
-# 移除零字节媒体文件
+# Remove zero-byte media files
 be-music-cabinet work remove-empty-media <DIR>
 
-# 示例
+# Examples
 be-music-cabinet work remove-empty-media ./MyBMSFolder
 ```
 
-### 2. 根目录操作 (root)
+### 2. Root Directory Operations (root)
 
-处理BMS根目录的批量操作。
+Batch operations for processing BMS root directories.
 
-#### 复制编号工作目录名
+#### Copy Numbered Work Directory Names
 ```bash
-# 复制编号工作目录名
+# Copy numbered work directory names
 be-music-cabinet root copy-numbered-names <FROM> <TO>
 
-# 示例
+# Examples
 be-music-cabinet root copy-numbered-names ./source ./target
 ```
 

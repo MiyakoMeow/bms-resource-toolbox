@@ -15,7 +15,7 @@ use smol::{
     stream::StreamExt,
 };
 
-/// 视频流信息
+/// Video stream information
 #[derive(Debug, Deserialize)]
 struct Stream {
     codec_type: String,
@@ -24,13 +24,13 @@ struct Stream {
     bit_rate: Option<String>,
 }
 
-/// 媒体文件探测结果
+/// Media file probe result
 #[derive(Debug, Deserialize)]
 struct MediaProbe {
     streams: Vec<Stream>,
 }
 
-/// 视频信息
+/// Video information
 #[derive(Debug, Clone)]
 #[allow(unused)]
 pub struct VideoInfo {
@@ -39,25 +39,25 @@ pub struct VideoInfo {
     bit_rate: i32,
 }
 
-/// 视频处理预设配置
+/// Video processing preset configuration
 #[derive(Debug, Clone)]
 pub struct VideoPreset {
-    /// 执行器名称 (如 "ffmpeg")
+    /// Executor name (e.g., "ffmpeg")
     executor: String,
-    /// 输入参数
+    /// Input arguments
     input_args: String,
-    /// 滤镜参数
+    /// Filter arguments
     filter_args: String,
-    /// 输出文件扩展名
+    /// Output file extension
     output_ext: String,
-    /// 输出视频编码
+    /// Output video codec
     output_codec: String,
-    /// 附加参数
+    /// Extra arguments
     extra_args: String,
 }
 
 impl VideoPreset {
-    /// 创建新的视频预设
+    /// Create new video preset
     pub fn new(
         executor: &str,
         input_args: &str,
@@ -76,12 +76,12 @@ impl VideoPreset {
         }
     }
 
-    /// 获取输出文件路径
+    /// Get output file path
     fn output_path(&self, input_path: &Path) -> PathBuf {
         input_path.with_extension(&self.output_ext)
     }
 
-    /// 获取处理视频的命令
+    /// Get command for processing video
     fn command(&self, input_path: &Path, output_path: &Path) -> String {
         format!(
             "{} {} \"{}\" {} -map_metadata 0 -c:v {} {} \"{}\"",
@@ -96,11 +96,11 @@ impl VideoPreset {
     }
 }
 
-/// 预定义的视频处理预设集合
+/// Predefined video processing preset collection
 #[allow(clippy::declare_interior_mutable_const)]
 pub const VIDEO_PRESETS: LazyCell<HashMap<&'static str, VideoPreset>> = LazyCell::new(|| {
     let mut map = HashMap::new();
-    // 512x512 预设
+    // 512x512 preset
     let filter_512 = r#"-filter_complex "[0:v]scale=512:512:force_original_aspect_ratio=increase,crop=512:512:(ow-iw)/2:(oh-ih)/2,boxblur=20[v1];[0:v]scale=512:512:force_original_aspect_ratio=decrease[v2];[v1][v2]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2[vid]" -map [vid]"#;
     map.insert(
         "AVI_512X512",
@@ -136,7 +136,7 @@ pub const VIDEO_PRESETS: LazyCell<HashMap<&'static str, VideoPreset>> = LazyCell
         ),
     );
 
-    // 480p 预设
+    // 480p preset
     let filter_480 = r#"-filter_complex "[0:v]scale=640:480:force_original_aspect_ratio=increase,crop=640:480:(ow-iw)/2:(oh-ih)/2,boxblur=20[v1];[0:v]scale=640:480:force_original_aspect_ratio=decrease[v2];[v1][v2]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2[vid]" -map [vid]"#;
     map.insert(
         "AVI_480P",
@@ -175,13 +175,13 @@ pub const VIDEO_PRESETS: LazyCell<HashMap<&'static str, VideoPreset>> = LazyCell
     map
 });
 
-/// 获取媒体文件信息 (使用 ffprobe)
+/// Get media file information (using ffprobe)
 ///
-/// # 参数
-/// - `file_path`: 要探测的文件路径
+/// # Parameters
+/// - `file_path`: file path to probe
 ///
-/// # 返回值
-/// 包含媒体信息的结构体
+/// # Returns
+/// Structure containing media information
 async fn get_media_file_probe(file_path: &Path) -> io::Result<MediaProbe> {
     let cmd = format!(
         "ffprobe -show_format -show_streams -print_format json -v quiet \"{}\"",
@@ -214,13 +214,13 @@ async fn get_media_file_probe(file_path: &Path) -> io::Result<MediaProbe> {
     Ok(probe)
 }
 
-/// 获取视频信息
+/// Get video information
 ///
-/// # 参数
-/// - `file_path`: 视频文件路径
+/// # Parameters
+/// - `file_path`: video file path
 ///
-/// # 返回值
-/// 视频信息结构体
+/// # Returns
+/// Video information structure
 async fn get_video_info(file_path: &Path) -> io::Result<VideoInfo> {
     let probe = get_media_file_probe(file_path).await?;
 
@@ -233,7 +233,7 @@ async fn get_video_info(file_path: &Path) -> io::Result<VideoInfo> {
                 .height
                 .ok_or(io::Error::other("Missing height in video stream"))?;
 
-            // 解析比特率 (可能为字符串或数字)
+            // Parse bitrate (may be string or number)
             let bit_rate = stream
                 .bit_rate
                 .as_ref()
@@ -251,51 +251,51 @@ async fn get_video_info(file_path: &Path) -> io::Result<VideoInfo> {
     Err(io::Error::other("No video stream found in file"))
 }
 
-/// 获取视频尺寸
+/// Get video dimensions
 ///
-/// # 参数
-/// - `file_path`: 视频文件路径
+/// # Parameters
+/// - `file_path`: video file path
 ///
-/// # 返回值
-/// 视频宽高元组
+/// # Returns
+/// Video width and height tuple
 async fn get_video_size(file_path: &Path) -> io::Result<(i32, i32)> {
     let info = get_video_info(file_path).await?;
     Ok((info.width, info.height))
 }
 
-/// 获取推荐预设列表 (基于视频宽高比)
+/// Get recommended preset list (based on video aspect ratio)
 ///
-/// # 参数
-/// - `file_path`: 视频文件路径
+/// # Parameters
+/// - `file_path`: video file path
 ///
-/// # 返回值
-/// 推荐的预设名称列表
+/// # Returns
+/// List of recommended preset names
 async fn get_preferred_presets(file_path: &Path) -> io::Result<Vec<&'static str>> {
     let (width, height) = get_video_size(file_path).await?;
     let aspect_ratio = width as f32 / height as f32;
-    let target_aspect = 640.0 / 480.0; // 480p的标准宽高比
+    let target_aspect = 640.0 / 480.0; // Standard aspect ratio for 480p
 
     if aspect_ratio > target_aspect {
-        // 宽屏视频使用480p预设
+        // Use 480p preset for widescreen videos
         Ok(vec!["MPEG1VIDEO_480P", "WMV2_480P", "AVI_480P"])
     } else {
-        // 其他使用512x512预设
+        // Use 512x512 preset for others
         Ok(vec!["MPEG1VIDEO_512X512", "WMV2_512X512", "AVI_512X512"])
     }
 }
 
-/// 处理目录中的视频文件
+/// Process video files in directory
 ///
-/// # 参数
-/// - `dir_path`: 目标目录路径
-/// - `input_extensions`: 输入文件扩展名列表
-/// - `preset_names`: 预设名称列表
-/// - `remove_original`: 成功后删除原文件
-/// - `remove_existing`: 删除已存在的输出文件
-/// - `use_preferred`: 是否使用推荐预设
+/// # Parameters
+/// - `dir_path`: target directory path
+/// - `input_extensions`: list of input file extensions
+/// - `preset_names`: list of preset names
+/// - `remove_original`: remove original file on success
+/// - `remove_existing`: remove existing output files
+/// - `use_preferred`: whether to use recommended presets
 ///
-/// # 返回值
-/// 处理是否成功
+/// # Returns
+/// Whether processing was successful
 async fn process_videos_in_directory(
     dir_path: &Path,
     input_extensions: &[&str],
@@ -307,8 +307,8 @@ async fn process_videos_in_directory(
     let mut entries = fs::read_dir(dir_path).await?;
     let mut has_error = false;
 
-    // 使用信号量限制并发量 (避免过多视频同时转换)
-    let semaphore = Arc::new(Semaphore::new(2)); // 同时最多处理2个视频
+    // Use semaphore to limit concurrency (avoid too many videos converting simultaneously)
+    let semaphore = Arc::new(Semaphore::new(2)); // Process at most 2 videos at the same time
 
     while let Some(entry) = entries.next().await {
         let entry = entry?;
@@ -317,7 +317,7 @@ async fn process_videos_in_directory(
             continue;
         }
 
-        // 检查文件扩展名
+        // Check file extension
         if let Some(ext) = file_path.extension().and_then(OsStr::to_str) {
             if !input_extensions.iter().any(|e| e.eq_ignore_ascii_case(ext)) {
                 continue;
@@ -328,14 +328,14 @@ async fn process_videos_in_directory(
 
         println!("Processing video: {}", file_path.display());
 
-        // 根据配置确定使用的预设
+        // Determine presets to use based on configuration
         let mut presets_to_try = preset_names.to_vec();
         if use_preferred && let Ok(preferred) = get_preferred_presets(&file_path).await {
             presets_to_try = preferred;
-            presets_to_try.extend(preset_names); // 添加原始预设作为备选
+            presets_to_try.extend(preset_names); // Add original presets as fallback
         }
 
-        // 尝试每个预设直到成功
+        // Try each preset until success
         let mut success = false;
         for preset_name in &presets_to_try {
             #[allow(clippy::borrow_interior_mutable_const)]
@@ -345,10 +345,10 @@ async fn process_videos_in_directory(
 
             let output_path = preset.output_path(&file_path);
             if file_path == output_path {
-                continue; // 跳过相同的输入输出
+                continue; // Skip same input and output
             }
 
-            // 检查输出文件是否存在
+            // Check if output file exists
             if output_path.exists() {
                 if remove_existing {
                     if let Err(e) = remove_file(&output_path).await {
@@ -360,37 +360,37 @@ async fn process_videos_in_directory(
                 }
             }
 
-            // 获取信号量许可
+            // Acquire semaphore permit
             let permit = semaphore.clone().acquire_arc().await;
 
-            // 执行转换命令
+            // Execute conversion command
             let cmd = preset.command(&file_path, &output_path);
             println!("Executing: {cmd}");
 
             let output = Command::new("sh").arg("-c").arg(&cmd).output().await;
 
-            drop(permit); // 释放信号量
+            drop(permit); // Release semaphore
 
             match output {
                 Ok(output) if output.status.success() => {
                     println!("Successfully converted: {}", output_path.display());
                     success = true;
 
-                    // 删除原文件
+                    // Remove original file
                     if remove_original && let Err(e) = remove_file(&file_path).await {
                         eprintln!("Failed to remove original file: {e}");
                     }
-                    break; // 成功，跳出预设循环
+                    break; // Success, break out of preset loop
                 }
                 Ok(output) => {
-                    // 转换失败
+                    // Conversion failed
                     eprintln!(
                         "Conversion failed for preset {}: {}",
                         preset_name,
                         String::from_utf8_lossy(&output.stderr)
                     );
 
-                    // 清理失败的输出文件
+                    // Clean up failed output file
                     if output_path.exists() {
                         let _ = remove_file(&output_path).await;
                     }
@@ -410,15 +410,15 @@ async fn process_videos_in_directory(
     Ok(!has_error)
 }
 
-/// 处理根目录下的所有BMS文件夹
+/// Process all BMS folders under root directory
 ///
-/// # 参数
-/// - `root_dir`: 根目录路径
-/// - `input_extensions`: 输入文件扩展名列表
-/// - `preset_names`: 预设名称列表
-/// - `remove_original`: 成功后删除原文件
-/// - `remove_existing`: 删除已存在的输出文件
-/// - `use_preferred`: 是否使用推荐预设
+/// # Parameters
+/// - `root_dir`: root directory path
+/// - `input_extensions`: list of input file extensions
+/// - `preset_names`: list of preset names
+/// - `remove_original`: remove original file on success
+/// - `remove_existing`: remove existing output files
+/// - `use_preferred`: whether to use recommended presets
 pub async fn process_bms_video_folders(
     root_dir: &Path,
     input_extensions: &[&str],
@@ -427,7 +427,7 @@ pub async fn process_bms_video_folders(
     remove_existing: bool,
     use_preferred: bool,
 ) -> io::Result<()> {
-    // 验证预设名称
+    // Validate preset names
     for name in preset_names {
         #[allow(clippy::borrow_interior_mutable_const)]
         if !VIDEO_PRESETS.contains_key(*name) {

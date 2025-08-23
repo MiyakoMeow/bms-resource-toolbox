@@ -12,7 +12,7 @@ pub enum BMSEvent {
 }
 
 impl BMSEvent {
-    /// 事件列表页面
+    /// Event list page
     pub fn list_url(&self) -> &'static str {
         match self {
             BMSEvent::BOFTT => "https://manbow.nothing.sh/event/event.cgi?action=sp&event=146",
@@ -20,7 +20,7 @@ impl BMSEvent {
         }
     }
 
-    /// 事件作品详情页
+    /// Event work details page
     pub fn work_info_url(&self, work_num: u32) -> String {
         match self {
             BMSEvent::BOFTT => format!(
@@ -58,7 +58,7 @@ impl FromStr for BMSEvent {
     }
 }
 
-/// 打开默认浏览器
+/// Open default browser
 pub async fn open_browser(url: &str) -> io::Result<()> {
     #[cfg(target_os = "windows")]
     {
@@ -112,7 +112,7 @@ pub async fn activate() {
             continue;
         }
 
-        // 解析输入
+        // Parse input
         let parts: Vec<&str> = line
             .split_whitespace()
             .flat_map(|s| s.split(','))
