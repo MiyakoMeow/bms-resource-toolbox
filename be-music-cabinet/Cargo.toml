@@ -23,7 +23,7 @@ xlsxwriter = "0.6.1"
 regex = "1.10.4"
 once_cell = "1.20.0"
 clap = { version = "4.4", features = ["derive"] }
-tokio = { version = "1.0", features = ["full"] }
+iced = { version = "0.12", features = ["smol"] }
 
 [dev-dependencies]
 tempfile = "3.20.0"
@@ -34,3 +34,7 @@ name = "be_music_cabinet"
 [[bin]]
 name = "be-music-cabinet-cli"
 path = "src/bin/cli.rs"
+
+[[bin]]
+name = "be-music-cabinet-gui"
+path = "src/bin/main.rs"
