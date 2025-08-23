@@ -1,0 +1,567 @@
+use be_music_cabinet::{Cli, run_command};
+use clap::Parser;
+use iced::widget::{button, checkbox, column, pick_list, row, scrollable, text, text_input};
+use iced::{Alignment, Application, Command, Element, Font, Length, Settings, Theme, executor};
+use quote::ToTokens;
+use std::collections::{BTreeMap, HashMap};
+use syn::{Attribute, Fields, Item, ItemEnum, Type, parse_file};
+
+// 解析目标：从 lib.rs 抽取 Commands 与其子枚举结构，动态生成 UI
+const LIB_RS_SRC: &str = include_str!("lib.rs");
+
+#[derive(Debug, Clone)]
+enum UiFieldType {
+    PathBuf,
+    String,
+    Usize,
+    F64,
+    Bool,
+    Other(String),
+}
+
+#[derive(Debug, Clone)]
+struct UiFieldSpec {
+    name: String,
+    ty: UiFieldType,
+    has_long: bool,
+    long_name: Option<String>,
+    default: Option<String>,
+    value_name: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+struct UiVariantSpec {
+    name: String,
+    fields: Vec<UiFieldSpec>,
+    doc: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+struct UiSubEnumSpec {
+    name: String,
+    variants: Vec<UiVariantSpec>,
+}
+
+#[derive(Debug, Clone)]
+struct UiTopSpec {
+    variant_ident: String,
+    sub_enum_ident: String,
+    doc: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+struct UiTree {
+    top_commands: Vec<UiTopSpec>,
+    sub_enums: HashMap<String, UiSubEnumSpec>,
+}
+
+fn ident_to_string_path(ty: &Type) -> String {
+    match ty {
+        Type::Path(tp) => tp
+            .path
+            .segments
+            .iter()
+            .map(|s| s.ident.to_string())
+            .collect::<Vec<_>>()
+            .join("::"),
+        _ => format!("{}", ty.to_token_stream()),
+    }
+}
+
+fn type_to_ui_type(ty: &Type) -> UiFieldType {
+    let ts = ident_to_string_path(ty);
+    match ts.as_str() {
+        "PathBuf" | "std::path::PathBuf" => UiFieldType::PathBuf,
+        "String" | "std::string::String" => UiFieldType::String,
+        "usize" => UiFieldType::Usize,
+        "f64" => UiFieldType::F64,
+        "bool" => UiFieldType::Bool,
+        _ => UiFieldType::Other(ts),
+    }
+}
+
+fn attr_tokens_contains_long(attr: &Attribute) -> bool {
+    // 尽量不写死解析，宽松判断 "long" 字样
+    let s = attr.to_token_stream().to_string();
+    s.contains(" long") || s.contains("long ") || s.contains("long,") || s.contains("long=")
+}
+
+fn extract_arg_value_name(attr: &Attribute) -> Option<String> {
+    // 查找 value_name = "..."
+    let s = attr.to_token_stream().to_string();
+    let key = "value_name = \"";
+    if let Some(pos) = s.find(key) {
+        let rest = &s[pos + key.len()..];
+        if let Some(end) = rest.find('\"') {
+            return Some(rest[..end].to_string());
+        }
+    }
+    None
+}
+
+fn extract_default_value(attr: &Attribute) -> Option<String> {
+    // 查找 default_value = "..."
+    let s = attr.to_token_stream().to_string();
+    let key = "default_value = \"";
+    if let Some(pos) = s.find(key) {
+        let rest = &s[pos + key.len()..];
+        if let Some(end) = rest.find('\"') {
+            return Some(rest[..end].to_string());
+        }
+    }
+    None
+}
+
+fn get_doc_attr_text(attrs: &[Attribute]) -> Option<String> {
+    let mut lines: Vec<String> = Vec::new();
+    for a in attrs {
+        if a.path().is_ident("doc") {
+            let ts = a.to_token_stream().to_string();
+            // 形如: #[doc = "..."]
+            let key = "= \"";
+            if let Some(pos) = ts.find(key) {
+                let rest = &ts[pos + key.len()..];
+                if let Some(end) = rest.find('\"') {
+                    lines.push(rest[..end].to_string());
+                }
+            }
+        }
+    }
+    if lines.is_empty() {
+        None
+    } else {
+        Some(lines.join("\n"))
+    }
+}
+
+fn to_kebab_case(name: &str) -> String {
+    let mut out = String::new();
+    let mut prev_lower = false;
+    for ch in name.chars() {
+        if ch == '_' {
+            out.push('-');
+            prev_lower = false;
+            continue;
+        }
+        if ch.is_ascii_uppercase() {
+            if prev_lower {
+                out.push('-');
+            }
+            for c in ch.to_lowercase() {
+                out.push(c);
+            }
+            prev_lower = false;
+        } else {
+            out.push(ch);
+            prev_lower = ch.is_ascii_lowercase();
+        }
+    }
+    out
+}
+
+fn to_long_flag(name: &str) -> String {
+    name.replace('_', "-")
+}
+
+fn build_ui_tree() -> UiTree {
+    let file = parse_file(LIB_RS_SRC).expect("parse lib.rs failed");
+    let mut enums: HashMap<String, ItemEnum> = HashMap::new();
+    for item in file.items {
+        if let Item::Enum(e) = item {
+            enums.insert(e.ident.to_string(), e);
+        }
+    }
+
+    let commands = enums
+        .get("Commands")
+        .expect("Commands enum not found in lib.rs");
+
+    let mut top_commands: Vec<UiTopSpec> = Vec::new();
+    for var in &commands.variants {
+        // 变体如: Work { command: WorkCommands }
+        let mut sub_enum_ident = None;
+        if let Fields::Named(named) = &var.fields {
+            for f in &named.named {
+                if let Some(ident) = &f.ident
+                    && ident == "command" {
+                        sub_enum_ident = Some(ident_to_string_path(&f.ty));
+                        break;
+                    }
+            }
+        }
+        if let Some(sub) = sub_enum_ident {
+            top_commands.push(UiTopSpec {
+                variant_ident: var.ident.to_string(),
+                sub_enum_ident: sub,
+                doc: get_doc_attr_text(&var.attrs),
+            });
+        }
+    }
+
+    let mut sub_enums: HashMap<String, UiSubEnumSpec> = HashMap::new();
+    for top in &top_commands {
+        if let Some(sub_enum) = enums.get(&top.sub_enum_ident) {
+            let mut variants: Vec<UiVariantSpec> = Vec::new();
+            for v in &sub_enum.variants {
+                let mut fields_spec: Vec<UiFieldSpec> = Vec::new();
+                match &v.fields {
+                    Fields::Named(named) => {
+                        for f in &named.named {
+                            let name = f
+                                .ident
+                                .as_ref()
+                                .map(|i| i.to_string())
+                                .unwrap_or_else(|| "arg".to_string());
+
+                            let ty = type_to_ui_type(&f.ty);
+                            let mut has_long = false;
+                            let mut value_name = None;
+                            let mut default = None;
+                            for attr in &f.attrs {
+                                if attr.path().is_ident("arg") {
+                                    if attr_tokens_contains_long(attr) {
+                                        has_long = true;
+                                    }
+                                    if value_name.is_none() {
+                                        value_name = extract_arg_value_name(attr);
+                                    }
+                                    if default.is_none() {
+                                        default = extract_default_value(attr);
+                                    }
+                                }
+                            }
+                            let long_name = if has_long {
+                                Some(to_long_flag(&name))
+                            } else {
+                                None
+                            };
+                            fields_spec.push(UiFieldSpec {
+                                name,
+                                ty,
+                                has_long,
+                                long_name,
+                                default,
+                                value_name,
+                            });
+                        }
+                    }
+                    Fields::Unnamed(_) | Fields::Unit => {}
+                }
+                variants.push(UiVariantSpec {
+                    name: v.ident.to_string(),
+                    fields: fields_spec,
+                    doc: get_doc_attr_text(&v.attrs),
+                });
+            }
+            sub_enums.insert(
+                top.sub_enum_ident.clone(),
+                UiSubEnumSpec {
+                    name: top.sub_enum_ident.clone(),
+                    variants,
+                },
+            );
+        }
+    }
+
+    UiTree {
+        top_commands,
+        sub_enums,
+    }
+}
+
+#[derive(Debug, Clone)]
+enum Msg {
+    TopChanged(usize),
+    SubChanged(usize),
+    FieldTextChanged(String, String),
+    FieldBoolChanged(String, bool),
+    Run,
+    Finished(Result<(), String>),
+}
+
+struct App {
+    tree: UiTree,
+    top_idx: usize,
+    sub_idx: usize,
+    inputs: BTreeMap<String, String>,
+    bools: BTreeMap<String, bool>,
+    status: String,
+    running: bool,
+}
+
+impl App {
+    fn current_top(&self) -> &UiTopSpec {
+        &self.tree.top_commands[self.top_idx]
+    }
+
+    fn current_sub_enum(&self) -> &UiSubEnumSpec {
+        let name = &self.current_top().sub_enum_ident;
+        self.tree.sub_enums.get(name).expect("sub enum not found")
+    }
+
+    fn current_variant(&self) -> &UiVariantSpec {
+        &self.current_sub_enum().variants[self.sub_idx]
+    }
+
+    fn field_key(&self, field_name: &str) -> String {
+        format!(
+            "{}::{}::{}",
+            self.current_top().sub_enum_ident,
+            self.current_variant().name,
+            field_name
+        )
+    }
+
+    fn ensure_defaults(&mut self) {
+        let fields = self.current_variant().fields.clone();
+        for f in &fields {
+            let key = self.field_key(&f.name);
+            match f.ty {
+                UiFieldType::Bool => {
+                    self.bools.entry(key).or_insert(false);
+                }
+                _ => {
+                    let default_val = f.default.clone().unwrap_or_else(String::new);
+                    self.inputs.entry(key).or_insert(default_val);
+                }
+            }
+        }
+    }
+
+    fn build_cli_args(&self) -> Vec<String> {
+        let top = self.current_top();
+        let var = self.current_variant();
+        let mut args = Vec::new();
+        args.push("be-music-cabinet".to_string());
+        args.push(to_kebab_case(&top.variant_ident));
+        args.push(to_kebab_case(&var.name));
+        for f in &var.fields {
+            let key = format!("{}::{}::{}", top.sub_enum_ident, var.name, f.name);
+            match f.ty {
+                UiFieldType::Bool => {
+                    if *self.bools.get(&key).unwrap_or(&false)
+                        && let Some(long) = &f.long_name {
+                            args.push(format!("--{}", long));
+                        }
+                }
+                _ => {
+                    let val = self.inputs.get(&key).cloned().unwrap_or_default();
+                    if f.has_long
+                        && let Some(long) = &f.long_name {
+                            args.push(format!("--{}", long));
+                        }
+                    if !val.is_empty() {
+                        args.push(val);
+                    }
+                }
+            }
+        }
+        args
+    }
+}
+
+impl Application for App {
+    type Executor = executor::Default;
+    type Flags = ();
+    type Message = Msg;
+    type Theme = Theme;
+
+    fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
+        let mut app = App {
+            tree: build_ui_tree(),
+            top_idx: 0,
+            sub_idx: 0,
+            inputs: BTreeMap::new(),
+            bools: BTreeMap::new(),
+            status: String::new(),
+            running: false,
+        };
+        app.ensure_defaults();
+        (app, Command::none())
+    }
+
+    fn title(&self) -> String {
+        "Be-Music Cabinet GUI".to_string()
+    }
+
+    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
+        match message {
+            Msg::TopChanged(i) => {
+                self.top_idx = i;
+                self.sub_idx = 0;
+                self.inputs.clear();
+                self.bools.clear();
+                self.ensure_defaults();
+                Command::none()
+            }
+            Msg::SubChanged(i) => {
+                self.sub_idx = i;
+                self.inputs.clear();
+                self.bools.clear();
+                self.ensure_defaults();
+                Command::none()
+            }
+            Msg::FieldTextChanged(key, value) => {
+                self.inputs.insert(key, value);
+                Command::none()
+            }
+            Msg::FieldBoolChanged(key, value) => {
+                self.bools.insert(key, value);
+                Command::none()
+            }
+            Msg::Run => {
+                if self.running {
+                    return Command::none();
+                }
+                self.running = true;
+                let args = self.build_cli_args();
+                let args_for_view = args.clone().join(" ");
+                self.status = format!("运行: {}", args_for_view);
+                // 在线程中执行，避免复杂 Future 类型导致 Send/MaybeSend 推导问题
+                Command::perform(
+                    {
+                        let (tx, rx) = futures::channel::oneshot::channel::<Result<(), String>>();
+                        std::thread::spawn(move || {
+                            let result = smol::block_on(async move {
+                                let cli = Cli::parse_from(args);
+                                run_command(&cli.command)
+                                    .await
+                                    .map_err(|e| format!("{}", e))
+                            });
+                            let _ = tx.send(result);
+                        });
+                        async move { rx.await.unwrap_or_else(|e| Err(e.to_string())) }
+                    },
+                    Msg::Finished,
+                )
+            }
+            Msg::Finished(res) => {
+                self.running = false;
+                match res {
+                    Ok(()) => self.status.push_str("\n完成"),
+                    Err(e) => self.status.push_str(&format!("\n错误: {}", e)),
+                }
+                Command::none()
+            }
+        }
+    }
+
+    fn view(&self) -> Element<'_, Self::Message> {
+        let tops: Vec<String> = self
+            .tree
+            .top_commands
+            .iter()
+            .map(|t| t.variant_ident.clone())
+            .collect();
+
+        let subs: Vec<String> = self
+            .current_sub_enum()
+            .variants
+            .iter()
+            .map(|v| v.name.clone())
+            .collect();
+
+        let mut fields_col = column![].spacing(8).push(text("参数").size(18));
+        for f in &self.current_variant().fields {
+            let key = self.field_key(&f.name);
+            let label = f.value_name.as_deref().unwrap_or(&f.name);
+            let row_widget: Element<_> = match f.ty {
+                UiFieldType::Bool => {
+                    let checked = *self.bools.get(&key).unwrap_or(&false);
+                    row![
+                        text(label),
+                        checkbox("", checked).on_toggle({
+                            let k = key.clone();
+                            move |v| Msg::FieldBoolChanged(k.clone(), v)
+                        })
+                    ]
+                    .spacing(10)
+                    .into()
+                }
+                _ => {
+                    let val = self.inputs.get(&key).cloned().unwrap_or_default();
+                    row![
+                        text(label),
+                        text_input("", &val)
+                            .on_input({
+                                let k = key.clone();
+                                move |v| Msg::FieldTextChanged(k.clone(), v)
+                            })
+                            .width(Length::Fill)
+                    ]
+                    .spacing(10)
+                    .into()
+                }
+            };
+            fields_col = fields_col.push(row_widget);
+        }
+
+        let content = column![
+            row![
+                text("命令").size(18),
+                pick_list(tops.clone(), Some(tops[self.top_idx].clone()), move |v| {
+                    let idx = tops.iter().position(|t| t == &v).unwrap_or(0);
+                    Msg::TopChanged(idx)
+                })
+            ]
+            .spacing(10),
+            row![
+                text("子命令").size(18),
+                pick_list(subs.clone(), Some(subs[self.sub_idx].clone()), move |v| {
+                    let idx = subs.iter().position(|t| t == &v).unwrap_or(0);
+                    Msg::SubChanged(idx)
+                })
+            ]
+            .spacing(10),
+            fields_col,
+            row![
+                button(text(if self.running {
+                    "执行中..."
+                } else {
+                    "执行"
+                }))
+                .on_press(if self.running {
+                    Msg::Finished(Ok(()))
+                } else {
+                    Msg::Run
+                })
+            ]
+            .spacing(10),
+            scrollable(text(self.status.clone())).height(Length::Fill),
+        ]
+        .padding(12)
+        .spacing(12)
+        .align_items(Alignment::Start);
+
+        content.into()
+    }
+}
+
+fn pick_chinese_font() -> Font {
+    // 优先尝试系统常见中文字体名称；若失败，再使用 fontdb 扫描
+    if let Some(fam) = [
+        "Microsoft YaHei",
+        "Microsoft JhengHei",
+        "SimSun",
+        "SimHei",
+        "Noto Sans CJK SC",
+        "Noto Sans CJK TC",
+        "WenQuanYi Micro Hei",
+    ].into_iter().next() {
+        // 仅依赖名称，若系统存在将由后端解析
+        return Font::with_name(fam);
+    }
+    // 回退：仍返回一个名称字体，交由系统选择
+    Font::with_name("Microsoft YaHei")
+}
+
+fn main() -> iced::Result {
+    let mut settings: Settings<()> = Settings {
+        id: None,
+        ..Settings::default()
+    };
+    settings.default_font = pick_chinese_font();
+    settings.default_text_size = 16.into();
+    settings.antialiasing = true;
+    App::run(settings)
+}
