@@ -16,6 +16,7 @@ use crate::{
         pack::{
             pack_hq_to_lq, pack_raw_to_hq, pack_setup_rawpack_to_hq, pack_update_rawpack_to_hq,
         },
+        rawpack::{set_file_num, unzip_numeric_to_bms_folder, unzip_with_name_to_bms_folder},
         root::{
             copy_numbered_workdir_names, scan_folder_similar_folders,
             set_name_by_bms as root_set_name_by_bms,
@@ -73,6 +74,11 @@ pub enum Commands {
     RootEvent {
         #[command(subcommand)]
         command: RootEventCommands,
+    },
+    /// Raw pack processing related operations
+    Rawpack {
+        #[command(subcommand)]
+        command: RawpackCommands,
     },
 }
 
@@ -201,6 +207,46 @@ pub enum RootEventCommands {
     /// Generate work information table
     GenerateWorkInfoTable {
         /// Root directory path
+        #[arg(value_name = "DIR")]
+        dir: PathBuf,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum RawpackCommands {
+    /// Extract numerically named pack files to BMS folders
+    UnzipNumericToBmsFolder {
+        /// Pack directory path
+        #[arg(value_name = "PACK_DIR")]
+        pack_dir: PathBuf,
+        /// Cache directory path
+        #[arg(value_name = "CACHE_DIR")]
+        cache_dir: PathBuf,
+        /// Root directory path
+        #[arg(value_name = "ROOT_DIR")]
+        root_dir: PathBuf,
+        /// Confirm before processing
+        #[arg(long)]
+        confirm: bool,
+    },
+    /// Extract files with names to BMS folders
+    UnzipWithNameToBmsFolder {
+        /// Pack directory path
+        #[arg(value_name = "PACK_DIR")]
+        pack_dir: PathBuf,
+        /// Cache directory path
+        #[arg(value_name = "CACHE_DIR")]
+        cache_dir: PathBuf,
+        /// Root directory path
+        #[arg(value_name = "ROOT_DIR")]
+        root_dir: PathBuf,
+        /// Confirm before processing
+        #[arg(long)]
+        confirm: bool,
+    },
+    /// Set file number (interactive)
+    SetFileNum {
+        /// Directory path
         #[arg(value_name = "DIR")]
         dir: PathBuf,
     },
@@ -562,6 +608,43 @@ pub async fn run_command(command: &Commands) -> Result<(), Box<dyn std::error::E
                 println!("Generating work information table: {}", dir.display());
                 generate_work_info_table(dir).await?;
                 println!("Generation completed");
+            }
+        },
+        Commands::Rawpack { command } => match command {
+            RawpackCommands::UnzipNumericToBmsFolder {
+                pack_dir,
+                cache_dir,
+                root_dir,
+                confirm,
+            } => {
+                println!(
+                    "Extracting numerically named pack files: {} -> {} (cache: {})",
+                    pack_dir.display(),
+                    root_dir.display(),
+                    cache_dir.display()
+                );
+                unzip_numeric_to_bms_folder(pack_dir, cache_dir, root_dir, *confirm).await?;
+                println!("Extraction completed");
+            }
+            RawpackCommands::UnzipWithNameToBmsFolder {
+                pack_dir,
+                cache_dir,
+                root_dir,
+                confirm,
+            } => {
+                println!(
+                    "Extracting files with names: {} -> {} (cache: {})",
+                    pack_dir.display(),
+                    root_dir.display(),
+                    cache_dir.display()
+                );
+                unzip_with_name_to_bms_folder(pack_dir, cache_dir, root_dir, *confirm).await?;
+                println!("Extraction completed");
+            }
+            RawpackCommands::SetFileNum { dir } => {
+                println!("Setting file numbers: {}", dir.display());
+                set_file_num(dir).await?;
+                println!("Setting completed");
             }
         },
     }
