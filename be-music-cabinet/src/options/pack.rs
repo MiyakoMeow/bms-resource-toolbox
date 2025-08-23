@@ -4,74 +4,17 @@ use smol::{fs, io, stream::StreamExt};
 
 use crate::{
     fs::{
-        moving::{MoveOptions, move_elements_across_dir},
-        rawpack::{
-            get_num_set_file_names, move_out_files_in_folder_in_cache_dir, unzip_file_to_cache_dir,
-        },
+        rawpack::get_num_set_file_names,
         sync::{preset_for_append, sync_folder},
     },
     media::{audio::process_bms_folders, video::process_bms_video_folders},
     options::{
+        rawpack::unzip_numeric_to_bms_folder as rawpack_unzip_numeric_to_bms_folder,
         root::copy_numbered_workdir_names,
         root_bigpack::{get_remove_media_rule_oraja, remove_unneed_media_files},
         work::{BmsFolderSetNameType, set_name_by_bms},
     },
 };
-
-/// Extract numerically named pack files to BMS folders
-async fn unzip_numeric_to_bms_folder(
-    root_dir: impl AsRef<Path>,
-    pack_dir: impl AsRef<Path>,
-    cache_dir: impl AsRef<Path>,
-) -> io::Result<()> {
-    let root_dir = root_dir.as_ref();
-    let pack_dir = pack_dir.as_ref();
-    let cache_dir = cache_dir.as_ref();
-
-    // Get list of numerically named files
-    let file_names = get_num_set_file_names(pack_dir)?;
-
-    for file_name in file_names {
-        let file_path = pack_dir.join(&file_name);
-        let id_str = file_name.split(' ').next().unwrap_or("");
-
-        if !id_str.chars().all(|c| c.is_ascii_digit()) {
-            continue;
-        }
-
-        println!("Processing pack file: {}", file_name);
-
-        // Extract to cache directory
-        unzip_file_to_cache_dir(&file_path, cache_dir).await?;
-
-        // Organize files in cache directory
-        if !move_out_files_in_folder_in_cache_dir(cache_dir).await? {
-            println!("Failed to process cache directory for {}", file_name);
-            continue;
-        }
-
-        // Create target directory
-        let target_dir = root_dir.join(id_str);
-        fs::create_dir_all(&target_dir).await?;
-
-        // Move files to target directory
-        move_elements_across_dir(
-            cache_dir,
-            &target_dir,
-            MoveOptions::default(),
-            Default::default(),
-        )
-        .await?;
-
-        println!(
-            "Successfully processed: {} -> {}",
-            file_name,
-            target_dir.display()
-        );
-    }
-
-    Ok(())
-}
 
 /// Remove empty folders
 async fn remove_empty_folder(parent_dir: impl AsRef<Path>) -> io::Result<()> {
@@ -210,7 +153,7 @@ pub async fn pack_setup_rawpack_to_hq(
     );
     let cache_dir = root_dir.join("CacheDir");
     fs::create_dir_all(&cache_dir).await?;
-    unzip_numeric_to_bms_folder(root_dir, pack_dir, &cache_dir).await?;
+    rawpack_unzip_numeric_to_bms_folder(pack_dir, &cache_dir, root_dir, false).await?;
 
     // Check if cache directory is empty, delete if empty
     if cache_dir.exists() {
@@ -316,7 +259,7 @@ pub async fn pack_update_rawpack_to_hq(
     );
     let cache_dir = root_dir.join("CacheDir");
     fs::create_dir_all(&cache_dir).await?;
-    unzip_numeric_to_bms_folder(root_dir, pack_dir, &cache_dir).await?;
+    rawpack_unzip_numeric_to_bms_folder(pack_dir, &cache_dir, root_dir, false).await?;
 
     // Syncing folder name
     println!(
@@ -432,7 +375,8 @@ mod tests {
 
             // This test mainly verifies if the function structure is correct, actual extraction requires real compressed files
             // Since we don't have real compressed files, we only verify it doesn't panic
-            let result = unzip_numeric_to_bms_folder(&root_dir, &pack_dir, &cache_dir).await;
+            let result =
+                rawpack_unzip_numeric_to_bms_folder(&pack_dir, &cache_dir, &root_dir, false).await;
 
             // Verify function execution completes (should not panic even if it fails)
             assert!(
