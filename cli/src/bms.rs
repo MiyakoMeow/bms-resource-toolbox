@@ -73,8 +73,8 @@ pub async fn parse_bmson_file(file: &Path) -> io::Result<BmsOutput> {
 }
 
 pub async fn get_dir_bms_list(dir: &Path) -> io::Result<Vec<BmsOutput>> {
-    // TODO: Fix type inference issue and implement parallel processing
-    let mut bms_list = Vec::new();
+    // Collect all BMS files first
+    let mut bms_files = Vec::new();
     let mut dir_entry = fs::read_dir(dir).await?;
     while let Some(entry) = dir_entry.next().await {
         let entry = entry?;
@@ -84,31 +84,52 @@ pub async fn get_dir_bms_list(dir: &Path) -> io::Result<Vec<BmsOutput>> {
         }
         let file_path = entry.path();
         let ext = file_path.extension().and_then(|p| p.to_str()).unwrap_or("");
-        // Read bms
-        let Some(bms) = (if BMS_FILE_EXTS.contains(&ext) {
-            let bms = parse_bms_file(&file_path).await?;
-            Some(bms)
-        } else if BMSON_FILE_EXTS.contains(&ext) {
-            let bmson = parse_bmson_file(&file_path).await?;
-            Some(bmson)
-        } else {
-            None
-        }) else {
-            continue;
-        };
-        // Check playing error
-        if bms.warnings.iter().any(|warning| {
-            matches!(
-                warning,
-                BmsWarning::PlayingError(_)
-                    | BmsWarning::PlayingWarning(PlayingWarning::NoPlayableNotes)
-            )
-        }) {
-            continue;
+        if BMS_FILE_EXTS.contains(&ext) || BMSON_FILE_EXTS.contains(&ext) {
+            bms_files.push(file_path);
         }
-        // add
-        bms_list.push(bms)
     }
+
+    // Process files in parallel using disk locks
+    let futures: Vec<_> = bms_files
+        .into_iter()
+        .map(|file_path| async move {
+            let ext = file_path.extension().and_then(|p| p.to_str()).unwrap_or("");
+            let bms = if BMS_FILE_EXTS.contains(&ext) {
+                parse_bms_file(&file_path).await?
+            } else if BMSON_FILE_EXTS.contains(&ext) {
+                parse_bmson_file(&file_path).await?
+            } else {
+                return Ok::<std::option::Option<bms_rs::bms::BmsOutput>, io::Error>(
+                    None::<BmsOutput>,
+                );
+            };
+
+            // Check playing error
+            if bms.warnings.iter().any(|warning| {
+                matches!(
+                    warning,
+                    BmsWarning::PlayingError(_)
+                        | BmsWarning::PlayingWarning(PlayingWarning::NoPlayableNotes)
+                )
+            }) {
+                return Ok(None);
+            }
+
+            Ok(Some(bms))
+        })
+        .collect();
+
+    // Wait for all tasks to complete
+    let results = futures::future::join_all(futures).await;
+
+    // Collect successful results
+    let mut bms_list = Vec::new();
+    for result in results {
+        if let Ok(Some(bms)) = result {
+            bms_list.push(bms);
+        }
+    }
+
     Ok(bms_list)
 }
 
@@ -163,40 +184,72 @@ pub async fn get_dir_bms_info(dir: &Path) -> io::Result<Option<Bms>> {
 
 /// work_dir: work directory, must contain BMS files
 pub async fn is_work_dir(dir: &Path) -> io::Result<bool> {
+    // Collect all files first
+    let mut files = Vec::new();
     let mut read_dir = fs::read_dir(dir).await?;
     while let Some(entry) = read_dir.next().await {
         let entry = entry?;
         let file_type: FileType = entry.file_type().await?;
-        if !file_type.is_file() {
-            continue;
+        if file_type.is_file() {
+            files.push(entry.path());
         }
-        let file_path = entry.path();
-        #[allow(clippy::borrow_interior_mutable_const)]
-        if file_path
-            .extension()
-            .and_then(|s| s.to_str())
-            .filter(|s| CHART_FILE_EXTS.contains(s))
-            .is_some()
-        {
+    }
+
+    // Check files in parallel
+    let futures: Vec<_> = files
+        .into_iter()
+        .map(|file_path| async move {
+            #[allow(clippy::borrow_interior_mutable_const)]
+            let has_chart_ext = file_path
+                .extension()
+                .and_then(|s| s.to_str())
+                .filter(|s| CHART_FILE_EXTS.contains(s))
+                .is_some();
+            Ok::<bool, io::Error>(has_chart_ext)
+        })
+        .collect();
+
+    // Wait for all tasks to complete
+    let results = futures::future::join_all(futures).await;
+
+    // Return true if any file has chart extension
+    for result in results {
+        if result? {
             return Ok(true);
         }
     }
+
     Ok(false)
 }
 
 /// root_dir: work collection directory, parent of work_dir
 pub async fn is_root_dir(dir: &Path) -> io::Result<bool> {
+    // Collect all directories first
+    let mut dirs = Vec::new();
     let mut read_dir = fs::read_dir(dir).await?;
     while let Some(entry) = read_dir.next().await {
         let entry = entry?;
         let file_type: FileType = entry.file_type().await?;
-        if !file_type.is_dir() {
-            continue;
+        if file_type.is_dir() {
+            dirs.push(entry.path());
         }
-        let dir_path = entry.path();
-        if is_work_dir(&dir_path).await? {
+    }
+
+    // Check directories in parallel
+    let futures: Vec<_> = dirs
+        .into_iter()
+        .map(|dir_path| async move { is_work_dir(&dir_path).await })
+        .collect();
+
+    // Wait for all tasks to complete
+    let results = futures::future::join_all(futures).await;
+
+    // Return true if any directory is a work directory
+    for result in results {
+        if result? {
             return Ok(true);
         }
     }
+
     Ok(false)
 }
