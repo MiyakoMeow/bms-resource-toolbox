@@ -1,0 +1,38 @@
+[package]
+name = "be-music-cabinet-cli"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+smol = { workspace = true }
+sha3 = { workspace = true }
+encoding_rs = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sysinfo = { workspace = true }
+
+zip = { workspace = true }
+sevenz-rust = { workspace = true }
+unrar = { workspace = true }
+
+bms-rs = { workspace = true }
+
+num_cpus = { workspace = true }
+futures = { workspace = true }
+which = { workspace = true }
+strsim = { workspace = true }
+xlsxwriter = { workspace = true }
+regex = { workspace = true }
+once_cell = { workspace = true }
+clap = { workspace = true }
+blocking = { workspace = true }
+syn = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[[bin]]
+name = "be-music-cabinet-cli"
+path = "src/bin/cli.rs"

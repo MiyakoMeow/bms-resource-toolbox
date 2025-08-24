@@ -29,10 +29,10 @@ use quote::ToTokens;
 use syn::{Attribute, Fields, Item, ItemEnum, Type, parse_file};
 
 // Call library side CLI and command execution
-use be_music_cabinet::{Cli, run_command};
+use be_music_cabinet_cli::{Cli, run_command};
 
 // Parse target: Extract Commands and its sub-enum structures from lib.rs, dynamically generate UI
-const LIB_RS_SRC: &str = include_str!("lib.rs");
+const LIB_RS_SRC: &str = include_str!("../../cli/src/lib.rs");
 
 #[derive(Debug, Clone)]
 enum UiFieldType {
