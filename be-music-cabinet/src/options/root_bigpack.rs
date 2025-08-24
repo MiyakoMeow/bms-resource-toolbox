@@ -511,10 +511,12 @@ pub async fn move_out_works(target_root_dir: impl AsRef<Path>, dry_run: bool) ->
     Ok(())
 }
 
+pub type RemoveMediaRule = (Vec<String>, Vec<String>);
+
 /// Remove unnecessary media files
 async fn workdir_remove_unneed_media_files(
     work_dir: &Path,
-    rule: &[(Vec<String>, Vec<String>)],
+    rule: &[RemoveMediaRule],
 ) -> io::Result<()> {
     let mut remove_pairs = Vec::new();
     let mut removed_files = HashSet::new();
@@ -610,7 +612,7 @@ async fn workdir_remove_unneed_media_files(
     Ok(())
 }
 
-pub fn get_remove_media_rule_oraja() -> Vec<(Vec<String>, Vec<String>)> {
+pub fn get_remove_media_rule_oraja() -> Vec<RemoveMediaRule> {
     vec![
         (
             vec!["mp4".to_string()],
@@ -634,15 +636,15 @@ pub fn get_remove_media_rule_oraja() -> Vec<(Vec<String>, Vec<String>)> {
     ]
 }
 
-pub fn get_remove_media_rule_wav_fill_flac() -> Vec<(Vec<String>, Vec<String>)> {
+pub fn get_remove_media_rule_wav_fill_flac() -> Vec<RemoveMediaRule> {
     vec![(vec!["wav".to_string()], vec!["flac".to_string()])]
 }
 
-pub fn get_remove_media_rule_mpg_fill_wmv() -> Vec<(Vec<String>, Vec<String>)> {
+pub fn get_remove_media_rule_mpg_fill_wmv() -> Vec<RemoveMediaRule> {
     vec![(vec!["mpg".to_string()], vec!["wmv".to_string()])]
 }
 
-pub fn get_remove_media_file_rules() -> Vec<Vec<(Vec<String>, Vec<String>)>> {
+pub fn get_remove_media_file_rules() -> Vec<Vec<RemoveMediaRule>> {
     vec![
         get_remove_media_rule_oraja(),
         get_remove_media_rule_wav_fill_flac(),
@@ -688,9 +690,7 @@ impl ValueEnum for RemoveMediaPreset {
     }
 }
 
-pub fn get_remove_media_rule_by_preset(
-    preset: RemoveMediaPreset,
-) -> Vec<(Vec<String>, Vec<String>)> {
+pub fn get_remove_media_rule_by_preset(preset: RemoveMediaPreset) -> Vec<RemoveMediaRule> {
     match preset {
         RemoveMediaPreset::Oraja => get_remove_media_rule_oraja(),
         RemoveMediaPreset::WavFillFlac => get_remove_media_rule_wav_fill_flac(),
@@ -701,7 +701,7 @@ pub fn get_remove_media_rule_by_preset(
 /// Remove unnecessary media files
 pub async fn remove_unneed_media_files(
     root_dir: impl AsRef<Path>,
-    rule: Vec<(Vec<String>, Vec<String>)>,
+    rule: Vec<RemoveMediaRule>,
 ) -> io::Result<()> {
     let root_dir = root_dir.as_ref();
 
