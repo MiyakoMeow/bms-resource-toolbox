@@ -1,3 +1,0 @@
-[project]
-name = "boftt-pack-generator-scripts"
-dependencies = ["py7zr", "rarfile"]
