@@ -61,7 +61,7 @@ pub async fn pack_raw_to_hq(root_dir: impl AsRef<Path>) -> io::Result<()> {
 
     // Remove Unneed Media File
     info!("Removing Unneed Files");
-    remove_unneed_media_files(root_dir, Some(get_remove_media_rule_oraja())).await?;
+    remove_unneed_media_files(root_dir, get_remove_media_rule_oraja()).await?;
 
     Ok(())
 }
@@ -189,7 +189,7 @@ pub async fn pack_setup_rawpack_to_hq(
 
     // Remove Unneed Media File
     info!(" > 4. Removing Unneed Files");
-    remove_unneed_media_files(root_dir, Some(get_remove_media_rule_oraja())).await?;
+    remove_unneed_media_files(root_dir, get_remove_media_rule_oraja()).await?;
 
     Ok(())
 }
@@ -284,7 +284,7 @@ pub async fn pack_update_rawpack_to_hq(
 
     // Remove Unneed Media File
     info!(" > 4. Removing Unneed Files");
-    remove_unneed_media_files(root_dir, Some(get_remove_media_rule_oraja())).await?;
+    remove_unneed_media_files(root_dir, get_remove_media_rule_oraja()).await?;
 
     // Soft syncing
     info!(

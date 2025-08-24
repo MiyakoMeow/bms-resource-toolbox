@@ -95,6 +95,11 @@ fn type_to_ui_type(ty: &Type) -> UiFieldType {
             "append_title_artist".to_string(),
             "append_artist".to_string(),
         ]),
+        "RemoveMediaPreset" => UiFieldType::Enum(vec![
+            "oraja".to_string(),
+            "wav_fill_flac".to_string(),
+            "mpg_fill_wmv".to_string(),
+        ]),
         _ => UiFieldType::Other,
     }
 }

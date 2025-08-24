@@ -3,9 +3,11 @@ use std::{
     path::Path,
 };
 
+use clap::ValueEnum;
 use log::info;
 use regex::Regex;
 use smol::{fs, io, stream::StreamExt};
+use std::str::FromStr;
 
 use crate::fs::moving::{move_elements_across_dir, replace_options_update_pack};
 
@@ -171,7 +173,7 @@ pub async fn split_folders_with_first_char(root_dir: impl AsRef<Path>) -> io::Re
 }
 
 /// (Undo operation) Split works in this directory into multiple folders according to first character
-pub async fn undo_split_pack(root_dir: impl AsRef<Path>) -> io::Result<()> {
+pub async fn undo_split_pack(root_dir: impl AsRef<Path>, dry_run: bool) -> io::Result<()> {
     let root_dir = root_dir.as_ref();
     let root_folder_name = root_dir
         .file_name()
@@ -201,14 +203,24 @@ pub async fn undo_split_pack(root_dir: impl AsRef<Path>) -> io::Result<()> {
         return Ok(());
     }
 
-    info!("Found {} folders to merge. Confirm? [y/N]", pairs.len());
-    let mut input = String::new();
-    std::io::stdin().read_line(&mut input)?;
-
-    if !input.trim().to_lowercase().starts_with('y') {
-        info!("Operation cancelled.");
+    info!("Found {} folders to merge.", pairs.len());
+    if pairs.is_empty() {
         return Ok(());
     }
+
+    if dry_run {
+        info!("Dry-run enabled. No changes will be made.");
+        for (from_dir, to_dir) in &pairs {
+            info!(
+                " - Would move: {} -> {}",
+                from_dir.display(),
+                to_dir.display()
+            );
+        }
+        return Ok(());
+    }
+
+    // No confirm flag anymore; proceed directly when not dry-run
 
     for (from_dir, to_dir) in pairs {
         move_elements_across_dir(
@@ -224,7 +236,7 @@ pub async fn undo_split_pack(root_dir: impl AsRef<Path>) -> io::Result<()> {
 }
 
 /// Merge split folders
-pub async fn merge_split_folders(root_dir: impl AsRef<Path>) -> io::Result<()> {
+pub async fn merge_split_folders(root_dir: impl AsRef<Path>, dry_run: bool) -> io::Result<()> {
     let root_dir = root_dir.as_ref();
     let mut dir_names = Vec::new();
     let mut entries = fs::read_dir(root_dir).await?;
@@ -300,19 +312,24 @@ pub async fn merge_split_folders(root_dir: impl AsRef<Path>) -> io::Result<()> {
         return Err(io::Error::other("Duplicate folders found"));
     }
 
-    // Confirm
+    // Confirm / Dry-run
     for (target_dir_name, from_dir_name) in &pairs {
         info!("- Find Dir pair: {} <- {}", target_dir_name, from_dir_name);
     }
 
-    info!("There are {} actions. Do transferring? [y/N]:", pairs.len());
-    let mut input = String::new();
-    std::io::stdin().read_line(&mut input)?;
-
-    if !input.trim().to_lowercase().starts_with('y') {
-        info!("Aborted.");
+    if pairs.is_empty() {
         return Ok(());
     }
+
+    if dry_run {
+        info!("Dry-run enabled. No changes will be made.");
+        for (target_dir_name, from_dir_name) in &pairs {
+            info!(" - Would move: {} <- {}", target_dir_name, from_dir_name);
+        }
+        return Ok(());
+    }
+
+    // No confirm flag anymore; proceed directly when not dry-run
 
     for (target_dir_name, from_dir_name) in pairs {
         let from_dir_path = root_dir.join(&from_dir_name);
@@ -571,27 +588,60 @@ pub fn get_remove_media_file_rules() -> Vec<Vec<(Vec<String>, Vec<String>)>> {
     ]
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum RemoveMediaPreset {
+    Oraja = 0,
+    WavFillFlac = 1,
+    MpgFillWmv = 2,
+}
+
+impl FromStr for RemoveMediaPreset {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "oraja" => Ok(RemoveMediaPreset::Oraja),
+            "wav_fill_flac" => Ok(RemoveMediaPreset::WavFillFlac),
+            "mpg_fill_wmv" => Ok(RemoveMediaPreset::MpgFillWmv),
+            _ => Err(format!(
+                "Unknown preset: {}. Valid values are: oraja, wav_fill_flac, mpg_fill_wmv",
+                s
+            )),
+        }
+    }
+}
+
+impl ValueEnum for RemoveMediaPreset {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[Self::Oraja, Self::WavFillFlac, Self::MpgFillWmv]
+    }
+
+    fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
+        let name = match self {
+            RemoveMediaPreset::Oraja => "oraja",
+            RemoveMediaPreset::WavFillFlac => "wav_fill_flac",
+            RemoveMediaPreset::MpgFillWmv => "mpg_fill_wmv",
+        };
+        Some(clap::builder::PossibleValue::new(name))
+    }
+}
+
+pub fn get_remove_media_rule_by_preset(
+    preset: RemoveMediaPreset,
+) -> Vec<(Vec<String>, Vec<String>)> {
+    match preset {
+        RemoveMediaPreset::Oraja => get_remove_media_rule_oraja(),
+        RemoveMediaPreset::WavFillFlac => get_remove_media_rule_wav_fill_flac(),
+        RemoveMediaPreset::MpgFillWmv => get_remove_media_rule_mpg_fill_wmv(),
+    }
+}
+
 /// Remove unnecessary media files
 pub async fn remove_unneed_media_files(
     root_dir: impl AsRef<Path>,
-    rule: Option<Vec<(Vec<String>, Vec<String>)>>,
+    rule: Vec<(Vec<String>, Vec<String>)>,
 ) -> io::Result<()> {
     let root_dir = root_dir.as_ref();
-    let rule = match rule {
-        Some(r) => r,
-        None => {
-            // Select Preset
-            let rules = get_remove_media_file_rules();
-            for (i, rule) in rules.iter().enumerate() {
-                info!("- {}: {:?}", i, rule);
-            }
-            info!("Select Preset (Default: 0):");
-            let mut input = String::new();
-            std::io::stdin().read_line(&mut input)?;
-            let selection: usize = input.trim().parse().unwrap_or(0);
-            rules.get(selection).unwrap_or(&rules[0]).clone()
-        }
-    };
 
     info!("Selected: {:?}", rule);
 
@@ -614,6 +664,7 @@ pub async fn remove_unneed_media_files(
 pub async fn move_works_with_same_name(
     root_dir_from: impl AsRef<Path>,
     root_dir_to: impl AsRef<Path>,
+    dry_run: bool,
 ) -> io::Result<()> {
     let root_dir_from = root_dir_from.as_ref();
     let root_dir_to = root_dir_to.as_ref();
@@ -683,14 +734,19 @@ pub async fn move_works_with_same_name(
         info!(" -> {} => {}", from_dir_name, to_dir_name);
     }
 
-    info!("Merge? [y/N]");
-    let mut input = String::new();
-    std::io::stdin().read_line(&mut input)?;
-
-    if !input.trim().to_lowercase().starts_with('y') {
-        info!("Operation cancelled");
+    if pairs.is_empty() {
         return Ok(());
     }
+
+    if dry_run {
+        info!("Dry-run enabled. No changes will be made.");
+        for (from_dir_name, _, to_dir_name, _) in &pairs {
+            info!(" - Would merge: '{}' -> '{}'", from_dir_name, to_dir_name);
+        }
+        return Ok(());
+    }
+
+    // No confirm flag anymore; proceed directly when not dry-run
 
     // Merge source folder contents to each matching target folder
     for (_, from_dir_path, _, target_path) in pairs {

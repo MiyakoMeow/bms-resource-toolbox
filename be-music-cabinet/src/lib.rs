@@ -24,10 +24,9 @@ use crate::{
             undo_set_name_by_bms as root_undo_set_name_by_bms,
         },
         root_bigpack::{
-            get_remove_media_rule_mpg_fill_wmv, get_remove_media_rule_oraja,
-            get_remove_media_rule_wav_fill_flac, merge_split_folders, move_out_works,
-            move_works_in_pack, move_works_with_same_name, remove_unneed_media_files,
-            split_folders_with_first_char, undo_split_pack,
+            RemoveMediaPreset, get_remove_media_rule_by_preset, merge_split_folders,
+            move_out_works, move_works_in_pack, move_works_with_same_name,
+            remove_unneed_media_files, split_folders_with_first_char, undo_split_pack,
         },
         root_event::{check_num_folder, create_num_folders, generate_work_info_table},
         work::{
@@ -295,12 +294,18 @@ pub enum RootCommands {
         /// Target directory path
         #[arg(value_name = "DIR")]
         dir: PathBuf,
+        /// Dry run: only print actions
+        #[arg(long)]
+        dry_run: bool,
     },
     /// Merge split folders
     MergeSplit {
         /// Root directory path
         #[arg(value_name = "DIR")]
         dir: PathBuf,
+        /// Dry run: only print actions
+        #[arg(long)]
+        dry_run: bool,
     },
     /// Move works
     MoveWorks {
@@ -325,15 +330,18 @@ pub enum RootCommands {
         /// Target directory path
         #[arg(value_name = "TO")]
         to: PathBuf,
+        /// Dry run: only print actions
+        #[arg(long)]
+        dry_run: bool,
     },
     /// Remove unnecessary media files
     RemoveUnneedMedia {
         /// Root directory path
         #[arg(value_name = "DIR")]
         dir: PathBuf,
-        /// Rule type: oraja, wav_fill_flac, mpg_fill_wmv
-        #[arg(long, default_value = "oraja")]
-        rule: String,
+        /// Rule preset
+        #[arg(long, value_enum, default_value = "oraja", value_name = "PRESET")]
+        rule: RemoveMediaPreset,
     },
     /// Scan similar folders
     ScanSimilarFolders {
@@ -429,14 +437,14 @@ pub async fn run_command(command: &Commands) -> Result<(), Box<dyn std::error::E
                 split_folders_with_first_char(dir).await?;
                 info!("Split completed");
             }
-            RootCommands::UndoSplit { dir } => {
+            RootCommands::UndoSplit { dir, dry_run } => {
                 info!("Undoing split operation: {}", dir.display());
-                undo_split_pack(dir).await?;
+                undo_split_pack(dir, *dry_run).await?;
                 info!("Undo completed");
             }
-            RootCommands::MergeSplit { dir } => {
+            RootCommands::MergeSplit { dir, dry_run } => {
                 info!("Merging split folders: {}", dir.display());
-                merge_split_folders(dir).await?;
+                merge_split_folders(dir, *dry_run).await?;
                 info!("Merge completed");
             }
             RootCommands::MoveWorks { from, to } => {
@@ -449,27 +457,22 @@ pub async fn run_command(command: &Commands) -> Result<(), Box<dyn std::error::E
                 move_out_works(dir).await?;
                 info!("Move out completed");
             }
-            RootCommands::MoveSameName { from, to } => {
+            RootCommands::MoveSameName { from, to, dry_run } => {
                 info!(
                     "Moving works with same name: {} -> {}",
                     from.display(),
                     to.display()
                 );
-                move_works_with_same_name(from, to).await?;
+                move_works_with_same_name(from, to, *dry_run).await?;
                 info!("Move completed");
             }
             RootCommands::RemoveUnneedMedia { dir, rule } => {
                 info!(
-                    "Removing unnecessary media files: {} (rule: {})",
+                    "Removing unnecessary media files: {} (rule: {:?})",
                     dir.display(),
                     rule
                 );
-                let rule_config = match rule.as_str() {
-                    "oraja" => Some(get_remove_media_rule_oraja()),
-                    "wav_fill_flac" => Some(get_remove_media_rule_wav_fill_flac()),
-                    "mpg_fill_wmv" => Some(get_remove_media_rule_mpg_fill_wmv()),
-                    _ => None,
-                };
+                let rule_config = get_remove_media_rule_by_preset(*rule);
                 remove_unneed_media_files(dir, rule_config).await?;
                 info!("Removal completed");
             }

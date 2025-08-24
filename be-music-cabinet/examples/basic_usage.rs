@@ -30,7 +30,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let root_dir = Path::new("./example_root");
         if root_dir.exists() {
             println!("Removing unnecessary media files: {}", root_dir.display());
-            remove_unneed_media_files(root_dir, Some(get_remove_media_rule_oraja())).await?;
+            remove_unneed_media_files(root_dir, get_remove_media_rule_oraja()).await?;
             println!("Removal completed");
         } else {
             println!("Example directory does not exist: {}", root_dir.display());
