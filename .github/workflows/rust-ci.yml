@@ -1,0 +1,74 @@
+name: rust-ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  fmt:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Run rustfmt
+        run: cargo fmt --all -- --check
+
+  clippy:
+    name: clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+      - name: Run clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+      - name: Build workspace
+        run: cargo build --workspace --release
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+      - name: Run tests
+        run: cargo test --workspace --all-features --all-targets --no-fail-fast
+
+  cargo-deny:
+    name: cargo-deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny
+      - name: Run cargo-deny (advisories)
+        run: cargo deny check advisories
+      - name: Run cargo-deny (licenses)
+        run: cargo deny check licenses
+      - name: Run cargo-deny (bans)
+        run: cargo deny check bans
+      - name: Run cargo-deny (sources)
+        run: cargo deny check sources
+
