@@ -640,25 +640,29 @@ impl MwApplication for App {
                     } else {
                         None
                     };
-                    row![
+                    let row_input = row![
                         text(label),
                         text_input("", &val)
                             .on_input({
                                 let k = key.clone();
                                 move |v| Msg::FieldTextChanged(k.clone(), v)
                             })
-                            .width(Length::Fill),
-                        button(text("Select...")).on_press({
-                            let k = key.clone();
-                            Msg::PickDir(k)
-                        }),
+                            .width(Length::Fill)
+                    ]
+                    .spacing(10);
+                    let row_helpers = row![
                         pick_list(history, selected, {
                             let k = key.clone();
                             move |v: String| Msg::FieldTextChanged(k.clone(), v)
                         })
+                        .width(Length::Fill),
+                        button(text("Select...")).on_press({
+                            let k = key.clone();
+                            Msg::PickDir(k)
+                        })
                     ]
-                    .spacing(10)
-                    .into()
+                    .spacing(10);
+                    column![row_input, row_helpers].spacing(6).into()
                 }
                 _ => {
                     let val = self.inputs.get(&key).cloned().unwrap_or_default();
