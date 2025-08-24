@@ -1,0 +1,17 @@
+# Rustfmt 配置：严格的导入分组与排序
+
+# 按组分隔导入：std / external / internal（crate/self/super/本地模块）
+group_imports = "StdExternalCrate"
+
+# 开启导入重排
+reorder_imports = true
+
+# 合并同 crate 的导入（例如将多条 use foo::.. 合并成一条）
+imports_granularity = "Crate"
+
+# 其它建议的严格化设置（可按需增删）
+reorder_modules = true
+wrap_comments = true
+normalize_comments = true
+format_code_in_doc_comments = true
+use_field_init_shorthand = true
