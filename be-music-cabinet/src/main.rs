@@ -1,31 +1,35 @@
 // GUI 模式不直接使用库入口
-use iced::multi_window::Application as MwApplication;
-use iced::widget::tooltip::Position;
-use iced::widget::{
-    button, checkbox, column, pick_list, row, scrollable, text, text_input, tooltip,
+use std::{
+    cell::RefCell,
+    collections::{BTreeMap, HashMap},
+    fs,
+    path::PathBuf as StdPathBuf,
+    sync::{
+        Arc, Mutex as StdMutex,
+        atomic::{AtomicU64, Ordering},
+    },
 };
-use iced::window;
-use iced::{Alignment, Command, Element, Font, Length, Settings, Theme, executor};
-use iced::{Subscription, time};
+
+use clap::Parser;
+use futures::future::{AbortHandle, AbortRegistration, Abortable};
+use iced::{
+    Alignment, Command, Element, Font, Length, Settings, Subscription, Theme, executor,
+    multi_window::Application as MwApplication,
+    time,
+    widget::{
+        button, checkbox, column, pick_list, row, scrollable, text, text_input,
+        tooltip::{self, Position},
+    },
+    window,
+};
 use log::info;
+use log::{LevelFilter, Log, Metadata, Record};
+use once_cell::sync::OnceCell;
 use quote::ToTokens;
-use std::collections::{BTreeMap, HashMap};
-use std::fs;
-use std::path::PathBuf as StdPathBuf;
-use std::sync::{
-    Arc, Mutex as StdMutex,
-    atomic::{AtomicU64, Ordering},
-};
 use syn::{Attribute, Fields, Item, ItemEnum, Type, parse_file};
 
 // 调用库侧 CLI 与命令执行
 use be_music_cabinet::{Cli, run_command};
-use clap::Parser;
-
-use futures::future::{AbortHandle, AbortRegistration, Abortable};
-use log::{LevelFilter, Log, Metadata, Record};
-use once_cell::sync::OnceCell;
-use std::cell::RefCell;
 
 // 解析目标：从 lib.rs 抽取 Commands 与其子枚举结构，动态生成 UI
 const LIB_RS_SRC: &str = include_str!("lib.rs");
