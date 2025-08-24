@@ -26,7 +26,6 @@ use std::cell::RefCell;
 const LIB_RS_SRC: &str = include_str!("lib.rs");
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 enum UiFieldType {
     PathBuf,
     String,
@@ -34,7 +33,7 @@ enum UiFieldType {
     F64,
     Bool,
     Enum(Vec<String>), // 枚举变体列表
-    Other(String),
+    Other,
 }
 
 #[derive(Debug, Clone)]
@@ -48,26 +47,20 @@ struct UiFieldSpec {
 }
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 struct UiVariantSpec {
     name: String,
     fields: Vec<UiFieldSpec>,
-    doc: Option<String>,
 }
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 struct UiSubEnumSpec {
-    name: String,
     variants: Vec<UiVariantSpec>,
 }
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 struct UiTopSpec {
     variant_ident: String,
     sub_enum_ident: String,
-    doc: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -102,7 +95,7 @@ fn type_to_ui_type(ty: &Type) -> UiFieldType {
             "append_title_artist".to_string(),
             "append_artist".to_string(),
         ]),
-        _ => UiFieldType::Other(ts),
+        _ => UiFieldType::Other,
     }
 }
 
@@ -138,27 +131,8 @@ fn extract_default_value(attr: &Attribute) -> Option<String> {
     None
 }
 
-fn get_doc_attr_text(attrs: &[Attribute]) -> Option<String> {
-    let mut lines: Vec<String> = Vec::new();
-    for a in attrs {
-        if a.path().is_ident("doc") {
-            let ts = a.to_token_stream().to_string();
-            // 形如: #[doc = "..."]
-            let key = "= \"";
-            if let Some(pos) = ts.find(key) {
-                let rest = &ts[pos + key.len()..];
-                if let Some(end) = rest.find('\"') {
-                    lines.push(rest[..end].to_string());
-                }
-            }
-        }
-    }
-    if lines.is_empty() {
-        None
-    } else {
-        Some(lines.join("\n"))
-    }
-}
+// 保留空实现，后续可扩展使用；当前未使用
+// 已移除文档提取逻辑（当前未使用）
 
 fn to_kebab_case(name: &str) -> String {
     let mut out = String::new();
@@ -220,7 +194,6 @@ fn build_ui_tree() -> UiTree {
             top_commands.push(UiTopSpec {
                 variant_ident: var.ident.to_string(),
                 sub_enum_ident: sub,
-                doc: get_doc_attr_text(&var.attrs),
             });
         }
     }
@@ -277,16 +250,9 @@ fn build_ui_tree() -> UiTree {
                 variants.push(UiVariantSpec {
                     name: v.ident.to_string(),
                     fields: fields_spec,
-                    doc: get_doc_attr_text(&v.attrs),
                 });
             }
-            sub_enums.insert(
-                top.sub_enum_ident.clone(),
-                UiSubEnumSpec {
-                    name: top.sub_enum_ident.clone(),
-                    variants,
-                },
-            );
+            sub_enums.insert(top.sub_enum_ident.clone(), UiSubEnumSpec { variants });
         }
     }
 
@@ -314,8 +280,6 @@ struct App {
     inputs: BTreeMap<String, String>,
     bools: BTreeMap<String, bool>,
     status: String,
-    #[allow(dead_code)]
-    running: bool,
     windows: BTreeMap<window::Id, TaskWindow>,
 }
 
@@ -407,6 +371,8 @@ impl MwApplication for App {
     type Theme = Theme;
 
     fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
+        // 初始化 GUI 日志器
+        init_gui_logger();
         let mut app = App {
             tree: build_ui_tree(),
             top_idx: 0,
@@ -414,7 +380,6 @@ impl MwApplication for App {
             inputs: BTreeMap::new(),
             bools: BTreeMap::new(),
             status: String::new(),
-            running: false,
             windows: BTreeMap::new(),
         };
         app.ensure_defaults();
@@ -461,7 +426,10 @@ impl MwApplication for App {
                 let args = self.build_cli_args();
                 let args_for_view = args.clone().join(" ");
                 self.status = format!("已启动: {}", args_for_view);
-                let (win_id, open_cmd) = window::spawn(window::Settings { size: [800u16, 400u16].into(), ..window::Settings::default() });
+                let (win_id, open_cmd) = window::spawn(window::Settings {
+                    size: [800u16, 400u16].into(),
+                    ..window::Settings::default()
+                });
                 let (abort_handle, abort_reg) = AbortHandle::new_pair();
                 let task_id = NEXT_TASK_ID.fetch_add(1, Ordering::Relaxed);
                 self.windows.insert(
@@ -723,7 +691,6 @@ fn push_line(id: TaskId, line: String) {
     guard.entry(id).or_default().push(line);
 }
 
-#[allow(dead_code)]
 fn drain_lines(id: TaskId) -> Vec<String> {
     let m = buffers();
     let mut guard = m.lock().unwrap();
@@ -731,10 +698,7 @@ fn drain_lines(id: TaskId) -> Vec<String> {
 }
 
 // 全局 GUI Logger：将 log::info 等输出路由到各任务的缓冲区
-#[allow(dead_code)]
-struct GuiLogger {
-    _buf: Arc<StdMutex<HashMap<u64, Vec<String>>>>,
-}
+struct GuiLogger;
 
 impl Log for GuiLogger {
     fn enabled(&self, _metadata: &Metadata) -> bool {
@@ -758,55 +722,17 @@ impl Log for GuiLogger {
     fn flush(&self) {}
 }
 
-#[allow(dead_code)]
 fn init_gui_logger() {
     // 确保缓冲区存在
     let _ = buffers();
     // 注册全局 logger（只需一次）
-    let _ = log::set_boxed_logger(Box::new(GuiLogger {
-        _buf: buffers().clone(),
-    }));
+    let _ = log::set_boxed_logger(Box::new(GuiLogger));
     log::set_max_level(LevelFilter::Info);
 }
 
 // 已移除独立日志窗口实现，统一在主窗口中展示任务日志
 
-#[allow(dead_code)]
-fn start_task(args: Vec<String>) {
-    let task_id = NEXT_TASK_ID.fetch_add(1, Ordering::Relaxed);
-    init_gui_logger();
-    let (_abort_handle, abort_reg) = AbortHandle::new_pair();
-    let cmd_line = args.clone().join(" ");
-    let cmd_line_for_log = cmd_line.clone();
-    blocking::unblock(move || {
-        CURRENT_TASK_ID.with(|c| *c.borrow_mut() = Some(task_id));
-        let result = smol::block_on(async move {
-            // 在终端打印生成的命令
-            println!("[GUI] 命令: {}", cmd_line);
-            // 解析完整 argv（包含程序名）
-            let cli = match Cli::try_parse_from(args.clone()) {
-                Ok(cli) => cli,
-                Err(e) => {
-                    return Err(format!("参数解析失败: {}", e));
-                }
-            };
-            let fut = run_command(&cli.command);
-            match Abortable::new(fut, abort_reg).await {
-                Ok(Ok(())) => Ok(()),
-                Ok(Err(e)) => Err(e.to_string()),
-                Err(_aborted) => Err("任务已终止".to_string()),
-            }
-        });
-        match result {
-            Ok(()) => push_line(task_id, "[完成]".to_string()),
-            Err(e) => push_line(task_id, format!("[错误] {}", e)),
-        }
-        CURRENT_TASK_ID.with(|c| *c.borrow_mut() = None);
-    })
-    .detach();
-    // 在主窗口日志中输出命令
-    push_line(task_id, format!("[已启动] {}", cmd_line_for_log));
-}
+// 已移除单窗口旧启动入口
 
 fn start_task_for_window(task_id: TaskId, abort_reg: AbortRegistration, args: Vec<String>) {
     let cmd_line = args.clone().join(" ");
