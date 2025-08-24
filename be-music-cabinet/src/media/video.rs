@@ -17,6 +17,7 @@ use smol::{
     io::{self},
     process::Command,
 };
+use which::which;
 
 /// Video stream information
 #[derive(Debug, Deserialize)]
@@ -47,35 +48,35 @@ pub struct VideoInfo {
 pub struct VideoPreset {
     /// Executor name (e.g., "ffmpeg")
     executor: String,
-    /// Input arguments
-    input_args: String,
-    /// Filter arguments
-    filter_args: String,
+    /// Input arguments (split tokens)
+    input_args: Vec<String>,
+    /// Filter arguments (split tokens)
+    filter_args: Vec<String>,
     /// Output file extension
     output_ext: String,
     /// Output video codec
     output_codec: String,
-    /// Extra arguments
-    extra_args: String,
+    /// Extra arguments (split tokens)
+    extra_args: Vec<String>,
 }
 
 impl VideoPreset {
     /// Create new video preset
     pub fn new(
         executor: &str,
-        input_args: &str,
-        filter_args: &str,
+        input_args: &[&str],
+        filter_args: &[&str],
         output_ext: &str,
         output_codec: &str,
-        extra_args: &str,
+        extra_args: &[&str],
     ) -> Self {
         Self {
             executor: executor.to_string(),
-            input_args: input_args.to_string(),
-            filter_args: filter_args.to_string(),
+            input_args: input_args.iter().map(|s| s.to_string()).collect(),
+            filter_args: filter_args.iter().map(|s| s.to_string()).collect(),
             output_ext: output_ext.to_string(),
             output_codec: output_codec.to_string(),
-            extra_args: extra_args.to_string(),
+            extra_args: extra_args.iter().map(|s| s.to_string()).collect(),
         }
     }
 
@@ -84,18 +85,19 @@ impl VideoPreset {
         input_path.with_extension(&self.output_ext)
     }
 
-    /// Get command for processing video
-    fn command(&self, input_path: &Path, output_path: &Path) -> String {
-        format!(
-            "{} {} \"{}\" {} -map_metadata 0 -c:v {} {} \"{}\"",
-            self.executor,
-            self.input_args,
-            input_path.display(),
-            self.filter_args,
-            self.output_codec,
-            self.extra_args,
-            output_path.display()
-        )
+    /// Build argv for processing video
+    fn argv(&self, input_path: &Path, output_path: &Path) -> (String, Vec<String>) {
+        let mut argv: Vec<String> = Vec::new();
+        argv.extend(self.input_args.clone());
+        argv.push(input_path.display().to_string());
+        argv.extend(self.filter_args.clone());
+        argv.push("-map_metadata".to_string());
+        argv.push("0".to_string());
+        argv.push("-c:v".to_string());
+        argv.push(self.output_codec.clone());
+        argv.extend(self.extra_args.clone());
+        argv.push(output_path.display().to_string());
+        (self.executor.clone(), argv)
     }
 }
 
@@ -104,74 +106,74 @@ impl VideoPreset {
 pub const VIDEO_PRESETS: LazyCell<HashMap<&'static str, VideoPreset>> = LazyCell::new(|| {
     let mut map = HashMap::new();
     // 512x512 preset
-    let filter_512 = r#"-filter_complex "[0:v]scale=512:512:force_original_aspect_ratio=increase,crop=512:512:(ow-iw)/2:(oh-ih)/2,boxblur=20[v1];[0:v]scale=512:512:force_original_aspect_ratio=decrease[v2];[v1][v2]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2[vid]" -map [vid]"#;
+    let filter_complex_512 = "[0:v]scale=512:512:force_original_aspect_ratio=increase,crop=512:512:(ow-iw)/2:(oh-ih)/2,boxblur=20[v1];[0:v]scale=512:512:force_original_aspect_ratio=decrease[v2];[v1][v2]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2[vid]";
     map.insert(
         "AVI_512X512",
         VideoPreset::new(
             "ffmpeg",
-            "-hide_banner -i",
-            filter_512,
+            &["-hide_banner", "-i"],
+            &["-filter_complex", filter_complex_512, "-map", "[vid]"],
             "avi",
             "mpeg4",
-            "-an -q:v 8",
+            &["-an", "-q:v", "8"],
         ),
     );
     map.insert(
         "WMV2_512X512",
         VideoPreset::new(
             "ffmpeg",
-            "-hide_banner -i",
-            filter_512,
+            &["-hide_banner", "-i"],
+            &["-filter_complex", filter_complex_512, "-map", "[vid]"],
             "wmv",
             "wmv2",
-            "-an -q:v 8",
+            &["-an", "-q:v", "8"],
         ),
     );
     map.insert(
         "MPEG1VIDEO_512X512",
         VideoPreset::new(
             "ffmpeg",
-            "-hide_banner -i",
-            filter_512,
+            &["-hide_banner", "-i"],
+            &["-filter_complex", filter_complex_512, "-map", "[vid]"],
             "mpg",
             "mpeg1video",
-            "-an -b:v 1500k",
+            &["-an", "-b:v", "1500k"],
         ),
     );
 
     // 480p preset
-    let filter_480 = r#"-filter_complex "[0:v]scale=640:480:force_original_aspect_ratio=increase,crop=640:480:(ow-iw)/2:(oh-ih)/2,boxblur=20[v1];[0:v]scale=640:480:force_original_aspect_ratio=decrease[v2];[v1][v2]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2[vid]" -map [vid]"#;
+    let filter_complex_480 = "[0:v]scale=640:480:force_original_aspect_ratio=increase,crop=640:480:(ow-iw)/2:(oh-ih)/2,boxblur=20[v1];[0:v]scale=640:480:force_original_aspect_ratio=decrease[v2];[v1][v2]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2[vid]";
     map.insert(
         "AVI_480P",
         VideoPreset::new(
             "ffmpeg",
-            "-hide_banner -i",
-            filter_480,
+            &["-hide_banner", "-i"],
+            &["-filter_complex", filter_complex_480, "-map", "[vid]"],
             "avi",
             "mpeg4",
-            "-an -q:v 8",
+            &["-an", "-q:v", "8"],
         ),
     );
     map.insert(
         "WMV2_480P",
         VideoPreset::new(
             "ffmpeg",
-            "-hide_banner -i",
-            filter_480,
+            &["-hide_banner", "-i"],
+            &["-filter_complex", filter_complex_480, "-map", "[vid]"],
             "wmv",
             "wmv2",
-            "-an -q:v 8",
+            &["-an", "-q:v", "8"],
         ),
     );
     map.insert(
         "MPEG1VIDEO_480P",
         VideoPreset::new(
             "ffmpeg",
-            "-hide_banner -i",
-            filter_480,
+            &["-hide_banner", "-i"],
+            &["-filter_complex", filter_complex_480, "-map", "[vid]"],
             "mpg",
             "mpeg1video",
-            "-an -b:v 1500k",
+            &["-an", "-b:v", "1500k"],
         ),
     );
 
@@ -186,18 +188,18 @@ pub const VIDEO_PRESETS: LazyCell<HashMap<&'static str, VideoPreset>> = LazyCell
 /// # Returns
 /// Structure containing media information
 async fn get_media_file_probe(file_path: &Path) -> io::Result<MediaProbe> {
-    let cmd = format!(
-        "ffprobe -show_format -show_streams -print_format json -v quiet \"{}\"",
-        file_path.display()
-    );
+    which("ffprobe").map_err(|_| io::Error::other("Executable not found: ffprobe"))?;
 
-    #[cfg(target_family = "windows")]
-    let program = "powershell";
-    #[cfg(not(target_family = "windows"))]
-    let program = "sh";
-    let output = Command::new(program)
-        .arg("-c")
-        .arg(&cmd)
+    let output = Command::new("ffprobe")
+        .args([
+            "-show_format",
+            "-show_streams",
+            "-print_format",
+            "json",
+            "-v",
+            "quiet",
+            &file_path.display().to_string(),
+        ])
         .output()
         .await
         .map_err(|_| io::Error::other("Failed to execute ffprobe command"))?;
@@ -307,6 +309,20 @@ async fn process_videos_in_directory(
     remove_existing: bool,
     use_preferred: bool,
 ) -> io::Result<bool> {
+    // Pre-check executors existence for provided presets
+    {
+        use std::collections::HashSet;
+        let mut executors: HashSet<String> = HashSet::new();
+        for name in preset_names {
+            #[allow(clippy::borrow_interior_mutable_const)]
+            if let Some(p) = VIDEO_PRESETS.get(*name) {
+                executors.insert(p.executor.clone());
+            }
+        }
+        for exec in executors {
+            which(&exec).map_err(|_| io::Error::other(format!("Executable not found: {exec}")))?;
+        }
+    }
     // Collect tasks
     let mut entries = fs::read_dir(dir_path).await?;
     let mut tasks: Vec<PathBuf> = Vec::new();
@@ -371,14 +387,10 @@ async fn process_videos_in_directory(
                             }
                         }
 
-                        let cmd = preset.command(&file_path, &output_path);
-                        log::info!("Executing: {cmd}");
+                        let (program, argv) = preset.argv(&file_path, &output_path);
+                        log::info!("Executing: {} {:?}", program, argv);
 
-                        #[cfg(target_family = "windows")]
-                        let program = "powershell";
-                        #[cfg(not(target_family = "windows"))]
-                        let program = "sh";
-                        let output = Command::new(program).arg("-c").arg(&cmd).output().await;
+                        let output = Command::new(&program).args(&argv).output().await;
 
                         match output {
                             Ok(output) if output.status.success() => {

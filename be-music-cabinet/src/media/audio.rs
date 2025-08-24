@@ -14,6 +14,7 @@ use smol::{
     process::Command,
 };
 use std::sync::atomic::{AtomicBool, Ordering};
+use which::which;
 
 /// Audio processing preset configuration
 #[derive(Debug, Clone)]
@@ -22,17 +23,17 @@ pub struct AudioPreset {
     executor: String,
     /// Output format (e.g., "ogg", "flac")
     output_format: String,
-    /// Additional arguments (can be empty)
-    arguments: Option<String>,
+    /// Additional arguments (split, no shell quoting needed)
+    arguments: Option<Vec<String>>,
 }
 
 impl AudioPreset {
     /// Create new audio preset
-    fn new(executor: &str, output_format: &str, arguments: Option<&str>) -> Self {
+    fn new(executor: &str, output_format: &str, arguments: Option<&[&str]>) -> Self {
         Self {
             executor: executor.to_string(),
             output_format: output_format.to_string(),
-            arguments: arguments.map(|s| s.to_string()),
+            arguments: arguments.map(|arr| arr.iter().map(|s| s.to_string()).collect()),
         }
     }
 }
@@ -45,7 +46,7 @@ pub const AUDIO_PRESETS: LazyCell<HashMap<&'static str, AudioPreset>> = LazyCell
         AudioPreset::new(
             "flac",
             "flac",
-            Some("--keep-foreign-metadata-if-present --best -f"),
+            Some(&["--keep-foreign-metadata-if-present", "--best", "-f"]),
         ),
     );
     map.insert("FLAC_FFMPEG", AudioPreset::new("ffmpeg", "flac", None));
@@ -54,16 +55,19 @@ pub const AUDIO_PRESETS: LazyCell<HashMap<&'static str, AudioPreset>> = LazyCell
         AudioPreset::new(
             "flac",
             "wav",
-            Some("-d --keep-foreign-metadata-if-present -f"),
+            Some(&["-d", "--keep-foreign-metadata-if-present", "-f"]),
         ),
     );
     map.insert("WAV_FFMPEG", AudioPreset::new("ffmpeg", "wav", None));
-    map.insert("OGG_Q10", AudioPreset::new("oggenc", "ogg", Some("-q10")));
+    map.insert(
+        "OGG_Q10",
+        AudioPreset::new("oggenc", "ogg", Some(&["-q10"])),
+    );
     map.insert("OGG_FFMPEG", AudioPreset::new("ffmpeg", "ogg", None));
     map
 });
 
-/// Get command string for processing audio files
+/// Build executable and argv for processing audio files
 ///
 /// # Parameters
 /// - `input_path`: input file path
@@ -71,40 +75,50 @@ pub const AUDIO_PRESETS: LazyCell<HashMap<&'static str, AudioPreset>> = LazyCell
 /// - `preset`: audio preset to use
 ///
 /// # Returns
-/// Generated command line string
-fn get_audio_command(
+/// Program name and argv vector for execution
+fn build_audio_command(
     input_path: &Path,
     output_path: &Path,
     preset: &AudioPreset,
-) -> Option<String> {
+) -> Option<(String, Vec<String>)> {
     match preset.executor.as_str() {
         "ffmpeg" => {
-            let args = preset.arguments.as_deref().unwrap_or("");
-            Some(format!(
-                "ffmpeg -hide_banner -loglevel panic -i \"{}\" -f {} -map_metadata 0 {} \"{}\"",
-                input_path.display(),
-                preset.output_format,
-                args,
-                output_path.display()
-            ))
+            let mut argv: Vec<String> = vec![
+                "-hide_banner".to_string(),
+                "-loglevel".to_string(),
+                "panic".to_string(),
+                "-i".to_string(),
+                input_path.display().to_string(),
+                "-f".to_string(),
+                preset.output_format.clone(),
+                "-map_metadata".to_string(),
+                "0".to_string(),
+            ];
+            if let Some(extra) = &preset.arguments {
+                argv.extend(extra.clone());
+            }
+            argv.push(output_path.display().to_string());
+            Some(("ffmpeg".to_string(), argv))
         }
         "oggenc" => {
-            let args = preset.arguments.as_deref().unwrap_or("");
-            Some(format!(
-                "oggenc {} \"{}\" -o \"{}\"",
-                args,
-                input_path.display(),
-                output_path.display()
-            ))
+            let mut argv: Vec<String> = Vec::new();
+            if let Some(extra) = &preset.arguments {
+                argv.extend(extra.clone());
+            }
+            argv.push(input_path.display().to_string());
+            argv.push("-o".to_string());
+            argv.push(output_path.display().to_string());
+            Some(("oggenc".to_string(), argv))
         }
         "flac" => {
-            let args = preset.arguments.as_deref().unwrap_or("");
-            Some(format!(
-                "flac {} \"{}\" -o \"{}\"",
-                args,
-                input_path.display(),
-                output_path.display()
-            ))
+            let mut argv: Vec<String> = Vec::new();
+            if let Some(extra) = &preset.arguments {
+                argv.extend(extra.clone());
+            }
+            argv.push(input_path.display().to_string());
+            argv.push("-o".to_string());
+            argv.push(output_path.display().to_string());
+            Some(("flac".to_string(), argv))
         }
         _ => None,
     }
@@ -164,6 +178,18 @@ async fn transfer_audio_in_directory(
         log::info!("Using presets: {presets:?}");
     }
 
+    // Pre-check executors existence
+    {
+        use std::collections::HashSet;
+        let mut executors: HashSet<&str> = HashSet::new();
+        for p in presets {
+            executors.insert(p.executor.as_str());
+        }
+        for exec in executors {
+            which(exec).map_err(|_| io::Error::other(format!("Executable not found: {exec}")))?;
+        }
+    }
+
     // Process each file concurrently
     let failures_cloned = failures.clone();
     let had_error_cloned = had_error.clone();
@@ -196,13 +222,11 @@ async fn transfer_audio_in_directory(
                         }
                     }
 
-                    // Execute command
-                    if let Some(cmd) = get_audio_command(&file_path, &output_path, preset) {
-                        #[cfg(target_family = "windows")]
-                        let program = "powershell";
-                        #[cfg(not(target_family = "windows"))]
-                        let program = "sh";
-                        let output = Command::new(program).arg("-c").arg(&cmd).output().await;
+                    // Execute command directly without shell
+                    if let Some((program, argv)) =
+                        build_audio_command(&file_path, &output_path, preset)
+                    {
+                        let output = Command::new(&program).args(&argv).output().await;
 
                         match output {
                             Ok(output) if output.status.success() => {
