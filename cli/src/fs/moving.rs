@@ -4,7 +4,6 @@ use std::{
     sync::Arc,
 };
 
-use futures::stream::{self, StreamExt as _};
 use smol::{
     fs,
     io::{self},
@@ -14,8 +13,7 @@ use smol::{
 
 use crate::bms::{BMS_FILE_EXTS, BMSON_FILE_EXTS};
 
-use super::{is_dir_having_file, is_file_same_content};
-use crate::fs::compute_parallelism_for_dir;
+use super::{is_dir_having_file, is_file_same_content, lock::acquire_disk_lock};
 use log::{info, warn};
 
 /// Same name enum as Python
@@ -150,12 +148,16 @@ async fn process_directory(
     }
 
     // Process all entries under current directory concurrently
-    let parallelism = compute_parallelism_for_dir(dir_path_ori).clamp(1, 24);
-    stream::iter(paths)
-        .for_each_concurrent(Some(parallelism), |(src, dst)| {
+    // Use disk locks to control concurrency
+    let futures: Vec<_> = paths
+        .into_iter()
+        .map(|(src, dst)| {
             let rep = replace_options.clone();
             let next_folder_paths = Arc::clone(&next_folder_paths);
             async move {
+                // Acquire disk lock for the source path
+                let _lock_guard = acquire_disk_lock(&src).await;
+
                 let next_folder_paths_cloned = Arc::clone(&next_folder_paths);
                 let _ = move_action(
                     &src,
@@ -173,7 +175,10 @@ async fn process_directory(
                 .await;
             }
         })
-        .await;
+        .collect();
+
+    // Wait for all operations to complete
+    futures::future::join_all(futures).await;
 
     // Return subdirectories that need further processing
     Ok(next_folder_paths.lock_arc().await.clone())

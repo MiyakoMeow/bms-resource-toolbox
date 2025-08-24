@@ -9,8 +9,8 @@ use std::{
     },
 };
 
-use crate::fs::compute_parallelism_for_dir;
-use futures::stream::{self, StreamExt as _};
+use crate::fs::lock::acquire_disk_lock;
+use futures::stream::StreamExt as _;
 use serde::Deserialize;
 use smol::{
     fs::{self, remove_file},
@@ -339,92 +339,89 @@ async fn process_videos_in_directory(
         }
     }
 
-    let max_workers = compute_parallelism_for_dir(dir_path).clamp(1, 8);
     let had_error = Arc::new(AtomicBool::new(false));
 
-    // Process concurrently
-    stream::iter(tasks)
-        .for_each_concurrent(Some(max_workers), {
+    // Process concurrently using disk locks
+    let futures: Vec<_> = tasks
+        .into_iter()
+        .map(|file_path| {
             let had_error = had_error.clone();
             let preset_names = preset_names.to_vec();
-            move |file_path| {
-                let had_error = had_error.clone();
-                let preset_names = preset_names.clone();
-                async move {
-                    log::info!("Processing video: {}", file_path.display());
+            async move {
+                // Acquire disk lock for the file path
+                let _lock_guard = acquire_disk_lock(&file_path).await;
+                log::info!("Processing video: {}", file_path.display());
 
-                    // Choose preset
-                    let mut presets_to_try = preset_names;
-                    if use_preferred && let Ok(preferred) = get_preferred_presets(&file_path).await
-                    {
-                        presets_to_try = preferred;
-                        presets_to_try.extend(presets_to_try.clone());
+                // Choose preset
+                let mut presets_to_try = preset_names;
+                if use_preferred && let Ok(preferred) = get_preferred_presets(&file_path).await {
+                    presets_to_try = preferred;
+                    presets_to_try.extend(presets_to_try.clone());
+                }
+
+                let mut success = false;
+                for preset_name in &presets_to_try {
+                    #[allow(clippy::borrow_interior_mutable_const)]
+                    let Some(preset) = VIDEO_PRESETS.get(*preset_name).cloned() else {
+                        continue;
+                    };
+
+                    let output_path = preset.output_path(&file_path);
+                    if file_path == output_path {
+                        continue;
                     }
 
-                    let mut success = false;
-                    for preset_name in &presets_to_try {
-                        #[allow(clippy::borrow_interior_mutable_const)]
-                        let Some(preset) = VIDEO_PRESETS.get(*preset_name).cloned() else {
+                    if output_path.exists() {
+                        if remove_existing {
+                            if let Err(e) = remove_file(&output_path).await {
+                                eprintln!("Failed to remove existing file: {e}");
+                            }
+                        } else {
+                            log::info!("Output file exists, skipping: {}", output_path.display());
                             continue;
-                        };
-
-                        let output_path = preset.output_path(&file_path);
-                        if file_path == output_path {
-                            continue;
-                        }
-
-                        if output_path.exists() {
-                            if remove_existing {
-                                if let Err(e) = remove_file(&output_path).await {
-                                    eprintln!("Failed to remove existing file: {e}");
-                                }
-                            } else {
-                                log::info!(
-                                    "Output file exists, skipping: {}",
-                                    output_path.display()
-                                );
-                                continue;
-                            }
-                        }
-
-                        let (program, argv) = preset.argv(&file_path, &output_path);
-                        log::info!("Executing: {} {:?}", program, argv);
-
-                        let output = Command::new(&program).args(&argv).output().await;
-
-                        match output {
-                            Ok(output) if output.status.success() => {
-                                log::info!("Successfully converted: {}", output_path.display());
-                                success = true;
-                                if remove_original && let Err(e) = remove_file(&file_path).await {
-                                    eprintln!("Failed to remove original file: {e}");
-                                }
-                                break;
-                            }
-                            Ok(output) => {
-                                eprintln!(
-                                    "Conversion failed for preset {}: {}",
-                                    preset_name,
-                                    String::from_utf8_lossy(&output.stderr)
-                                );
-                                if output_path.exists() {
-                                    let _ = remove_file(&output_path).await;
-                                }
-                            }
-                            Err(e) => {
-                                eprintln!("Command execution error: {e}");
-                            }
                         }
                     }
 
-                    if !success {
-                        had_error.store(true, Ordering::Relaxed);
-                        eprintln!("All presets failed for: {}", file_path.display());
+                    let (program, argv) = preset.argv(&file_path, &output_path);
+                    log::info!("Executing: {} {:?}", program, argv);
+
+                    let output = Command::new(&program).args(&argv).output().await;
+
+                    match output {
+                        Ok(output) if output.status.success() => {
+                            log::info!("Successfully converted: {}", output_path.display());
+                            success = true;
+                            if remove_original && let Err(e) = remove_file(&file_path).await {
+                                eprintln!("Failed to remove original file: {e}");
+                            }
+                            break;
+                        }
+                        Ok(output) => {
+                            eprintln!(
+                                "Conversion failed for preset {}: {}",
+                                preset_name,
+                                String::from_utf8_lossy(&output.stderr)
+                            );
+                            if output_path.exists() {
+                                let _ = remove_file(&output_path).await;
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Command execution error: {e}");
+                        }
                     }
+                }
+
+                if !success {
+                    had_error.store(true, Ordering::Relaxed);
+                    eprintln!("All presets failed for: {}", file_path.display());
                 }
             }
         })
-        .await;
+        .collect();
+
+    // Wait for all tasks to complete
+    futures::future::join_all(futures).await;
 
     Ok(!had_error.load(Ordering::Relaxed))
 }

@@ -6,8 +6,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::fs::compute_parallelism_for_dir;
-use futures::stream::{self, StreamExt as _};
+use crate::fs::lock::acquire_disk_lock;
+use futures::stream::StreamExt as _;
 use smol::{
     fs::{self, remove_file},
     io,
@@ -149,9 +149,6 @@ async fn transfer_audio_in_directory(
     let failures: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
     let had_error = Arc::new(AtomicBool::new(false));
 
-    // Parallelism: based on disk media type
-    let max_workers = compute_parallelism_for_dir(dir_path).clamp(1, 24);
-
     // Collect files to process
     let mut entries = fs::read_dir(dir_path).await?;
     while let Some(entry) = entries.next().await {
@@ -190,15 +187,18 @@ async fn transfer_audio_in_directory(
         }
     }
 
-    // Process each file concurrently
+    // Process each file concurrently using disk locks
     let failures_cloned = failures.clone();
     let had_error_cloned = had_error.clone();
-    stream::iter(tasks)
-        .for_each_concurrent(Some(max_workers), move |file_path| {
+    let futures: Vec<_> = tasks
+        .into_iter()
+        .map(|file_path| {
             let failures = failures_cloned.clone();
             let had_error = had_error_cloned.clone();
             let presets = presets.to_vec();
             async move {
+                // Acquire disk lock for the file path
+                let _lock_guard = acquire_disk_lock(&file_path).await;
                 let mut current_preset_index = 0;
                 let mut success = false;
 
@@ -273,7 +273,10 @@ async fn transfer_audio_in_directory(
                 }
             }
         })
-        .await;
+        .collect();
+
+    // Wait for all tasks to complete
+    futures::future::join_all(futures).await;
 
     // Output processing results
     if total_files > 0 {
