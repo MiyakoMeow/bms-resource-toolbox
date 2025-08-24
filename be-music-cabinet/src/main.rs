@@ -1,18 +1,30 @@
 // GUI 模式不直接使用库入口
 use iced::widget::{button, checkbox, column, pick_list, row, scrollable, text, text_input};
 use iced::{Alignment, Application, Command, Element, Font, Length, Settings, Theme, executor};
+// 不使用多窗口订阅
 use log::info;
 use quote::ToTokens;
-use smol::lock::Mutex as SmolMutex;
-use smol::process::{Command as SmolCommand, Stdio};
 use std::collections::{BTreeMap, HashMap};
-use std::sync::Arc;
+use std::sync::{
+    Arc, Mutex as StdMutex,
+    atomic::{AtomicU64, Ordering},
+};
 use syn::{Attribute, Fields, Item, ItemEnum, Type, parse_file};
+
+// 调用库侧 CLI 与命令执行
+use be_music_cabinet::{Cli, run_command};
+use clap::Parser;
+
+use futures::future::{AbortHandle, Abortable};
+use log::{LevelFilter, Log, Metadata, Record};
+use once_cell::sync::OnceCell;
+use std::cell::RefCell;
 
 // 解析目标：从 lib.rs 抽取 Commands 与其子枚举结构，动态生成 UI
 const LIB_RS_SRC: &str = include_str!("lib.rs");
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 enum UiFieldType {
     PathBuf,
     String,
@@ -34,6 +46,7 @@ struct UiFieldSpec {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct UiVariantSpec {
     name: String,
     fields: Vec<UiFieldSpec>,
@@ -41,12 +54,14 @@ struct UiVariantSpec {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct UiSubEnumSpec {
     name: String,
     variants: Vec<UiVariantSpec>,
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct UiTopSpec {
     variant_ident: String,
     sub_enum_ident: String,
@@ -286,7 +301,6 @@ enum Msg {
     FieldTextChanged(String, String),
     FieldBoolChanged(String, bool),
     Run,
-    Terminate,
     Finished(Result<(), String>),
 }
 
@@ -298,7 +312,6 @@ struct App {
     bools: BTreeMap<String, bool>,
     status: String,
     running: bool,
-    child_handle: Option<Arc<SmolMutex<Option<smol::process::Child>>>>,
 }
 
 impl App {
@@ -389,7 +402,6 @@ impl Application for App {
             bools: BTreeMap::new(),
             status: String::new(),
             running: false,
-            child_handle: None,
         };
         app.ensure_defaults();
         (app, Command::none())
@@ -425,88 +437,14 @@ impl Application for App {
                 Command::none()
             }
             Msg::Run => {
-                if self.running {
-                    return Command::none();
-                }
-                self.running = true;
                 let args = self.build_cli_args();
                 let args_for_view = args.clone().join(" ");
-                self.status = format!("运行: {}", args_for_view);
-                // 启动子进程执行 CLI，并捕获输出
-                let handle = Arc::new(SmolMutex::new(None));
-                self.child_handle = Some(handle.clone());
-                Command::perform(
-                    {
-                        let (tx, rx) = futures::channel::oneshot::channel::<Result<(), String>>();
-                        std::thread::spawn(move || {
-                            let result = smol::block_on(async move {
-                                // 可执行程序名称（要求在 PATH 可用）
-                                let program = if cfg!(target_os = "windows") {
-                                    "be-music-cabinet-cli.exe"
-                                } else {
-                                    "be-music-cabinet-cli"
-                                };
-                                let mut iter = args.into_iter();
-                                let _binary_name = iter.next();
-                                let cli_args: Vec<String> = iter.collect();
-                                let child = SmolCommand::new(program)
-                                    .args(cli_args)
-                                    .stdout(Stdio::piped())
-                                    .stderr(Stdio::piped())
-                                    .spawn()
-                                    .map_err(|e| format!("无法启动子进程: {}", e))?;
-                                {
-                                    let mut guard = handle.lock_arc().await;
-                                    *guard = Some(child);
-                                }
-                                // 取出句柄再等待输出
-                                let mut guard = handle.lock_arc().await;
-                                let child = guard.take().unwrap();
-                                let output = child
-                                    .output()
-                                    .await
-                                    .map_err(|e| format!("子进程执行失败: {}", e))?;
-                                drop(guard);
-                                let mut combined = String::new();
-                                combined.push_str(&String::from_utf8_lossy(&output.stdout));
-                                let stderr_str = String::from_utf8_lossy(&output.stderr);
-                                if !stderr_str.trim().is_empty() {
-                                    combined.push_str("\n[stderr]\n");
-                                    combined.push_str(&stderr_str);
-                                }
-                                if !combined.trim().is_empty() {
-                                    // 将输出附加到 GUI 状态
-                                    // 通过返回 Err/Ok 携带
-                                }
-                                Ok(())
-                            });
-                            let _ = tx.send(result);
-                        });
-                        async move { rx.await.unwrap_or_else(|e| Err(e.to_string())) }
-                    },
-                    Msg::Finished,
-                )
-            }
-            Msg::Terminate => {
-                if let Some(h) = &self.child_handle {
-                    return Command::perform(
-                        {
-                            let h = h.clone();
-                            async move {
-                                if let Some(mut child) = h.lock_arc().await.take() {
-                                    let _ = child.kill();
-                                }
-                                Ok::<(), ()>(())
-                            }
-                        },
-                        |_| Msg::Finished(Ok(())),
-                    );
-                }
+                self.status = format!("已启动: {}", args_for_view);
+                start_task(args);
                 Command::none()
             }
             Msg::Finished(res) => {
                 self.running = false;
-                self.child_handle = None;
                 match res {
                     Ok(()) => self.status.push_str("\n完成"),
                     Err(e) => self.status.push_str(&format!("\n错误: {}", e)),
@@ -614,7 +552,6 @@ impl Application for App {
                 } else {
                     Msg::Run
                 }),
-                button(text("终止")).on_press(Msg::Terminate)
             ]
             .spacing(10),
             scrollable(text(self.status.clone())).height(Length::Fill),
@@ -690,4 +627,112 @@ fn main() -> iced::Result {
     settings.default_text_size = 16.into();
     settings.antialiasing = true;
     App::run(settings)
+}
+
+// ========================= 多任务日志：全局 Logger 与日志窗口 =========================
+
+// 任务 ID 分配器
+static NEXT_TASK_ID: AtomicU64 = AtomicU64::new(1);
+
+// 线程局部：标记当前线程属于哪个任务，用于日志路由
+thread_local! {
+    static CURRENT_TASK_ID: RefCell<Option<u64>> = const { RefCell::new(None) };
+}
+
+// 全局缓冲区：每个任务一个待拉取的日志行队列
+type TaskId = u64;
+type LogBufferMap = HashMap<TaskId, Vec<String>>;
+type SharedLogBuffers = Arc<StdMutex<LogBufferMap>>;
+static LOG_BUFFERS: OnceCell<SharedLogBuffers> = OnceCell::new();
+
+fn buffers() -> &'static SharedLogBuffers {
+    LOG_BUFFERS.get_or_init(|| Arc::new(StdMutex::new(HashMap::new())))
+}
+
+fn push_line(id: TaskId, line: String) {
+    let m = buffers();
+    let mut guard = m.lock().unwrap();
+    guard.entry(id).or_default().push(line);
+}
+
+#[allow(dead_code)]
+fn drain_lines(id: TaskId) -> Vec<String> {
+    let m = buffers();
+    let mut guard = m.lock().unwrap();
+    guard.remove(&id).unwrap_or_default()
+}
+
+// 全局 GUI Logger：将 log::info 等输出路由到各任务的缓冲区
+struct GuiLogger {
+    _buf: Arc<StdMutex<HashMap<u64, Vec<String>>>>,
+}
+
+impl Log for GuiLogger {
+    fn enabled(&self, _metadata: &Metadata) -> bool {
+        true
+    }
+
+    fn log(&self, record: &Record) {
+        if !self.enabled(record.metadata()) {
+            return;
+        }
+        let line = format!("{}", record.args());
+        CURRENT_TASK_ID.with(|cell| {
+            if let Some(id) = *cell.borrow() {
+                push_line(id, line.clone());
+            } else {
+                // 无任务上下文：忽略或输出到主控台。这里忽略以避免串扰。
+            }
+        });
+    }
+
+    fn flush(&self) {}
+}
+
+fn init_gui_logger() {
+    // 确保缓冲区存在
+    let _ = buffers();
+    // 注册全局 logger（只需一次）
+    let _ = log::set_boxed_logger(Box::new(GuiLogger {
+        _buf: buffers().clone(),
+    }));
+    log::set_max_level(LevelFilter::Info);
+}
+
+// 已移除独立日志窗口实现，统一在主窗口中展示任务日志
+
+fn start_task(args: Vec<String>) {
+    let task_id = NEXT_TASK_ID.fetch_add(1, Ordering::Relaxed);
+    init_gui_logger();
+    let (_abort_handle, abort_reg) = AbortHandle::new_pair();
+    let cmd_line = args.clone().join(" ");
+    let cmd_line_for_log = cmd_line.clone();
+    blocking::unblock(move || {
+        CURRENT_TASK_ID.with(|c| *c.borrow_mut() = Some(task_id));
+        let result = smol::block_on(async move {
+            // 在终端打印生成的命令
+            println!("[GUI] 命令: {}", cmd_line);
+            // 解析完整 argv（包含程序名）
+            let cli = match Cli::try_parse_from(args.clone()) {
+                Ok(cli) => cli,
+                Err(e) => {
+                    return Err(format!("参数解析失败: {}", e));
+                }
+            };
+            let fut = run_command(&cli.command);
+            match Abortable::new(fut, abort_reg).await {
+                Ok(Ok(())) => Ok(()),
+                Ok(Err(e)) => Err(e.to_string()),
+                Err(_aborted) => Err("任务已终止".to_string()),
+            }
+        });
+        match result {
+            Ok(()) => push_line(task_id, "[完成]".to_string()),
+            Err(e) => push_line(task_id, format!("[错误] {}", e)),
+        }
+        CURRENT_TASK_ID.with(|c| *c.borrow_mut() = None);
+    })
+    .detach();
+    // 在主窗口日志中输出命令
+    push_line(task_id, format!("[已启动] {}", cmd_line_for_log));
 }
