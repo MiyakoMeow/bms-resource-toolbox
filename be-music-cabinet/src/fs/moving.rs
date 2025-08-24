@@ -4,6 +4,7 @@ use std::{
     sync::Arc,
 };
 
+use futures::stream::{self, StreamExt as _};
 use smol::{
     fs,
     io::{self},
@@ -14,6 +15,7 @@ use smol::{
 use crate::bms::{BMS_FILE_EXTS, BMSON_FILE_EXTS};
 
 use super::{is_dir_having_file, is_file_same_content};
+use crate::fs::compute_parallelism_for_dir;
 use log::{info, warn};
 
 /// Same name enum as Python
@@ -101,7 +103,7 @@ pub async fn move_elements_across_dir(
     pending_dirs.push_back((dir_path_ori.to_path_buf(), dir_path_dst.to_path_buf()));
 
     while let Some((current_ori, current_dst)) = pending_dirs.pop_front() {
-        // Process current directory
+        // Process current directory with adaptive concurrency
         let next_dirs =
             process_directory(&current_ori, &current_dst, options, &replace_options).await?;
 
@@ -131,40 +133,41 @@ async fn process_directory(
 ) -> io::Result<Vec<(PathBuf, PathBuf)>> {
     // Collect entries to be processed (files / subdirectories)
     let mut entries = fs::read_dir(dir_path_ori).await?;
-    let mut tasks = Vec::new();
     let next_folder_paths = Arc::new(Mutex::new(Vec::new()));
+    let mut paths: Vec<(PathBuf, PathBuf)> = Vec::new();
 
     while let Some(entry) = StreamExt::next(&mut entries).await {
         let entry = entry?;
         let src = entry.path();
         let dst = dir_path_dst.join(entry.file_name());
+        paths.push((src, dst));
+    }
 
-        let rep = replace_options.clone();
-        let next_folder_paths = Arc::clone(&next_folder_paths);
-
-        tasks.push(smol::spawn(async move {
+    // 并发处理当前目录下的所有条目
+    let parallelism = compute_parallelism_for_dir(dir_path_ori).clamp(1, 24);
+    stream::iter(paths)
+        .for_each_concurrent(Some(parallelism), |(src, dst)| {
+            let rep = replace_options.clone();
             let next_folder_paths = Arc::clone(&next_folder_paths);
-            move_action(
-                &src,
-                &dst,
-                options,
-                rep,
-                move |ori: PathBuf, dst: PathBuf| {
-                    let next_folder_paths = Arc::clone(&next_folder_paths);
-                    smol::spawn(async move {
-                        let mut next = next_folder_paths.lock_arc().await;
-                        next.push((ori, dst));
-                    })
-                },
-            )
-            .await
-        }));
-    }
-
-    // Wait for all tasks to complete
-    for t in tasks {
-        t.await?;
-    }
+            async move {
+                let next_folder_paths_cloned = Arc::clone(&next_folder_paths);
+                let _ = move_action(
+                    &src,
+                    &dst,
+                    options,
+                    rep,
+                    move |ori: PathBuf, dst: PathBuf| {
+                        let next_folder_paths = Arc::clone(&next_folder_paths_cloned);
+                        smol::spawn(async move {
+                            let mut next = next_folder_paths.lock_arc().await;
+                            next.push((ori, dst));
+                        })
+                    },
+                )
+                .await;
+            }
+        })
+        .await;
 
     // Return subdirectories that need further processing
     Ok(next_folder_paths.lock_arc().await.clone())

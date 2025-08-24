@@ -10,6 +10,7 @@ sha3 = "0.10.8"
 encoding_rs = "0.8.35"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.142"
+sysinfo = { version = "0.37.0", default-features = false, features = ["disk"] }
 
 bms-rs = { git = "https://github.com/MikuroXina/bms-rs.git" }
 

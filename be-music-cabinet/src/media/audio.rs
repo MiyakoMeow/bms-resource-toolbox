@@ -3,17 +3,17 @@ use std::{
     collections::HashMap,
     ffi::OsStr,
     path::Path,
-    process::{ExitStatus, Output},
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
 
+use crate::fs::compute_parallelism_for_dir;
+use futures::stream::{self, StreamExt as _};
 use smol::{
     fs::{self, remove_file},
     io,
-    lock::Semaphore,
     process::Command,
-    stream::StreamExt,
 };
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Audio processing preset configuration
 #[derive(Debug, Clone)]
@@ -132,18 +132,11 @@ async fn transfer_audio_in_directory(
 ) -> io::Result<bool> {
     let mut tasks = Vec::new();
     let mut total_files = 0;
-    let mut fallback_files = Vec::new();
-    let mut has_error = false;
-    let mut last_error = None;
+    let failures: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+    let had_error = Arc::new(AtomicBool::new(false));
 
-    // Determine concurrency limit based on whether it's on C drive (use more threads for non-C drives)
-    let is_hdd = !dir_path.starts_with("C:");
-    let max_workers = if is_hdd {
-        num_cpus::get().min(24)
-    } else {
-        num_cpus::get()
-    };
-    let semaphore = Arc::new(Semaphore::new(max_workers));
+    // 并发度：基于磁盘介质类型
+    let max_workers = compute_parallelism_for_dir(dir_path).clamp(1, 24);
 
     // Collect files to process
     let mut entries = fs::read_dir(dir_path).await?;
@@ -171,123 +164,110 @@ async fn transfer_audio_in_directory(
         log::info!("Using presets: {presets:?}");
     }
 
-    // Process each file
-    for file_path in tasks {
-        let mut current_preset_index = 0;
-        let mut success = false;
+    // 并发处理每个文件
+    let failures_cloned = failures.clone();
+    let had_error_cloned = had_error.clone();
+    stream::iter(tasks)
+        .for_each_concurrent(Some(max_workers), move |file_path| {
+            let failures = failures_cloned.clone();
+            let had_error = had_error_cloned.clone();
+            let presets = presets.to_vec();
+            async move {
+                let mut current_preset_index = 0;
+                let mut success = false;
 
-        while current_preset_index < presets.len() {
-            let preset = &presets[current_preset_index];
-            let output_path = file_path.with_extension(&preset.output_format);
+                while current_preset_index < presets.len() {
+                    let preset = &presets[current_preset_index];
+                    let output_path = file_path.with_extension(&preset.output_format);
 
-            // Check if output file exists
-            if output_path.exists() {
-                if remove_existing {
-                    if let Ok(metadata) = fs::metadata(&output_path).await
-                        && metadata.len() > 0
-                    {
-                        log::info!("Removing existing file: {}", output_path.display());
-                        let _ = remove_file(&output_path).await;
-                    }
-                } else {
-                    log::info!("Skipping existing file: {}", output_path.display());
-                    current_preset_index += 1;
-                    continue;
-                }
-            }
-
-            // Get and execute command
-            if let Some(cmd) = get_audio_command(&file_path, &output_path, preset) {
-                let permit = semaphore.clone().acquire_arc().await;
-
-                // Execute conversion command
-                #[cfg(target_family = "windows")]
-                let program = "powershell";
-                #[cfg(not(target_family = "windows"))]
-                let program = "sh";
-                let output = Command::new(program).arg("-c").arg(&cmd).output().await;
-
-                drop(permit); // Release semaphore
-
-                match output {
-                    Ok(output) if output.status.success() => {
-                        // Conversion successful
-                        if remove_on_success && let Err(e) = remove_file(&file_path).await {
-                            eprintln!(
-                                "Error deleting original file: {} - {}",
-                                file_path.display(),
-                                e
-                            );
+                    // 若目标文件已存在
+                    if output_path.exists() {
+                        if remove_existing {
+                            if let Ok(metadata) = fs::metadata(&output_path).await
+                                && metadata.len() > 0
+                            {
+                                log::info!("Removing existing file: {}", output_path.display());
+                                let _ = remove_file(&output_path).await;
+                            }
+                        } else {
+                            log::info!("Skipping existing file: {}", output_path.display());
+                            current_preset_index += 1;
+                            continue;
                         }
-                        success = true;
-                        break;
                     }
-                    Ok(output) => {
-                        // Conversion failed
-                        log::info!(
-                            "Preset failed [{}]: {} -> {}",
-                            preset.executor,
+
+                    // 执行命令
+                    if let Some(cmd) = get_audio_command(&file_path, &output_path, preset) {
+                        #[cfg(target_family = "windows")]
+                        let program = "powershell";
+                        #[cfg(not(target_family = "windows"))]
+                        let program = "sh";
+                        let output = Command::new(program).arg("-c").arg(&cmd).output().await;
+
+                        match output {
+                            Ok(output) if output.status.success() => {
+                                if remove_on_success && let Err(e) = remove_file(&file_path).await {
+                                    eprintln!(
+                                        "Error deleting original file: {} - {}",
+                                        file_path.display(),
+                                        e
+                                    );
+                                }
+                                success = true;
+                                break;
+                            }
+                            Ok(_) => {
+                                log::info!(
+                                    "Preset failed [{}]: {} -> {}",
+                                    preset.executor,
+                                    file_path.display(),
+                                    output_path.display()
+                                );
+                            }
+                            Err(e) => {
+                                eprintln!("Command execution error: {e}");
+                            }
+                        }
+                    }
+
+                    current_preset_index += 1;
+                }
+
+                if !success {
+                    had_error.store(true, Ordering::Relaxed);
+                    if let Some(name) = file_path.file_name().and_then(|s| s.to_str()) {
+                        let mut guard = failures.lock().unwrap();
+                        guard.push(name.to_string());
+                    }
+                    if remove_on_fail && let Err(e) = remove_file(&file_path).await {
+                        eprintln!(
+                            "Error deleting failed file: {} - {}",
                             file_path.display(),
-                            output_path.display()
+                            e
                         );
-                        last_error = Some((file_path.clone(), output));
-                    }
-                    Err(e) => {
-                        // Command execution error
-                        eprintln!("Command execution error: {e}");
-                        last_error = Some((
-                            file_path.clone(),
-                            Output {
-                                status: ExitStatus::default(),
-                                stdout: Vec::new(),
-                                stderr: e.to_string().into_bytes(),
-                            },
-                        ));
                     }
                 }
             }
-
-            current_preset_index += 1;
-        }
-
-        if !success {
-            has_error = true;
-            fallback_files.push(file_path.file_name().unwrap().to_string_lossy().to_string());
-
-            // Remove original file after all preset attempts fail
-            if remove_on_fail && let Err(e) = remove_file(&file_path).await {
-                eprintln!(
-                    "Error deleting failed file: {} - {}",
-                    file_path.display(),
-                    e
-                );
-            }
-        }
-    }
+        })
+        .await;
 
     // Output processing results
     if total_files > 0 {
         log::info!("Processed {} files in {}", total_files, dir_path.display());
     }
-    if !fallback_files.is_empty() {
+    let failures = failures.lock().unwrap();
+    if !failures.is_empty() {
         log::info!(
             "{} files failed all presets: {:?}",
-            fallback_files.len(),
-            fallback_files
+            failures.len(),
+            *failures
         );
     }
-    if has_error {
-        if let Some((err_path, output)) = last_error {
-            eprintln!("Last error on file: {}", err_path.display());
-            eprintln!("stdout: {}", String::from_utf8_lossy(&output.stdout));
-            eprintln!("stderr: {}", String::from_utf8_lossy(&output.stderr));
-        }
-        if remove_on_fail {
-            log::info!("Original files for failed conversions were removed");
-        }
+    if had_error.load(Ordering::Relaxed) && remove_on_fail {
+        log::info!("Original files for failed conversions were removed");
     }
 
-    Ok(!has_error)
+    Ok(!had_error.load(Ordering::Relaxed))
 }
 
 /// Process all BMS folders under root directory
@@ -360,3 +340,5 @@ pub async fn process_bms_folders(
 
     Ok(())
 }
+
+// compute_parallelism_for_dir 已移动到 crate::fs 模块

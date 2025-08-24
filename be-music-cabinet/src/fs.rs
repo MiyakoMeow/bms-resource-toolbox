@@ -3,6 +3,7 @@ pub mod rawpack;
 pub mod sync;
 
 use std::{collections::HashSet, path::Path};
+use sysinfo::{DiskKind, Disks};
 
 use sha3::{Digest, Sha3_512, digest::Output};
 use smol::{
@@ -25,6 +26,21 @@ pub fn get_vaild_fs_name(ori_name: &str) -> String {
         .replace("<", "＜")
         .replace(">", "＞")
         .replace("|", "｜")
+}
+
+/// 根据路径所在磁盘类型估算基础并发度（调用方可再做 clamp）
+pub fn compute_parallelism_for_dir(path: &Path) -> usize {
+    let disks = Disks::new_with_refreshed_list();
+    disks
+        .iter()
+        .filter(|d| path.starts_with(d.mount_point()))
+        .max_by_key(|d| d.mount_point().components().count())
+        .map(|d| match d.kind() {
+            DiskKind::SSD => num_cpus::get(),
+            DiskKind::HDD => 2,
+            DiskKind::Unknown(_) => 2,
+        })
+        .unwrap_or_else(|| num_cpus::get().min(4))
 }
 
 /// Quick check if two files have the same content (SHA256)

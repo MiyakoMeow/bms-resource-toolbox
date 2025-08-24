@@ -3,16 +3,19 @@ use std::{
     collections::HashMap,
     ffi::OsStr,
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
 };
 
+use crate::fs::compute_parallelism_for_dir;
+use futures::stream::{self, StreamExt as _};
 use serde::Deserialize;
 use smol::{
     fs::{self, remove_file},
     io::{self},
-    lock::Semaphore,
     process::Command,
-    stream::StreamExt,
 };
 
 /// Video stream information
@@ -304,110 +307,114 @@ async fn process_videos_in_directory(
     remove_existing: bool,
     use_preferred: bool,
 ) -> io::Result<bool> {
+    // 收集任务
     let mut entries = fs::read_dir(dir_path).await?;
-    let mut has_error = false;
-
-    // Use semaphore to limit concurrency (avoid too many videos converting simultaneously)
-    let semaphore = Arc::new(Semaphore::new(2)); // Process at most 2 videos at the same time
-
+    let mut tasks: Vec<PathBuf> = Vec::new();
     while let Some(entry) = entries.next().await {
         let entry = entry?;
         let file_path = entry.path();
         if !file_path.is_file() {
             continue;
         }
-
-        // Check file extension
-        if let Some(ext) = file_path.extension().and_then(OsStr::to_str) {
-            if !input_extensions.iter().any(|e| e.eq_ignore_ascii_case(ext)) {
-                continue;
-            }
-        } else {
-            continue;
-        }
-
-        log::info!("Processing video: {}", file_path.display());
-
-        // Determine presets to use based on configuration
-        let mut presets_to_try = preset_names.to_vec();
-        if use_preferred && let Ok(preferred) = get_preferred_presets(&file_path).await {
-            presets_to_try = preferred;
-            presets_to_try.extend(preset_names); // Add original presets as fallback
-        }
-
-        // Try each preset until success
-        let mut success = false;
-        for preset_name in &presets_to_try {
-            #[allow(clippy::borrow_interior_mutable_const)]
-            let Some(preset) = VIDEO_PRESETS.get(*preset_name).cloned() else {
-                continue;
-            };
-
-            let output_path = preset.output_path(&file_path);
-            if file_path == output_path {
-                continue; // Skip same input and output
-            }
-
-            // Check if output file exists
-            if output_path.exists() {
-                if remove_existing {
-                    if let Err(e) = remove_file(&output_path).await {
-                        eprintln!("Failed to remove existing file: {e}");
-                    }
-                } else {
-                    log::info!("Output file exists, skipping: {}", output_path.display());
-                    continue;
-                }
-            }
-
-            // Acquire semaphore permit
-            let permit = semaphore.clone().acquire_arc().await;
-
-            // Execute conversion command
-            let cmd = preset.command(&file_path, &output_path);
-            log::info!("Executing: {cmd}");
-
-            let output = Command::new("sh").arg("-c").arg(&cmd).output().await;
-
-            drop(permit); // Release semaphore
-
-            match output {
-                Ok(output) if output.status.success() => {
-                    log::info!("Successfully converted: {}", output_path.display());
-                    success = true;
-
-                    // Remove original file
-                    if remove_original && let Err(e) = remove_file(&file_path).await {
-                        eprintln!("Failed to remove original file: {e}");
-                    }
-                    break; // Success, break out of preset loop
-                }
-                Ok(output) => {
-                    // Conversion failed
-                    eprintln!(
-                        "Conversion failed for preset {}: {}",
-                        preset_name,
-                        String::from_utf8_lossy(&output.stderr)
-                    );
-
-                    // Clean up failed output file
-                    if output_path.exists() {
-                        let _ = remove_file(&output_path).await;
-                    }
-                }
-                Err(e) => {
-                    eprintln!("Command execution error: {e}");
-                }
-            }
-        }
-
-        if !success {
-            has_error = true;
-            eprintln!("All presets failed for: {}", file_path.display());
+        if let Some(ext) = file_path.extension().and_then(OsStr::to_str)
+            && input_extensions.iter().any(|e| e.eq_ignore_ascii_case(ext))
+        {
+            tasks.push(file_path);
         }
     }
 
-    Ok(!has_error)
+    let max_workers = compute_parallelism_for_dir(dir_path).clamp(1, 8);
+    let had_error = Arc::new(AtomicBool::new(false));
+
+    // 并发处理
+    stream::iter(tasks)
+        .for_each_concurrent(Some(max_workers), {
+            let had_error = had_error.clone();
+            let preset_names = preset_names.to_vec();
+            move |file_path| {
+                let had_error = had_error.clone();
+                let preset_names = preset_names.clone();
+                async move {
+                    log::info!("Processing video: {}", file_path.display());
+
+                    // 选择预设
+                    let mut presets_to_try = preset_names;
+                    if use_preferred && let Ok(preferred) = get_preferred_presets(&file_path).await
+                    {
+                        presets_to_try = preferred;
+                        presets_to_try.extend(presets_to_try.clone());
+                    }
+
+                    let mut success = false;
+                    for preset_name in &presets_to_try {
+                        #[allow(clippy::borrow_interior_mutable_const)]
+                        let Some(preset) = VIDEO_PRESETS.get(*preset_name).cloned() else {
+                            continue;
+                        };
+
+                        let output_path = preset.output_path(&file_path);
+                        if file_path == output_path {
+                            continue;
+                        }
+
+                        if output_path.exists() {
+                            if remove_existing {
+                                if let Err(e) = remove_file(&output_path).await {
+                                    eprintln!("Failed to remove existing file: {e}");
+                                }
+                            } else {
+                                log::info!(
+                                    "Output file exists, skipping: {}",
+                                    output_path.display()
+                                );
+                                continue;
+                            }
+                        }
+
+                        let cmd = preset.command(&file_path, &output_path);
+                        log::info!("Executing: {cmd}");
+
+                        #[cfg(target_family = "windows")]
+                        let program = "powershell";
+                        #[cfg(not(target_family = "windows"))]
+                        let program = "sh";
+                        let output = Command::new(program).arg("-c").arg(&cmd).output().await;
+
+                        match output {
+                            Ok(output) if output.status.success() => {
+                                log::info!("Successfully converted: {}", output_path.display());
+                                success = true;
+                                if remove_original && let Err(e) = remove_file(&file_path).await {
+                                    eprintln!("Failed to remove original file: {e}");
+                                }
+                                break;
+                            }
+                            Ok(output) => {
+                                eprintln!(
+                                    "Conversion failed for preset {}: {}",
+                                    preset_name,
+                                    String::from_utf8_lossy(&output.stderr)
+                                );
+                                if output_path.exists() {
+                                    let _ = remove_file(&output_path).await;
+                                }
+                            }
+                            Err(e) => {
+                                eprintln!("Command execution error: {e}");
+                            }
+                        }
+                    }
+
+                    if !success {
+                        had_error.store(true, Ordering::Relaxed);
+                        eprintln!("All presets failed for: {}", file_path.display());
+                    }
+                }
+            }
+        })
+        .await;
+
+    Ok(!had_error.load(Ordering::Relaxed))
 }
 
 /// Process all BMS folders under root directory
@@ -463,3 +470,5 @@ pub async fn process_bms_video_folders(
 
     Ok(())
 }
+
+// compute_parallelism_for_dir 已移动到 crate::fs 模块
