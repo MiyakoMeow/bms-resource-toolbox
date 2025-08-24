@@ -125,7 +125,10 @@ fn first_char_rules_find(name: &str) -> &'static str {
 }
 
 /// Split works in this directory into multiple folders according to first character
-pub async fn split_folders_with_first_char(root_dir: impl AsRef<Path>) -> io::Result<()> {
+pub async fn split_folders_with_first_char(
+    root_dir: impl AsRef<Path>,
+    dry_run: bool,
+) -> io::Result<()> {
     let root_dir = root_dir.as_ref();
     let root_folder_name = root_dir
         .file_name()
@@ -161,12 +164,25 @@ pub async fn split_folders_with_first_char(root_dir: impl AsRef<Path>) -> io::Re
         let target_dir = parent_dir.join(format!("{root_folder_name} [{rule}]"));
 
         if !target_dir.exists() {
-            fs::create_dir(&target_dir).await?;
+            if dry_run {
+                info!("[dry-run] Would create dir: {}", target_dir.display());
+            } else {
+                fs::create_dir(&target_dir).await?;
+            }
         }
 
         // Move
         let target_path = target_dir.join(&element_name);
-        fs::rename(&element_path, &target_path).await?;
+        info!(
+            "Moving: {} -> {}",
+            element_path.display(),
+            target_path.display()
+        );
+        if dry_run {
+            info!("[dry-run] Skipped moving");
+        } else {
+            fs::rename(&element_path, &target_path).await?;
+        }
     }
 
     Ok(())
@@ -351,6 +367,7 @@ pub async fn merge_split_folders(root_dir: impl AsRef<Path>, dry_run: bool) -> i
 pub async fn move_works_in_pack(
     root_dir_from: impl AsRef<Path>,
     root_dir_to: impl AsRef<Path>,
+    dry_run: bool,
 ) -> io::Result<()> {
     let root_dir_from = root_dir_from.as_ref();
     let root_dir_to = root_dir_to.as_ref();
@@ -376,13 +393,22 @@ pub async fn move_works_in_pack(
         info!("Moving: {}", bms_dir_name);
 
         let dst_bms_dir = root_dir_to.join(bms_dir_name);
-        move_elements_across_dir(
-            &bms_dir,
-            &dst_bms_dir,
-            Default::default(),
-            replace_options_update_pack(),
-        )
-        .await?;
+        info!(
+            "Moving dir: {} -> {}",
+            bms_dir.display(),
+            dst_bms_dir.display()
+        );
+        if dry_run {
+            info!("[dry-run] Skipped moving");
+        } else {
+            move_elements_across_dir(
+                &bms_dir,
+                &dst_bms_dir,
+                Default::default(),
+                replace_options_update_pack(),
+            )
+            .await?;
+        }
         move_count += 1;
     }
 
@@ -392,19 +418,28 @@ pub async fn move_works_in_pack(
     }
 
     // Deal with song dir
-    move_elements_across_dir(
-        root_dir_from,
-        root_dir_to,
-        Default::default(),
-        replace_options_update_pack(),
-    )
-    .await?;
+    info!(
+        "Moving dir: {} -> {}",
+        root_dir_from.display(),
+        root_dir_to.display()
+    );
+    if dry_run {
+        info!("[dry-run] Skipped moving");
+    } else {
+        move_elements_across_dir(
+            root_dir_from,
+            root_dir_to,
+            Default::default(),
+            replace_options_update_pack(),
+        )
+        .await?;
+    }
 
     Ok(())
 }
 
 /// Move out one level directory (auto merge)
-pub async fn move_out_works(target_root_dir: impl AsRef<Path>) -> io::Result<()> {
+pub async fn move_out_works(target_root_dir: impl AsRef<Path>, dry_run: bool) -> io::Result<()> {
     let target_root_dir = target_root_dir.as_ref();
     let mut entries = fs::read_dir(target_root_dir).await?;
 
@@ -430,13 +465,22 @@ pub async fn move_out_works(target_root_dir: impl AsRef<Path>) -> io::Result<()>
             let target_work_dir_path = target_root_dir.join(work_dir_name);
 
             // Deal with song dir
-            move_elements_across_dir(
-                &work_dir_path,
-                &target_work_dir_path,
-                Default::default(),
-                replace_options_update_pack(),
-            )
-            .await?;
+            info!(
+                "Moving dir: {} -> {}",
+                work_dir_path.display(),
+                target_work_dir_path.display()
+            );
+            if dry_run {
+                info!("[dry-run] Skipped moving");
+            } else {
+                move_elements_across_dir(
+                    &work_dir_path,
+                    &target_work_dir_path,
+                    Default::default(),
+                    replace_options_update_pack(),
+                )
+                .await?;
+            }
         }
 
         // Check if directory is empty and remove it

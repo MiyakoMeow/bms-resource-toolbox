@@ -7,13 +7,17 @@ use strsim::jaro_winkler;
 
 use super::work::BmsFolderSetNameType;
 
-pub async fn set_name_by_bms(root_dir: &Path, set_type: BmsFolderSetNameType) -> io::Result<()> {
+pub async fn set_name_by_bms(
+    root_dir: &Path,
+    set_type: BmsFolderSetNameType,
+    dry_run: bool,
+) -> io::Result<()> {
     let mut entries = fs::read_dir(root_dir).await?;
     while let Some(entry) = entries.next().await {
         let entry = entry?;
         let path = entry.path();
         if path.is_dir() {
-            super::work::set_name_by_bms(&path, set_type).await?;
+            super::work::set_name_by_bms(&path, set_type, dry_run).await?;
         }
     }
 
@@ -23,13 +27,14 @@ pub async fn set_name_by_bms(root_dir: &Path, set_type: BmsFolderSetNameType) ->
 pub async fn undo_set_name_by_bms(
     root_dir: &Path,
     set_type: BmsFolderSetNameType,
+    dry_run: bool,
 ) -> io::Result<()> {
     let mut entries = fs::read_dir(root_dir).await?;
     while let Some(entry) = entries.next().await {
         let entry = entry?;
         let path = entry.path();
         if path.is_dir() {
-            super::work::undo_set_name_by_bms(&path, set_type).await?;
+            super::work::undo_set_name_by_bms(&path, set_type, dry_run).await?;
         }
     }
     Ok(())
@@ -42,6 +47,7 @@ pub async fn undo_set_name_by_bms(
 pub async fn copy_numbered_workdir_names(
     root_dir_from: impl AsRef<Path>,
     root_dir_to: impl AsRef<Path>,
+    dry_run: bool,
 ) -> io::Result<()> {
     let root_from = root_dir_from.as_ref();
     let root_to = root_dir_to.as_ref();
@@ -83,7 +89,11 @@ pub async fn copy_numbered_workdir_names(
             if let Some(src_name) = src_names.iter().find(|n| n.starts_with(dir_num)) {
                 let target_path = root_to.join(src_name);
                 info!("Rename {:?} -> {}", path.display(), src_name);
-                fs::rename(&path, &target_path).await?;
+                if dry_run {
+                    info!("Dry-run: no changes made");
+                } else {
+                    fs::rename(&path, &target_path).await?;
+                }
             }
         }
     }

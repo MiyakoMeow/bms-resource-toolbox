@@ -68,7 +68,7 @@ pub const MEDIA_EXT_LIST: &[&str] = {
 };
 
 /// Remove all empty directories under parent_dir
-pub async fn remove_empty_folders(parent_dir: impl AsRef<Path>) -> io::Result<()> {
+pub async fn remove_empty_folders(parent_dir: impl AsRef<Path>, dry_run: bool) -> io::Result<()> {
     let parent = parent_dir.as_ref();
     let mut entries = fs::read_dir(parent).await?;
     while let Some(entry) = entries.next().await {
@@ -80,7 +80,9 @@ pub async fn remove_empty_folders(parent_dir: impl AsRef<Path>) -> io::Result<()
         }
         if !is_dir_having_file(&path).await? {
             log::info!("Remove empty dir: {}", path.display());
-            if let Err(e) = fs::remove_dir_all(&path).await {
+            if dry_run {
+                log::info!("[dry-run] Skipped removing {}", path.display());
+            } else if let Err(e) = fs::remove_dir_all(&path).await {
                 log::info!(" x {e}!");
             }
         }

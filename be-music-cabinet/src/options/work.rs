@@ -60,7 +60,11 @@ impl ValueEnum for BmsFolderSetNameType {
 }
 
 /// This script is suitable for cases where you want to append "Title [Artist]" after work folder name
-pub async fn set_name_by_bms(work_dir: &Path, set_type: BmsFolderSetNameType) -> io::Result<()> {
+pub async fn set_name_by_bms(
+    work_dir: &Path,
+    set_type: BmsFolderSetNameType,
+    dry_run: bool,
+) -> io::Result<()> {
     let bms_info = get_dir_bms_info(work_dir)
         .await?
         .ok_or(io::Error::other("Bms file not found"))?;
@@ -80,6 +84,15 @@ pub async fn set_name_by_bms(work_dir: &Path, set_type: BmsFolderSetNameType) ->
         .parent()
         .ok_or(io::Error::other("Dir name not exists"))?
         .join(target_dir_name);
+    log::info!(
+        "Rename work dir by moving content: {} -> {}",
+        work_dir.display(),
+        target_work_dir.display()
+    );
+    if dry_run {
+        log::info!("Dry-run: no changes made");
+        return Ok(());
+    }
     fs::DirBuilder::new()
         .recursive(true)
         .create(&target_work_dir)
@@ -97,6 +110,7 @@ pub async fn set_name_by_bms(work_dir: &Path, set_type: BmsFolderSetNameType) ->
 pub async fn undo_set_name_by_bms(
     work_dir: &Path,
     set_type: BmsFolderSetNameType,
+    dry_run: bool,
 ) -> io::Result<()> {
     let work_dir_name = work_dir
         .file_name()
@@ -117,12 +131,24 @@ pub async fn undo_set_name_by_bms(
         .parent()
         .ok_or(io::Error::other("Dir name not exists"))?
         .join(new_dir_name);
+    log::info!(
+        "Undo rename: {} -> {}",
+        work_dir.display(),
+        new_dir_path.display()
+    );
+    if dry_run {
+        log::info!("Dry-run: no changes made");
+        return Ok(());
+    }
     fs::rename(work_dir, new_dir_path).await?;
     Ok(())
 }
 
 /// Remove all 0-byte files in work_dir and its subdirectories (loop version, smol 2).
-pub async fn remove_zero_sized_media_files(work_dir: impl AsRef<Path>) -> io::Result<()> {
+pub async fn remove_zero_sized_media_files(
+    work_dir: impl AsRef<Path>,
+    dry_run: bool,
+) -> io::Result<()> {
     let mut stack = VecDeque::new();
     stack.push_back(work_dir.as_ref().to_path_buf());
 
@@ -138,10 +164,14 @@ pub async fn remove_zero_sized_media_files(work_dir: impl AsRef<Path>) -> io::Re
 
             if meta.is_file() && meta.len() == 0 {
                 // Async deletion, task handle goes into Vec
-                tasks.push(smol::spawn(async move {
-                    fs::remove_file(&path).await?;
-                    Ok::<(), io::Error>(())
-                }));
+                if dry_run {
+                    log::info!("Would remove empty file: {}", path.display());
+                } else {
+                    tasks.push(smol::spawn(async move {
+                        fs::remove_file(&path).await?;
+                        Ok::<(), io::Error>(())
+                    }));
+                }
             } else if meta.is_dir() {
                 // Continue pushing to stack
                 stack.push_back(path);

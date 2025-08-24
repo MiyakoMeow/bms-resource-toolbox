@@ -171,7 +171,7 @@ pub async fn pack_setup_rawpack_to_hq(
         let entry = entry?;
         let path = entry.path();
         if path.is_dir() {
-            set_name_by_bms(&path, BmsFolderSetNameType::AppendTitleArtist).await?;
+            set_name_by_bms(&path, BmsFolderSetNameType::AppendTitleArtist, false).await?;
         }
     }
 
@@ -268,7 +268,7 @@ pub async fn pack_update_rawpack_to_hq(
         sync_dir.display(),
         root_dir.display()
     );
-    copy_numbered_workdir_names(sync_dir, root_dir).await?;
+    copy_numbered_workdir_names(sync_dir, root_dir, false).await?;
 
     // Parse Audio
     info!(" > 3. Parsing Audio... Phase 1: WAV -> FLAC");

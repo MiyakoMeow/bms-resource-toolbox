@@ -19,7 +19,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let bms_dir = Path::new("./example_bms_folder");
         if bms_dir.exists() {
             println!("Setting directory name: {}", bms_dir.display());
-            set_name_by_bms(bms_dir, BmsFolderSetNameType::AppendTitleArtist).await?;
+            set_name_by_bms(bms_dir, BmsFolderSetNameType::AppendTitleArtist, false).await?;
             println!("Setting completed");
         } else {
             println!("Example directory does not exist: {}", bms_dir.display());

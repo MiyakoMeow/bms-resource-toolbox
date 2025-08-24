@@ -94,6 +94,9 @@ pub enum WorkCommands {
         /// Set type: replace_title_artist, append_title_artist, append_artist
         #[arg(long, default_value = "replace_title_artist")]
         set_type: BmsFolderSetNameType,
+        /// Dry run: only print actions
+        #[arg(long)]
+        dry_run: bool,
     },
     /// Undo directory name setting
     UndoSetName {
@@ -103,12 +106,18 @@ pub enum WorkCommands {
         /// Set type: replace_title_artist, append_title_artist, append_artist
         #[arg(long, default_value = "append_artist")]
         set_type: BmsFolderSetNameType,
+        /// Dry run: only print actions
+        #[arg(long)]
+        dry_run: bool,
     },
     /// Remove zero-byte media files
     RemoveEmptyMedia {
         /// Work directory path
         #[arg(value_name = "DIR")]
         dir: PathBuf,
+        /// Dry run: only print actions
+        #[arg(long)]
+        dry_run: bool,
     },
 }
 
@@ -174,6 +183,9 @@ pub enum FsCommands {
         /// Parent directory path
         #[arg(value_name = "DIR")]
         dir: PathBuf,
+        /// Dry run: only print actions
+        #[arg(long)]
+        dry_run: bool,
     },
     /// Calculate BMS directory similarity
     BmsDirSimilarity {
@@ -264,6 +276,9 @@ pub enum RootCommands {
         /// Set type: replace_title_artist, append_title_artist, append_artist
         #[arg(long, default_value = "replace_title_artist")]
         set_type: BmsFolderSetNameType,
+        /// Dry run: only print actions
+        #[arg(long)]
+        dry_run: bool,
     },
     /// Undo directory name setting
     UndoSetName {
@@ -273,6 +288,9 @@ pub enum RootCommands {
         /// Set type: replace_title_artist, append_title_artist, append_artist
         #[arg(long, default_value = "append_artist")]
         set_type: BmsFolderSetNameType,
+        /// Dry run: only print actions
+        #[arg(long)]
+        dry_run: bool,
     },
     /// Copy numbered work directory names
     CopyNumberedNames {
@@ -282,12 +300,18 @@ pub enum RootCommands {
         /// Target directory path
         #[arg(value_name = "TO")]
         to: PathBuf,
+        /// Dry run: only print actions
+        #[arg(long)]
+        dry_run: bool,
     },
     /// Split folders by first character
     SplitByFirstChar {
         /// Root directory path
         #[arg(value_name = "DIR")]
         dir: PathBuf,
+        /// Dry run: only print actions
+        #[arg(long)]
+        dry_run: bool,
     },
     /// Undo split operation
     UndoSplit {
@@ -315,12 +339,18 @@ pub enum RootCommands {
         /// Target directory path
         #[arg(value_name = "TO")]
         to: PathBuf,
+        /// Dry run: only print actions
+        #[arg(long)]
+        dry_run: bool,
     },
     /// Move out one level directory
     MoveOutWorks {
         /// Target root directory path
         #[arg(value_name = "DIR")]
         dir: PathBuf,
+        /// Dry run: only print actions
+        #[arg(long)]
+        dry_run: bool,
     },
     /// Move works with same name
     MoveSameName {
@@ -394,47 +424,63 @@ pub enum PackCommands {
 pub async fn run_command(command: &Commands) -> Result<(), Box<dyn std::error::Error>> {
     match command {
         Commands::Work { command } => match command {
-            WorkCommands::SetName { dir, set_type } => {
+            WorkCommands::SetName {
+                dir,
+                set_type,
+                dry_run,
+            } => {
                 info!("Setting directory name: {}", dir.display());
                 info!("Set type: {:?}", set_type);
-                set_name_by_bms(dir, *set_type).await?;
+                set_name_by_bms(dir, *set_type, *dry_run).await?;
                 info!("Setting completed");
             }
-            WorkCommands::UndoSetName { dir, set_type } => {
+            WorkCommands::UndoSetName {
+                dir,
+                set_type,
+                dry_run,
+            } => {
                 info!("Undoing directory name setting: {}", dir.display());
-                undo_set_name_by_bms(dir, *set_type).await?;
+                undo_set_name_by_bms(dir, *set_type, *dry_run).await?;
                 info!("Undo completed");
             }
-            WorkCommands::RemoveEmptyMedia { dir } => {
+            WorkCommands::RemoveEmptyMedia { dir, dry_run } => {
                 info!("Removing zero-byte media files: {}", dir.display());
-                remove_zero_sized_media_files(dir).await?;
+                remove_zero_sized_media_files(dir, *dry_run).await?;
                 info!("Removal completed");
             }
         },
         Commands::Root { command } => match command {
-            RootCommands::SetName { dir, set_type } => {
+            RootCommands::SetName {
+                dir,
+                set_type,
+                dry_run,
+            } => {
                 info!("Setting directory name: {}", dir.display());
                 info!("Set type: {:?}", set_type);
-                root_set_name_by_bms(dir, *set_type).await?;
+                root_set_name_by_bms(dir, *set_type, *dry_run).await?;
                 info!("Setting completed");
             }
-            RootCommands::UndoSetName { dir, set_type } => {
+            RootCommands::UndoSetName {
+                dir,
+                set_type,
+                dry_run,
+            } => {
                 info!("Undoing directory name setting: {}", dir.display());
-                root_undo_set_name_by_bms(dir, *set_type).await?;
+                root_undo_set_name_by_bms(dir, *set_type, *dry_run).await?;
                 info!("Undo completed");
             }
-            RootCommands::CopyNumberedNames { from, to } => {
+            RootCommands::CopyNumberedNames { from, to, dry_run } => {
                 info!(
                     "Copying numbered work directory names: {} -> {}",
                     from.display(),
                     to.display()
                 );
-                copy_numbered_workdir_names(from, to).await?;
+                copy_numbered_workdir_names(from, to, *dry_run).await?;
                 info!("Copy completed");
             }
-            RootCommands::SplitByFirstChar { dir } => {
+            RootCommands::SplitByFirstChar { dir, dry_run } => {
                 info!("Splitting folders by first character: {}", dir.display());
-                split_folders_with_first_char(dir).await?;
+                split_folders_with_first_char(dir, *dry_run).await?;
                 info!("Split completed");
             }
             RootCommands::UndoSplit { dir, dry_run } => {
@@ -447,14 +493,14 @@ pub async fn run_command(command: &Commands) -> Result<(), Box<dyn std::error::E
                 merge_split_folders(dir, *dry_run).await?;
                 info!("Merge completed");
             }
-            RootCommands::MoveWorks { from, to } => {
+            RootCommands::MoveWorks { from, to, dry_run } => {
                 info!("Moving works: {} -> {}", from.display(), to.display());
-                move_works_in_pack(from, to).await?;
+                move_works_in_pack(from, to, *dry_run).await?;
                 info!("Move completed");
             }
-            RootCommands::MoveOutWorks { dir } => {
+            RootCommands::MoveOutWorks { dir, dry_run } => {
                 info!("Moving out one level directory: {}", dir.display());
-                move_out_works(dir).await?;
+                move_out_works(dir, *dry_run).await?;
                 info!("Move out completed");
             }
             RootCommands::MoveSameName { from, to, dry_run } => {
@@ -577,9 +623,9 @@ pub async fn run_command(command: &Commands) -> Result<(), Box<dyn std::error::E
                 let result = is_dir_having_file(dir).await?;
                 info!("Directory contains files: {}", result);
             }
-            FsCommands::RemoveEmptyFolders { dir } => {
+            FsCommands::RemoveEmptyFolders { dir, dry_run } => {
                 info!("Removing empty folders: {}", dir.display());
-                remove_empty_folders(dir).await?;
+                remove_empty_folders(dir, *dry_run).await?;
                 info!("Removal completed");
             }
             FsCommands::BmsDirSimilarity { dir1, dir2 } => {
