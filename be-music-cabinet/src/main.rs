@@ -1,4 +1,4 @@
-// GUI 模式不直接使用库入口
+// GUI mode does not directly use library entry
 use std::{
     cell::RefCell,
     collections::{BTreeMap, HashMap},
@@ -28,10 +28,10 @@ use once_cell::sync::OnceCell;
 use quote::ToTokens;
 use syn::{Attribute, Fields, Item, ItemEnum, Type, parse_file};
 
-// 调用库侧 CLI 与命令执行
+// Call library side CLI and command execution
 use be_music_cabinet::{Cli, run_command};
 
-// 解析目标：从 lib.rs 抽取 Commands 与其子枚举结构，动态生成 UI
+// Parse target: Extract Commands and its sub-enum structures from lib.rs, dynamically generate UI
 const LIB_RS_SRC: &str = include_str!("lib.rs");
 
 #[derive(Debug, Clone)]
@@ -41,7 +41,7 @@ enum UiFieldType {
     Usize,
     F64,
     Bool,
-    Enum(Vec<String>), // 枚举变体列表
+    Enum(Vec<String>), // Enum variant list
     Other,
 }
 
@@ -117,13 +117,13 @@ fn type_to_ui_type(ty: &Type) -> UiFieldType {
 }
 
 fn attr_tokens_contains_long(attr: &Attribute) -> bool {
-    // 尽量不写死解析，宽松判断 "long" 字样
+    // Try not to hardcode parsing, loosely judge "long" pattern
     let s = attr.to_token_stream().to_string();
     s.contains(" long") || s.contains("long ") || s.contains("long,") || s.contains("long=")
 }
 
 fn extract_arg_value_name(attr: &Attribute) -> Option<String> {
-    // 查找 value_name = "..."
+    // Find value_name = "..."
     let s = attr.to_token_stream().to_string();
     let key = "value_name = \"";
     if let Some(pos) = s.find(key) {
@@ -136,7 +136,7 @@ fn extract_arg_value_name(attr: &Attribute) -> Option<String> {
 }
 
 fn extract_default_value(attr: &Attribute) -> Option<String> {
-    // 查找 default_value = "..."
+    // Find default_value = "..."
     let s = attr.to_token_stream().to_string();
     let key = "default_value = \"";
     if let Some(pos) = s.find(key) {
@@ -148,7 +148,7 @@ fn extract_default_value(attr: &Attribute) -> Option<String> {
     None
 }
 
-// 从属性中提取累积的文档注释字符串（由 /// 转为 #[doc = "..."]）
+// Extract accumulated doc comment strings from attributes (converted from /// to #[doc = "..."])
 fn extract_doc_string(attrs: &[Attribute]) -> Option<String> {
     let mut lines: Vec<String> = Vec::new();
     for a in attrs {
@@ -158,7 +158,7 @@ fn extract_doc_string(attrs: &[Attribute]) -> Option<String> {
                 let rest = &s[pos + 1..];
                 if let Some(end) = rest.rfind('"') {
                     let mut line = rest[..end].to_string();
-                    // 去掉行首的一个空格（rustdoc 常见的前导空格）
+                    // Remove one space from the beginning of the line (common leading space in rustdoc)
                     if line.starts_with(' ') {
                         line.remove(0);
                     }
@@ -218,7 +218,7 @@ fn build_ui_tree() -> UiTree {
 
     let mut top_commands: Vec<UiTopSpec> = Vec::new();
     for var in &commands.variants {
-        // 变体如: Work { command: WorkCommands }
+        // Variant like: Work { command: WorkCommands }
         let mut sub_enum_ident = None;
         if let Fields::Named(named) = &var.fields {
             for f in &named.named {
@@ -415,7 +415,7 @@ impl App {
             if val.is_empty() {
                 continue;
             }
-            // 简单判断：认为包含路径分隔符或者看起来像驱动器盘符的为路径
+            // Simple judgment: consider it a path if it contains path separators or looks like a drive letter
             let looks_like_path = val.contains('/')
                 || val.contains('\\')
                 || (val.len() >= 2
@@ -423,7 +423,7 @@ impl App {
                     && val.as_bytes()[0].is_ascii_alphabetic());
             if looks_like_path && !self.path_history.iter().any(|p| p == val) {
                 self.path_history.insert(0, val.clone());
-                // 限制最多保留 50 条
+                // Limit to keep at most 50 entries
                 if self.path_history.len() > 50 {
                     self.path_history.truncate(50);
                 }
@@ -443,7 +443,7 @@ impl MwApplication for App {
     type Theme = Theme;
 
     fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
-        // 初始化 GUI 日志器
+        // Initialize GUI logger
         init_gui_logger();
         let path_history = load_path_history();
         let mut app = App {
@@ -465,7 +465,7 @@ impl MwApplication for App {
             "Be-Music Cabinet GUI".to_string()
         } else if let Some(w) = self.windows.get(&id) {
             let args_text = w.args.join(" ");
-            format!("任务日志窗口 - {}", args_text)
+            format!("Task Log Window - {}", args_text)
         } else {
             "Be-Music Cabinet".to_string()
         }
@@ -508,8 +508,8 @@ impl MwApplication for App {
             Msg::Run => {
                 let args = self.build_cli_args();
                 let args_for_view = args.clone().join(" ");
-                self.status = format!("已启动: {}", args_for_view);
-                // 记录本次填写的路径到历史
+                self.status = format!("Started: {}", args_for_view);
+                // Record the filled paths to history
                 self.capture_and_save_paths();
                 let (win_id, open_cmd) = window::spawn(window::Settings {
                     size: [800u16, 400u16].into(),
@@ -566,7 +566,7 @@ impl MwApplication for App {
             let content = column![
                 scrollable(text(w.logs.clone())).height(Length::Fill),
                 row![
-                    button(text(if w.running { "终止" } else { "已停止" })).on_press(
+                    button(text(if w.running { "Terminate" } else { "Stopped" })).on_press(
                         if w.running {
                             Msg::LogTerminate(id)
                         } else {
@@ -596,7 +596,7 @@ impl MwApplication for App {
             .map(|v| v.name.clone())
             .collect();
 
-        let mut fields_col = column![].spacing(8).push(text("参数").size(18));
+        let mut fields_col = column![].spacing(8).push(text("Parameters").size(18));
         for f in &self.current_variant().fields {
             let key = self.field_key(&f.name);
             let label = f.value_name.as_deref().unwrap_or(&f.name);
@@ -648,7 +648,7 @@ impl MwApplication for App {
                                 move |v| Msg::FieldTextChanged(k.clone(), v)
                             })
                             .width(Length::Fill),
-                        button(text("选择…")).on_press({
+                        button(text("Select...")).on_press({
                             let k = key.clone();
                             Msg::PickDir(k)
                         }),
@@ -708,10 +708,10 @@ impl MwApplication for App {
         };
 
         let content = column![
-            row![text("命令").size(18), top_pick,].spacing(10),
-            row![text("子命令").size(18), sub_pick,].spacing(10),
+            row![text("Command").size(18), top_pick,].spacing(10),
+            row![text("Subcommand").size(18), sub_pick,].spacing(10),
             fields_col,
-            row![button(text("执行")).on_press(Msg::Run),].spacing(10),
+            row![button(text("Execute")).on_press(Msg::Run),].spacing(10),
             scrollable(text(self.status.clone())).height(Length::Fill),
         ]
         .padding(12)
@@ -727,7 +727,7 @@ impl MwApplication for App {
 }
 
 fn pick_chinese_font() -> Font {
-    // 优先尝试系统常见中文字体名称；若失败，再使用 fontdb 扫描
+    // Prioritize trying common Chinese font names in the system; if failed, use fontdb scanning
     if let Some(fam) = [
         "Microsoft YaHei",
         "Microsoft JhengHei",
@@ -740,20 +740,20 @@ fn pick_chinese_font() -> Font {
     .into_iter()
     .next()
     {
-        // 仅依赖名称，若系统存在将由后端解析
+        // Only depend on name, if system exists it will be resolved by backend
         return Font::with_name(fam);
     }
-    // 回退：仍返回一个名称字体，交由系统选择
+    // Fallback: still return a named font, leave it to system to choose
     Font::with_name("Microsoft YaHei")
 }
 
 fn main() -> iced::Result {
-    // 简单的测试来验证枚举类型识别
+    // Simple test to verify enum type recognition
     info!("Testing enum type detection...");
 
     let tree = build_ui_tree();
 
-    // 查找 RootCommands::SetName
+    // Find RootCommands::SetName
     if let Some(root_cmd) = tree.top_commands.iter().find(|t| t.variant_ident == "Root")
         && let Some(sub_enum) = tree.sub_enums.get(&root_cmd.sub_enum_ident)
         && let Some(set_name_variant) = sub_enum.variants.iter().find(|v| v.name == "SetName")
@@ -788,22 +788,22 @@ fn main() -> iced::Result {
     settings.default_font = pick_chinese_font();
     settings.default_text_size = 16.into();
     settings.antialiasing = true;
-    // 设置主窗口默认尺寸 800x400
+    // Set main window default size 800x400
     settings.window.size = [800u16, 400u16].into();
     <App as MwApplication>::run(settings)
 }
 
-// ========================= 多任务日志：全局 Logger 与日志窗口 =========================
+// ========================= Multi-task Logging: Global Logger and Log Window =========================
 
-// 任务 ID 分配器
+// Task ID allocator
 static NEXT_TASK_ID: AtomicU64 = AtomicU64::new(1);
 
-// 线程局部：标记当前线程属于哪个任务，用于日志路由
+// Thread local: mark which task current thread belongs to, used for log routing
 thread_local! {
     static CURRENT_TASK_ID: RefCell<Option<u64>> = const { RefCell::new(None) };
 }
 
-// 全局缓冲区：每个任务一个待拉取的日志行队列
+// Global buffer: one log line queue to be pulled for each task
 type TaskId = u64;
 type LogBufferMap = HashMap<TaskId, Vec<String>>;
 type SharedLogBuffers = Arc<StdMutex<LogBufferMap>>;
@@ -825,7 +825,7 @@ fn drain_lines(id: TaskId) -> Vec<String> {
     guard.remove(&id).unwrap_or_default()
 }
 
-// 全局 GUI Logger：将 log::info 等输出路由到各任务的缓冲区
+// Global GUI Logger: route log::info etc. output to each task's buffer
 struct GuiLogger;
 
 impl Log for GuiLogger {
@@ -842,7 +842,7 @@ impl Log for GuiLogger {
             if let Some(id) = *cell.borrow() {
                 push_line(id, line.clone());
             } else {
-                // 无任务上下文：忽略或输出到主控台。这里忽略以避免串扰。
+                // No task context: ignore or output to main console. Ignore here to avoid interference.
             }
         });
     }
@@ -851,16 +851,16 @@ impl Log for GuiLogger {
 }
 
 fn init_gui_logger() {
-    // 确保缓冲区存在
+    // Ensure buffer exists
     let _ = buffers();
-    // 注册全局 logger（只需一次）
+    // Register global logger (only once)
     let _ = log::set_boxed_logger(Box::new(GuiLogger));
     log::set_max_level(LevelFilter::Info);
 }
 
-// 已移除独立日志窗口实现，统一在主窗口中展示任务日志
+// Removed independent log window implementation, unified task log display in main window
 
-// 已移除单窗口旧启动入口
+// Removed single window old startup entry
 
 fn start_task_for_window(task_id: TaskId, abort_reg: AbortRegistration, args: Vec<String>) {
     let cmd_line = args.clone().join(" ");
@@ -868,35 +868,35 @@ fn start_task_for_window(task_id: TaskId, abort_reg: AbortRegistration, args: Ve
     blocking::unblock(move || {
         CURRENT_TASK_ID.with(|c| *c.borrow_mut() = Some(task_id));
         let result = smol::block_on(async move {
-            println!("[GUI] 命令: {}", cmd_line);
+            println!("[GUI] Command: {}", cmd_line);
             let cli = match Cli::try_parse_from(args.clone()) {
                 Ok(cli) => cli,
                 Err(e) => {
-                    return Err(format!("参数解析失败: {}", e));
+                    return Err(format!("Parameter parsing failed: {}", e));
                 }
             };
             let fut = run_command(&cli.command);
             match Abortable::new(fut, abort_reg).await {
                 Ok(Ok(())) => Ok(()),
                 Ok(Err(e)) => Err(e.to_string()),
-                Err(_aborted) => Err("任务已终止".to_string()),
+                Err(_aborted) => Err("Task terminated".to_string()),
             }
         });
         match result {
-            Ok(()) => push_line(task_id, "[完成]".to_string()),
-            Err(e) => push_line(task_id, format!("[错误] {}", e)),
+            Ok(()) => push_line(task_id, "[Completed]".to_string()),
+            Err(e) => push_line(task_id, format!("[Error] {}", e)),
         }
         CURRENT_TASK_ID.with(|c| *c.borrow_mut() = None);
     })
     .detach();
-    push_line(task_id, format!("[已启动] {}", cmd_line_for_log));
+    push_line(task_id, format!("[Started] {}", cmd_line_for_log));
 }
 
-// ========================= 路径历史：保存与加载 =========================
+// ========================= Path History: Save and Load =========================
 const HISTORY_FILE: &str = "path_history.json";
 
 fn history_file_path() -> StdPathBuf {
-    // 运行目录下
+    // Under run directory
     StdPathBuf::from(HISTORY_FILE)
 }
 

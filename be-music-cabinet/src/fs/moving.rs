@@ -143,7 +143,7 @@ async fn process_directory(
         paths.push((src, dst));
     }
 
-    // 并发处理当前目录下的所有条目
+    // Process all entries under current directory concurrently
     let parallelism = compute_parallelism_for_dir(dir_path_ori).clamp(1, 24);
     stream::iter(paths)
         .for_each_concurrent(Some(parallelism), |(src, dst)| {

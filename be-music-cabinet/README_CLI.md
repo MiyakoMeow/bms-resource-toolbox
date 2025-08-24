@@ -68,366 +68,366 @@ be-music-cabinet root copy-numbered-names <FROM> <TO>
 be-music-cabinet root copy-numbered-names ./source ./target
 ```
 
-#### 按首字符分割文件夹
+#### Split Folders by First Character
 ```bash
-# 按首字符分割文件夹
+# Split folders by first character
 be-music-cabinet root split-by-first-char <DIR>
 
-# 示例
+# Examples
 be-music-cabinet root split-by-first-char ./BMSRoot
 ```
 
-#### 撤销分割操作
+#### Undo Split Operation
 ```bash
-# 撤销分割操作
+# Undo split operation
 be-music-cabinet root undo-split <DIR>
 
-# 示例
+# Examples
 be-music-cabinet root undo-split ./BMSRoot
 ```
 
-#### 合并分割的文件夹
+#### Merge Split Folders
 ```bash
-# 合并分割的文件夹
+# Merge split folders
 be-music-cabinet root merge-split <DIR>
 
-# 示例
+# Examples
 be-music-cabinet root merge-split ./BMSRoot
 ```
 
-#### 移动作品
+#### Move Works
 ```bash
-# 移动作品
+# Move works
 be-music-cabinet root move-works <FROM> <TO>
 
-# 示例
+# Examples
 be-music-cabinet root move-works ./source ./target
 ```
 
-#### 移出一层目录
+#### Move Out One Directory Level
 ```bash
-# 移出一层目录
+# Move out one directory level
 be-music-cabinet root move-out-works <DIR>
 
-# 示例
+# Examples
 be-music-cabinet root move-out-works ./BMSRoot
 ```
 
-#### 移动同名作品
+#### Move Works with Same Name
 ```bash
-# 移动同名作品
+# Move works with same name
 be-music-cabinet root move-same-name <FROM> <TO>
 
-# 示例
+# Examples
 be-music-cabinet root move-same-name ./source ./target
 ```
 
-#### 移除不需要的媒体文件
+#### Remove Unnecessary Media Files
 ```bash
-# 移除不需要的媒体文件
+# Remove unnecessary media files
 be-music-cabinet root remove-unneed-media <DIR> [--rule <RULE>]
 
-# 示例
+# Examples
 be-music-cabinet root remove-unneed-media ./BMSRoot
 be-music-cabinet root remove-unneed-media ./BMSRoot --rule oraja
 ```
 
-规则类型选项：
-- `oraja`: beatoraja规则（默认）
-- `wav_fill_flac`: WAV填充FLAC规则
-- `mpg_fill_wmv`: MPG填充WMV规则
+Rule type options:
+- `oraja`: beatoraja rule (default)
+- `wav_fill_flac`: WAV fill FLAC rule
+- `mpg_fill_wmv`: MPG fill WMV rule
 
-### 3. 大包处理操作 (pack)
+### 3. Large Package Processing Operations (pack)
 
-处理BMS大包的转换和生成。
+Processing BMS large package conversion and generation.
 
-#### 原包 -> HQ版大包
+#### Raw Package -> HQ Version Large Package
 ```bash
-# 原包转换为HQ版大包（适用于beatoraja/Qwilight播放器）
+# Convert raw package to HQ version large package (for beatoraja/Qwilight players)
 be-music-cabinet pack raw-to-hq <DIR>
 
-# 示例
+# Examples
 be-music-cabinet pack raw-to-hq ./BMSRoot
 ```
 
-#### HQ版大包 -> LQ版大包
+#### HQ Version Large Package -> LQ Version Large Package
 ```bash
-# HQ版大包转换为LQ版大包（适用于LR2播放器）
+# Convert HQ version large package to LQ version large package (for LR2 players)
 be-music-cabinet pack hq-to-lq <DIR>
 
-# 示例
+# Examples
 be-music-cabinet pack hq-to-lq ./BMSRoot
 ```
 
-#### 大包生成脚本
+#### Large Package Generation Script
 ```bash
-# 从原包快速创建HQ版大包
+# Quickly create HQ version large package from raw package
 be-music-cabinet pack setup-rawpack-to-hq <PACK_DIR> <ROOT_DIR>
 
-# 示例
+# Examples
 be-music-cabinet pack setup-rawpack-to-hq ./packs ./BMSRoot
 ```
 
-#### 大包更新脚本
+#### Large Package Update Script
 ```bash
-# 从原包快速更新HQ版大包
+# Quickly update HQ version large package from raw package
 be-music-cabinet pack update-rawpack-to-hq <PACK_DIR> <ROOT_DIR> <SYNC_DIR>
 
-# 示例
+# Examples
 be-music-cabinet pack update-rawpack-to-hq ./packs ./BMSRoot ./SyncDir
 ```
 
-### 4. BMS文件相关操作 (bms)
+### 4. BMS File Related Operations (bms)
 
-处理BMS文件的解析和检查。
+Parsing and checking operations for BMS files.
 
-#### 解析BMS文件
+#### Parse BMS File
 ```bash
-# 解析BMS文件
+# Parse BMS file
 be-music-cabinet bms parse-bms <FILE>
 
-# 示例
+# Examples
 be-music-cabinet bms parse-bms ./song.bms
 ```
 
-#### 解析BMSON文件
+#### Parse BMSON File
 ```bash
-# 解析BMSON文件
+# Parse BMSON file
 be-music-cabinet bms parse-bmson <FILE>
 
-# 示例
+# Examples
 be-music-cabinet bms parse-bmson ./song.bmson
 ```
 
-#### 获取BMS文件列表
+#### Get BMS File List
 ```bash
-# 获取目录中的BMS文件列表
+# Get BMS file list in directory
 be-music-cabinet bms get-bms-list <DIR>
 
-# 示例
+# Examples
 be-music-cabinet bms get-bms-list ./BMSFolder
 ```
 
-#### 获取BMS信息
+#### Get BMS Information
 ```bash
-# 获取目录中的BMS信息
+# Get BMS information in directory
 be-music-cabinet bms get-bms-info <DIR>
 
-# 示例
+# Examples
 be-music-cabinet bms get-bms-info ./BMSFolder
 ```
 
-#### 检查目录类型
+#### Check Directory Type
 ```bash
-# 检查是否为工作目录
+# Check if it's a work directory
 be-music-cabinet bms is-work-dir <DIR>
 
-# 检查是否为根目录
+# Check if it's a root directory
 be-music-cabinet bms is-root-dir <DIR>
 
-# 示例
+# Examples
 be-music-cabinet bms is-work-dir ./MyBMSFolder
 be-music-cabinet bms is-root-dir ./BMSRoot
 ```
 
-### 5. 文件系统相关操作 (fs)
+### 5. File System Related Operations (fs)
 
-处理文件系统的各种操作。
+Various operations for handling the file system.
 
-#### 文件比较
+#### File Comparison
 ```bash
-# 检查两个文件内容是否相同
+# Check if two files have the same content
 be-music-cabinet fs is-file-same <FILE1> <FILE2>
 
-# 示例
+# Examples
 be-music-cabinet fs is-file-same ./file1.txt ./file2.txt
 ```
 
-#### 目录检查
+#### Directory Check
 ```bash
-# 检查目录是否包含文件
+# Check if directory contains files
 be-music-cabinet fs is-dir-having-file <DIR>
 
-# 示例
+# Examples
 be-music-cabinet fs is-dir-having-file ./MyFolder
 ```
 
-#### 清理操作
+#### Cleanup Operations
 ```bash
-# 移除空文件夹
+# Remove empty folders
 be-music-cabinet fs remove-empty-folders <DIR>
 
-# 示例
+# Examples
 be-music-cabinet fs remove-empty-folders ./BMSRoot
 ```
 
-#### 相似度计算
+#### Similarity Calculation
 ```bash
-# 计算BMS目录相似度
+# Calculate BMS directory similarity
 be-music-cabinet fs bms-dir-similarity <DIR1> <DIR2>
 
-# 示例
+# Examples
 be-music-cabinet fs bms-dir-similarity ./folder1 ./folder2
 ```
 
-### 6. 根目录事件相关操作 (root-event)
+### 6. Root Directory Event Related Operations (root-event)
 
-处理根目录的事件和批量操作。
+Handling events and batch operations for root directories.
 
-#### 编号文件夹管理
+#### Numbered Folder Management
 ```bash
-# 检查编号文件夹
+# Check numbered folders
 be-music-cabinet root-event check-num-folder <DIR> <MAX>
 
-# 创建编号文件夹
+# Create numbered folders
 be-music-cabinet root-event create-num-folders <DIR> <COUNT>
 
-# 示例
+# Examples
 be-music-cabinet root-event check-num-folder ./BMSRoot 1000
 be-music-cabinet root-event create-num-folders ./BMSRoot 100
 ```
 
-#### 信息表生成
+#### Information Table Generation
 ```bash
-# 生成工作信息表
+# Generate work information table
 be-music-cabinet root-event generate-work-info-table <DIR>
 
-# 示例
+# Examples
 be-music-cabinet root-event generate-work-info-table ./BMSRoot
 ```
 
-#### 原包 -> HQ版大包
+#### Raw Package -> HQ Version Large Package
 ```bash
-# 原包转换为HQ版大包（适用于beatoraja/Qwilight播放器）
+# Convert raw package to HQ version large package (for beatoraja/Qwilight players)
 be-music-cabinet pack raw-to-hq <DIR>
 
-# 示例
+# Examples
 be-music-cabinet pack raw-to-hq ./BMSRoot
 ```
 
-#### HQ版大包 -> LQ版大包
+#### HQ Version Large Package -> LQ Version Large Package
 ```bash
-# HQ版大包转换为LQ版大包（适用于LR2播放器）
+# Convert HQ version large package to LQ version large package (for LR2 players)
 be-music-cabinet pack hq-to-lq <DIR>
 
-# 示例
+# Examples
 be-music-cabinet pack hq-to-lq ./BMSRoot
 ```
 
-#### 大包生成脚本
+#### Large Package Generation Script
 ```bash
-# 从原包快速创建HQ版大包
+# Quickly create HQ version large package from raw package
 be-music-cabinet pack setup-rawpack-to-hq <PACK_DIR> <ROOT_DIR>
 
-# 示例
+# Examples
 be-music-cabinet pack setup-rawpack-to-hq ./packs ./BMSRoot
 ```
 
-#### 大包更新脚本
+#### Large Package Update Script
 ```bash
-# 从原包快速更新HQ版大包
+# Quickly update HQ version large package from raw package
 be-music-cabinet pack update-rawpack-to-hq <PACK_DIR> <ROOT_DIR> <SYNC_DIR>
 
-# 示例
+# Examples
 be-music-cabinet pack update-rawpack-to-hq ./packs ./BMSRoot ./SyncDir
 ```
 
-## 常用工作流程
+## Common Workflows
 
-### 1. 整理单个BMS文件夹
+### 1. Organize Individual BMS Folder
 ```bash
-# 设置目录名
+# Set directory name
 be-music-cabinet work set-name ./MyBMSFolder
 
-# 移除零字节文件
+# Remove zero-byte files
 be-music-cabinet work remove-empty-media ./MyBMSFolder
 ```
 
-### 2. 整理整个BMS根目录
+### 2. Organize Entire BMS Root Directory
 ```bash
-# 按首字符分割文件夹
+# Split folders by first character
 be-music-cabinet root split-by-first-char ./BMSRoot
 
-# 移除不需要的媒体文件
+# Remove unnecessary media files
 be-music-cabinet root remove-unneed-media ./BMSRoot
 
-# 合并分割的文件夹
+# Merge split folders
 be-music-cabinet root merge-split ./BMSRoot
 ```
 
-### 3. 生成HQ版大包
+### 3. Generate HQ Version Large Package
 ```bash
-# 从原包生成HQ版大包
+# Generate HQ version large package from raw package
 be-music-cabinet pack setup-rawpack-to-hq ./packs ./BMSRoot
 
-# 或者直接转换现有目录
+# Or directly convert existing directory
 be-music-cabinet pack raw-to-hq ./BMSRoot
 ```
 
-### 4. 生成LQ版大包
+### 4. Generate LQ Version Large Package
 ```bash
-# 从HQ版生成LQ版大包
+# Generate LQ version large package from HQ version
 be-music-cabinet pack hq-to-lq ./BMSRoot
 ```
 
-### 5. BMS文件分析
+### 5. BMS File Analysis
 ```bash
-# 检查目录类型
+# Check directory type
 be-music-cabinet bms is-work-dir ./MyBMSFolder
 be-music-cabinet bms is-root-dir ./BMSRoot
 
-# 获取BMS信息
+# Get BMS information
 be-music-cabinet bms get-bms-info ./MyBMSFolder
 
-# 解析BMS文件
+# Parse BMS file
 be-music-cabinet bms parse-bms ./song.bms
 ```
 
-### 6. 文件系统维护
+### 6. File System Maintenance
 ```bash
-# 检查文件是否相同
+# Check if files are the same
 be-music-cabinet fs is-file-same ./file1.txt ./file2.txt
 
-# 移除空文件夹
+# Remove empty folders
 be-music-cabinet fs remove-empty-folders ./BMSRoot
 
-# 计算目录相似度
+# Calculate directory similarity
 be-music-cabinet fs bms-dir-similarity ./folder1 ./folder2
 ```
 
-### 7. 批量操作
+### 7. Batch Operations
 ```bash
-# 创建编号文件夹
+# Create numbered folders
 be-music-cabinet root-event create-num-folders ./BMSRoot 100
 
-# 生成工作信息表
+# Generate work information table
 be-music-cabinet root-event generate-work-info-table ./BMSRoot
 ```
 
-## 注意事项
+## Notes
 
-1. **备份重要文件**: 在执行任何操作前，请备份重要的BMS文件
-2. **路径格式**: 支持相对路径和绝对路径
-3. **异步操作**: 所有操作都是异步的，大文件处理可能需要一些时间
-4. **外部依赖**: 某些功能需要外部工具（如ffmpeg、flac等）
-5. **权限要求**: 确保对目标目录有读写权限
+1. **Backup Important Files**: Please backup important BMS files before executing any operations
+2. **Path Format**: Supports both relative and absolute paths
+3. **Asynchronous Operations**: All operations are asynchronous, large file processing may take some time
+4. **External Dependencies**: Some functions require external tools (such as ffmpeg, flac, etc.)
+5. **Permission Requirements**: Ensure you have read/write permissions for target directories
 
-## 错误处理
+## Error Handling
 
-如果遇到错误，程序会显示详细的错误信息。常见的错误包括：
-- 文件不存在或权限不足
-- 外部工具未安装
-- 磁盘空间不足
-- 文件格式不支持
+If you encounter errors, the program will display detailed error information. Common errors include:
+- File not found or insufficient permissions
+- External tools not installed
+- Insufficient disk space
+- Unsupported file format
 
-## 帮助信息
+## Help Information
 
-获取帮助信息：
+Get help information:
 ```bash
-# 主帮助
+# Main help
 be-music-cabinet --help
 
-# 子命令帮助
+# Subcommand help
 be-music-cabinet work --help
 be-music-cabinet root --help
 be-music-cabinet pack --help
@@ -435,7 +435,7 @@ be-music-cabinet bms --help
 be-music-cabinet fs --help
 be-music-cabinet root-event --help
 
-# 具体命令帮助
+# Specific command help
 be-music-cabinet work set-name --help
 be-music-cabinet bms parse-bms --help
 be-music-cabinet fs is-file-same --help

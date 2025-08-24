@@ -135,7 +135,7 @@ async fn transfer_audio_in_directory(
     let failures: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
     let had_error = Arc::new(AtomicBool::new(false));
 
-    // 并发度：基于磁盘介质类型
+    // Parallelism: based on disk media type
     let max_workers = compute_parallelism_for_dir(dir_path).clamp(1, 24);
 
     // Collect files to process
@@ -164,7 +164,7 @@ async fn transfer_audio_in_directory(
         log::info!("Using presets: {presets:?}");
     }
 
-    // 并发处理每个文件
+    // Process each file concurrently
     let failures_cloned = failures.clone();
     let had_error_cloned = had_error.clone();
     stream::iter(tasks)
@@ -180,7 +180,7 @@ async fn transfer_audio_in_directory(
                     let preset = &presets[current_preset_index];
                     let output_path = file_path.with_extension(&preset.output_format);
 
-                    // 若目标文件已存在
+                    // If target file already exists
                     if output_path.exists() {
                         if remove_existing {
                             if let Ok(metadata) = fs::metadata(&output_path).await
@@ -196,7 +196,7 @@ async fn transfer_audio_in_directory(
                         }
                     }
 
-                    // 执行命令
+                    // Execute command
                     if let Some(cmd) = get_audio_command(&file_path, &output_path, preset) {
                         #[cfg(target_family = "windows")]
                         let program = "powershell";
@@ -341,4 +341,4 @@ pub async fn process_bms_folders(
     Ok(())
 }
 
-// compute_parallelism_for_dir 已移动到 crate::fs 模块
+// compute_parallelism_for_dir has been moved to crate::fs module

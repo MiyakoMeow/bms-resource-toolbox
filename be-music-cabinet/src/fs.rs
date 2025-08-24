@@ -12,7 +12,7 @@ use smol::{
     stream::StreamExt,
 };
 
-///  Signs:
+/// Signs:
 ///  ：＼／＊？＂＜＞｜
 pub fn get_vaild_fs_name(ori_name: &str) -> String {
     ori_name
@@ -28,7 +28,7 @@ pub fn get_vaild_fs_name(ori_name: &str) -> String {
         .replace("|", "｜")
 }
 
-/// 根据路径所在磁盘类型估算基础并发度（调用方可再做 clamp）
+/// Estimate basic parallelism based on disk type where path is located (caller can clamp again)
 pub fn compute_parallelism_for_dir(path: &Path) -> usize {
     let disks = Disks::new_with_refreshed_list();
     disks

@@ -307,7 +307,7 @@ async fn process_videos_in_directory(
     remove_existing: bool,
     use_preferred: bool,
 ) -> io::Result<bool> {
-    // 收集任务
+    // Collect tasks
     let mut entries = fs::read_dir(dir_path).await?;
     let mut tasks: Vec<PathBuf> = Vec::new();
     while let Some(entry) = entries.next().await {
@@ -326,7 +326,7 @@ async fn process_videos_in_directory(
     let max_workers = compute_parallelism_for_dir(dir_path).clamp(1, 8);
     let had_error = Arc::new(AtomicBool::new(false));
 
-    // 并发处理
+    // Process concurrently
     stream::iter(tasks)
         .for_each_concurrent(Some(max_workers), {
             let had_error = had_error.clone();
@@ -337,7 +337,7 @@ async fn process_videos_in_directory(
                 async move {
                     log::info!("Processing video: {}", file_path.display());
 
-                    // 选择预设
+                    // Choose preset
                     let mut presets_to_try = preset_names;
                     if use_preferred && let Ok(preferred) = get_preferred_presets(&file_path).await
                     {
@@ -471,4 +471,4 @@ pub async fn process_bms_video_folders(
     Ok(())
 }
 
-// compute_parallelism_for_dir 已移动到 crate::fs 模块
+// compute_parallelism_for_dir has been moved to crate::fs module
