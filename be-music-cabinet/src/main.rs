@@ -1,7 +1,9 @@
 // GUI 模式不直接使用库入口
+use iced::multi_window::Application as MwApplication;
 use iced::widget::{button, checkbox, column, pick_list, row, scrollable, text, text_input};
-use iced::{Alignment, Application, Command, Element, Font, Length, Settings, Theme, executor};
-// 不使用多窗口订阅
+use iced::window;
+use iced::{Alignment, Command, Element, Font, Length, Settings, Theme, executor};
+use iced::{Subscription, time};
 use log::info;
 use quote::ToTokens;
 use std::collections::{BTreeMap, HashMap};
@@ -15,7 +17,7 @@ use syn::{Attribute, Fields, Item, ItemEnum, Type, parse_file};
 use be_music_cabinet::{Cli, run_command};
 use clap::Parser;
 
-use futures::future::{AbortHandle, Abortable};
+use futures::future::{AbortHandle, AbortRegistration, Abortable};
 use log::{LevelFilter, Log, Metadata, Record};
 use once_cell::sync::OnceCell;
 use std::cell::RefCell;
@@ -301,7 +303,8 @@ enum Msg {
     FieldTextChanged(String, String),
     FieldBoolChanged(String, bool),
     Run,
-    Finished(Result<(), String>),
+    TickAll,
+    LogTerminate(window::Id),
 }
 
 struct App {
@@ -311,7 +314,17 @@ struct App {
     inputs: BTreeMap<String, String>,
     bools: BTreeMap<String, bool>,
     status: String,
+    #[allow(dead_code)]
     running: bool,
+    windows: BTreeMap<window::Id, TaskWindow>,
+}
+
+struct TaskWindow {
+    task_id: TaskId,
+    args: Vec<String>,
+    logs: String,
+    running: bool,
+    abort_handle: Option<AbortHandle>,
 }
 
 impl App {
@@ -387,7 +400,7 @@ impl App {
     }
 }
 
-impl Application for App {
+impl MwApplication for App {
     type Executor = executor::Default;
     type Flags = ();
     type Message = Msg;
@@ -402,13 +415,21 @@ impl Application for App {
             bools: BTreeMap::new(),
             status: String::new(),
             running: false,
+            windows: BTreeMap::new(),
         };
         app.ensure_defaults();
         (app, Command::none())
     }
 
-    fn title(&self) -> String {
-        "Be-Music Cabinet GUI".to_string()
+    fn title(&self, id: window::Id) -> String {
+        if id == window::Id::MAIN {
+            "Be-Music Cabinet GUI".to_string()
+        } else if let Some(w) = self.windows.get(&id) {
+            let args_text = w.args.join(" ");
+            format!("任务日志窗口 - {}", args_text)
+        } else {
+            "Be-Music Cabinet".to_string()
+        }
     }
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
@@ -440,21 +461,74 @@ impl Application for App {
                 let args = self.build_cli_args();
                 let args_for_view = args.clone().join(" ");
                 self.status = format!("已启动: {}", args_for_view);
-                start_task(args);
+                let (win_id, open_cmd) = window::spawn(window::Settings::default());
+                let (abort_handle, abort_reg) = AbortHandle::new_pair();
+                let task_id = NEXT_TASK_ID.fetch_add(1, Ordering::Relaxed);
+                self.windows.insert(
+                    win_id,
+                    TaskWindow {
+                        task_id,
+                        args: args.clone(),
+                        logs: String::new(),
+                        running: true,
+                        abort_handle: Some(abort_handle),
+                    },
+                );
+                start_task_for_window(task_id, abort_reg, args);
+                open_cmd
+            }
+            Msg::TickAll => {
+                let ids: Vec<window::Id> = self.windows.keys().cloned().collect();
+                for wid in ids {
+                    if let Some(w) = self.windows.get_mut(&wid) {
+                        let lines = drain_lines(w.task_id);
+                        if !lines.is_empty() {
+                            for l in lines {
+                                w.logs.push_str(&l);
+                                if !w.logs.ends_with('\n') {
+                                    w.logs.push('\n');
+                                }
+                            }
+                        }
+                    }
+                }
                 Command::none()
             }
-            Msg::Finished(res) => {
-                self.running = false;
-                match res {
-                    Ok(()) => self.status.push_str("\n完成"),
-                    Err(e) => self.status.push_str(&format!("\n错误: {}", e)),
+            Msg::LogTerminate(wid) => {
+                if let Some(w) = self.windows.get_mut(&wid) {
+                    if let Some(h) = w.abort_handle.take() {
+                        h.abort();
+                    }
+                    w.running = false;
                 }
                 Command::none()
             }
         }
     }
 
-    fn view(&self) -> Element<'_, Self::Message> {
+    fn view(&self, id: window::Id) -> Element<'_, Self::Message> {
+        if id != window::Id::MAIN
+            && let Some(w) = self.windows.get(&id)
+        {
+            let content = column![
+                scrollable(text(w.logs.clone())).height(Length::Fill),
+                row![
+                    button(text(if w.running { "终止" } else { "已停止" })).on_press(
+                        if w.running {
+                            Msg::LogTerminate(id)
+                        } else {
+                            Msg::TickAll
+                        }
+                    )
+                ]
+                .spacing(10),
+            ]
+            .padding(12)
+            .spacing(12)
+            .align_items(Alignment::Start);
+            return content.into();
+        }
+
         let tops: Vec<String> = self
             .tree
             .top_commands
@@ -541,19 +615,7 @@ impl Application for App {
             ]
             .spacing(10),
             fields_col,
-            row![
-                button(text(if self.running {
-                    "执行中..."
-                } else {
-                    "执行"
-                }))
-                .on_press(if self.running {
-                    Msg::Finished(Ok(()))
-                } else {
-                    Msg::Run
-                }),
-            ]
-            .spacing(10),
+            row![button(text("执行")).on_press(Msg::Run),].spacing(10),
             scrollable(text(self.status.clone())).height(Length::Fill),
         ]
         .padding(12)
@@ -561,6 +623,10 @@ impl Application for App {
         .align_items(Alignment::Start);
 
         content.into()
+    }
+
+    fn subscription(&self) -> Subscription<Self::Message> {
+        time::every(std::time::Duration::from_millis(200)).map(|_| Msg::TickAll)
     }
 }
 
@@ -626,7 +692,7 @@ fn main() -> iced::Result {
     settings.default_font = pick_chinese_font();
     settings.default_text_size = 16.into();
     settings.antialiasing = true;
-    App::run(settings)
+    <App as MwApplication>::run(settings)
 }
 
 // ========================= 多任务日志：全局 Logger 与日志窗口 =========================
@@ -663,6 +729,7 @@ fn drain_lines(id: TaskId) -> Vec<String> {
 }
 
 // 全局 GUI Logger：将 log::info 等输出路由到各任务的缓冲区
+#[allow(dead_code)]
 struct GuiLogger {
     _buf: Arc<StdMutex<HashMap<u64, Vec<String>>>>,
 }
@@ -689,6 +756,7 @@ impl Log for GuiLogger {
     fn flush(&self) {}
 }
 
+#[allow(dead_code)]
 fn init_gui_logger() {
     // 确保缓冲区存在
     let _ = buffers();
@@ -701,6 +769,7 @@ fn init_gui_logger() {
 
 // 已移除独立日志窗口实现，统一在主窗口中展示任务日志
 
+#[allow(dead_code)]
 fn start_task(args: Vec<String>) {
     let task_id = NEXT_TASK_ID.fetch_add(1, Ordering::Relaxed);
     init_gui_logger();
@@ -734,5 +803,35 @@ fn start_task(args: Vec<String>) {
     })
     .detach();
     // 在主窗口日志中输出命令
+    push_line(task_id, format!("[已启动] {}", cmd_line_for_log));
+}
+
+fn start_task_for_window(task_id: TaskId, abort_reg: AbortRegistration, args: Vec<String>) {
+    let cmd_line = args.clone().join(" ");
+    let cmd_line_for_log = cmd_line.clone();
+    blocking::unblock(move || {
+        CURRENT_TASK_ID.with(|c| *c.borrow_mut() = Some(task_id));
+        let result = smol::block_on(async move {
+            println!("[GUI] 命令: {}", cmd_line);
+            let cli = match Cli::try_parse_from(args.clone()) {
+                Ok(cli) => cli,
+                Err(e) => {
+                    return Err(format!("参数解析失败: {}", e));
+                }
+            };
+            let fut = run_command(&cli.command);
+            match Abortable::new(fut, abort_reg).await {
+                Ok(Ok(())) => Ok(()),
+                Ok(Err(e)) => Err(e.to_string()),
+                Err(_aborted) => Err("任务已终止".to_string()),
+            }
+        });
+        match result {
+            Ok(()) => push_line(task_id, "[完成]".to_string()),
+            Err(e) => push_line(task_id, format!("[错误] {}", e)),
+        }
+        CURRENT_TASK_ID.with(|c| *c.borrow_mut() = None);
+    })
+    .detach();
     push_line(task_id, format!("[已启动] {}", cmd_line_for_log));
 }
