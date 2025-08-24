@@ -1,0 +1,24 @@
+# Rustfmt 配置文件 - 兼容 stable 工具链
+# 要求整理 use 语句并消除"空行可加可不加"的情况
+
+# 基本格式化设置
+edition = "2024"
+max_width = 100
+tab_spaces = 4
+hard_tabs = false
+
+# use 语句整理
+# 注意：在 stable 工具链中，use 语句的自动整理功能有限
+# 主要依赖手动整理和基本的格式化规则
+
+# 函数和结构体格式化
+fn_call_width = 60
+struct_lit_width = 18
+array_width = 60
+chain_width = 60
+single_line_if_else_max_width = 50
+
+# 其他设置
+merge_derives = true
+use_field_init_shorthand = true
+force_explicit_abi = true
