@@ -19,6 +19,21 @@ pub async fn set_name_by_bms(root_dir: &Path, set_type: BmsFolderSetNameType) ->
     Ok(())
 }
 
+pub async fn undo_set_name_by_bms(
+    root_dir: &Path,
+    set_type: BmsFolderSetNameType,
+) -> io::Result<()> {
+    let mut entries = fs::read_dir(root_dir).await?;
+    while let Some(entry) = entries.next().await {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            super::work::undo_set_name_by_bms(&path, set_type).await?;
+        }
+    }
+    Ok(())
+}
+
 /// This script is used for the following scenario:
 /// There is already a folder A, whose subfolder names are in the form of "number + decimal point" like "1.1".
 /// Now there is another folder B, whose subfolder names are only numbers.

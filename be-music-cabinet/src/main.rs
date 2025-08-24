@@ -16,6 +16,7 @@ enum UiFieldType {
     Usize,
     F64,
     Bool,
+    Enum(Vec<String>), // 枚举变体列表
     Other(String),
 }
 
@@ -76,6 +77,11 @@ fn type_to_ui_type(ty: &Type) -> UiFieldType {
         "usize" => UiFieldType::Usize,
         "f64" => UiFieldType::F64,
         "bool" => UiFieldType::Bool,
+        "BmsFolderSetNameType" => UiFieldType::Enum(vec![
+            "replace_title_artist".to_string(),
+            "append_title_artist".to_string(),
+            "append_artist".to_string(),
+        ]),
         _ => UiFieldType::Other(ts),
     }
 }
@@ -183,10 +189,11 @@ fn build_ui_tree() -> UiTree {
         if let Fields::Named(named) = &var.fields {
             for f in &named.named {
                 if let Some(ident) = &f.ident
-                    && ident == "command" {
-                        sub_enum_ident = Some(ident_to_string_path(&f.ty));
-                        break;
-                    }
+                    && ident == "command"
+                {
+                    sub_enum_ident = Some(ident_to_string_path(&f.ty));
+                    break;
+                }
             }
         }
         if let Some(sub) = sub_enum_ident {
@@ -340,16 +347,18 @@ impl App {
             match f.ty {
                 UiFieldType::Bool => {
                     if *self.bools.get(&key).unwrap_or(&false)
-                        && let Some(long) = &f.long_name {
-                            args.push(format!("--{}", long));
-                        }
+                        && let Some(long) = &f.long_name
+                    {
+                        args.push(format!("--{}", long));
+                    }
                 }
                 _ => {
                     let val = self.inputs.get(&key).cloned().unwrap_or_default();
                     if f.has_long
-                        && let Some(long) = &f.long_name {
-                            args.push(format!("--{}", long));
-                        }
+                        && let Some(long) = &f.long_name
+                    {
+                        args.push(format!("--{}", long));
+                    }
                     if !val.is_empty() {
                         args.push(val);
                     }
@@ -465,7 +474,7 @@ impl Application for App {
         for f in &self.current_variant().fields {
             let key = self.field_key(&f.name);
             let label = f.value_name.as_deref().unwrap_or(&f.name);
-            let row_widget: Element<_> = match f.ty {
+            let row_widget: Element<_> = match &f.ty {
                 UiFieldType::Bool => {
                     let checked = *self.bools.get(&key).unwrap_or(&false);
                     row![
@@ -474,6 +483,25 @@ impl Application for App {
                             let k = key.clone();
                             move |v| Msg::FieldBoolChanged(k.clone(), v)
                         })
+                    ]
+                    .spacing(10)
+                    .into()
+                }
+                UiFieldType::Enum(variants) => {
+                    let current_val = self.inputs.get(&key).cloned().unwrap_or_default();
+                    let selected_idx = variants.iter().position(|v| v == &current_val).unwrap_or(0);
+                    let selected_variant = variants.get(selected_idx).cloned().unwrap_or_default();
+                    row![
+                        text(label),
+                        pick_list(variants.clone(), Some(selected_variant), {
+                            let k = key.clone();
+                            let vs = variants.clone();
+                            move |v| {
+                                let idx = vs.iter().position(|variant| variant == &v).unwrap_or(0);
+                                Msg::FieldTextChanged(k.clone(), vs[idx].clone())
+                            }
+                        })
+                        .width(Length::Fill)
                     ]
                     .spacing(10)
                     .into()
@@ -547,7 +575,10 @@ fn pick_chinese_font() -> Font {
         "Noto Sans CJK SC",
         "Noto Sans CJK TC",
         "WenQuanYi Micro Hei",
-    ].into_iter().next() {
+    ]
+    .into_iter()
+    .next()
+    {
         // 仅依赖名称，若系统存在将由后端解析
         return Font::with_name(fam);
     }
@@ -556,6 +587,39 @@ fn pick_chinese_font() -> Font {
 }
 
 fn main() -> iced::Result {
+    // 简单的测试来验证枚举类型识别
+    println!("Testing enum type detection...");
+
+    let tree = build_ui_tree();
+
+    // 查找 RootCommands::SetName
+    if let Some(root_cmd) = tree.top_commands.iter().find(|t| t.variant_ident == "Root")
+        && let Some(sub_enum) = tree.sub_enums.get(&root_cmd.sub_enum_ident)
+        && let Some(set_name_variant) = sub_enum.variants.iter().find(|v| v.name == "SetName")
+    {
+        for field in &set_name_variant.fields {
+            if field.name == "set_type" {
+                match &field.ty {
+                    UiFieldType::Enum(variants) => {
+                        println!(
+                            "✓ Found enum field 'set_type' with variants: {:?}",
+                            variants
+                        );
+                    }
+                    other => {
+                        println!("✗ Expected enum type, got: {:?}", other);
+                    }
+                }
+            }
+        }
+    }
+
+    println!("Test completed. Starting GUI...");
+    println!(
+        "Note: The GUI should now show a dropdown menu for the 'set_type' field in Root > SetName command"
+    );
+    println!("Available options: replace_title_artist, append_title_artist, append_artist");
+
     let mut settings: Settings<()> = Settings {
         id: None,
         ..Settings::default()

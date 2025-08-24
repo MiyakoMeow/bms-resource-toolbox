@@ -20,6 +20,7 @@ use crate::{
         root::{
             copy_numbered_workdir_names, scan_folder_similar_folders,
             set_name_by_bms as root_set_name_by_bms,
+            undo_set_name_by_bms as root_undo_set_name_by_bms,
         },
         root_bigpack::{
             get_remove_media_rule_mpg_fill_wmv, get_remove_media_rule_oraja,
@@ -29,7 +30,8 @@ use crate::{
         },
         root_event::{check_num_folder, create_num_folders, generate_work_info_table},
         work::{
-            BmsFolderSetNameType, remove_zero_sized_media_files, set_name_by_bms, undo_set_name,
+            BmsFolderSetNameType, remove_zero_sized_media_files, set_name_by_bms,
+            undo_set_name_by_bms,
         },
     },
 };
@@ -90,8 +92,8 @@ pub enum WorkCommands {
         #[arg(value_name = "DIR")]
         dir: PathBuf,
         /// Set type: replace_title_artist, append_title_artist, append_artist
-        #[arg(long, default_value = "append_title_artist")]
-        set_type: String,
+        #[arg(long, default_value = "replace_title_artist")]
+        set_type: BmsFolderSetNameType,
     },
     /// Undo directory name setting
     UndoSetName {
@@ -99,8 +101,8 @@ pub enum WorkCommands {
         #[arg(value_name = "DIR")]
         dir: PathBuf,
         /// Set type: replace_title_artist, append_title_artist, append_artist
-        #[arg(long, default_value = "append_title_artist")]
-        set_type: String,
+        #[arg(long, default_value = "append_artist")]
+        set_type: BmsFolderSetNameType,
     },
     /// Remove zero-byte media files
     RemoveEmptyMedia {
@@ -260,9 +262,17 @@ pub enum RootCommands {
         #[arg(value_name = "DIR")]
         dir: PathBuf,
         /// Set type: replace_title_artist, append_title_artist, append_artist
-        /// See [`get_set_name_type`] for details
-        #[arg(long, default_value = "replace")]
-        set_type: String,
+        #[arg(long, default_value = "replace_title_artist")]
+        set_type: BmsFolderSetNameType,
+    },
+    /// Undo directory name setting
+    UndoSetName {
+        /// Root directory path
+        #[arg(value_name = "DIR")]
+        dir: PathBuf,
+        /// Set type: replace_title_artist, append_title_artist, append_artist
+        #[arg(long, default_value = "append_artist")]
+        set_type: BmsFolderSetNameType,
     },
     /// Copy numbered work directory names
     CopyNumberedNames {
@@ -372,26 +382,18 @@ pub enum PackCommands {
     },
 }
 
-fn get_set_name_type(set_type: &str) -> BmsFolderSetNameType {
-    match set_type {
-        "replace" | "replace_title_artist" => BmsFolderSetNameType::ReplaceTitleArtist,
-        "append" | "append_title_artist" => BmsFolderSetNameType::AppendTitleArtist,
-        "append_artist" => BmsFolderSetNameType::AppendArtist,
-        _ => BmsFolderSetNameType::ReplaceTitleArtist,
-    }
-}
-
 pub async fn run_command(command: &Commands) -> Result<(), Box<dyn std::error::Error>> {
     match command {
         Commands::Work { command } => match command {
             WorkCommands::SetName { dir, set_type } => {
                 println!("Setting directory name: {}", dir.display());
-                set_name_by_bms(dir, get_set_name_type(set_type)).await?;
+                println!("Set type: {:?}", set_type);
+                set_name_by_bms(dir, *set_type).await?;
                 println!("Setting completed");
             }
             WorkCommands::UndoSetName { dir, set_type } => {
                 println!("Undoing directory name setting: {}", dir.display());
-                undo_set_name(dir, get_set_name_type(set_type)).await?;
+                undo_set_name_by_bms(dir, *set_type).await?;
                 println!("Undo completed");
             }
             WorkCommands::RemoveEmptyMedia { dir } => {
@@ -403,10 +405,14 @@ pub async fn run_command(command: &Commands) -> Result<(), Box<dyn std::error::E
         Commands::Root { command } => match command {
             RootCommands::SetName { dir, set_type } => {
                 println!("Setting directory name: {}", dir.display());
-                let set_type = get_set_name_type(set_type);
                 println!("Set type: {:?}", set_type);
-                root_set_name_by_bms(dir, set_type).await?;
+                root_set_name_by_bms(dir, *set_type).await?;
                 println!("Setting completed");
+            }
+            RootCommands::UndoSetName { dir, set_type } => {
+                println!("Undoing directory name setting: {}", dir.display());
+                root_undo_set_name_by_bms(dir, *set_type).await?;
+                println!("Undo completed");
             }
             RootCommands::CopyNumberedNames { from, to } => {
                 println!(

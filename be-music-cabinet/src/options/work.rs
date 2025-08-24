@@ -1,5 +1,6 @@
-use std::{collections::VecDeque, path::Path};
+use std::{collections::VecDeque, path::Path, str::FromStr};
 
+use clap::ValueEnum;
 use smol::{fs, io, stream::StreamExt};
 
 use crate::{
@@ -21,6 +22,41 @@ pub enum BmsFolderSetNameType {
     AppendTitleArtist = 1,
     /// Suitable for cases where you want to append " [Artist]" after work folder name
     AppendArtist = 2,
+}
+
+impl FromStr for BmsFolderSetNameType {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "replace" | "replace_title_artist" => Ok(BmsFolderSetNameType::ReplaceTitleArtist),
+            "append" | "append_title_artist" => Ok(BmsFolderSetNameType::AppendTitleArtist),
+            "append_artist" => Ok(BmsFolderSetNameType::AppendArtist),
+            _ => Err(format!(
+                "Unknown set type: {}. Valid values are: replace, append, append_artist",
+                s
+            )),
+        }
+    }
+}
+
+impl ValueEnum for BmsFolderSetNameType {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[
+            Self::ReplaceTitleArtist,
+            Self::AppendTitleArtist,
+            Self::AppendArtist,
+        ]
+    }
+
+    fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
+        let name = match self {
+            BmsFolderSetNameType::ReplaceTitleArtist => "replace_title_artist",
+            BmsFolderSetNameType::AppendTitleArtist => "append_title_artist",
+            BmsFolderSetNameType::AppendArtist => "append_artist",
+        };
+        Some(clap::builder::PossibleValue::new(name))
+    }
 }
 
 /// This script is suitable for cases where you want to append "Title [Artist]" after work folder name
@@ -58,7 +94,10 @@ pub async fn set_name_by_bms(work_dir: &Path, set_type: BmsFolderSetNameType) ->
     Ok(())
 }
 
-pub async fn undo_set_name(work_dir: &Path, set_type: BmsFolderSetNameType) -> io::Result<()> {
+pub async fn undo_set_name_by_bms(
+    work_dir: &Path,
+    set_type: BmsFolderSetNameType,
+) -> io::Result<()> {
     let work_dir_name = work_dir
         .file_name()
         .ok_or(io::Error::other("Dir name not exists"))?
