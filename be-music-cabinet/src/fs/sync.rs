@@ -3,6 +3,7 @@ use std::{collections::HashMap, path::Path};
 use smol::{fs, io, stream::StreamExt};
 
 use super::is_file_same_content;
+use log::info;
 
 /// Equivalent to Python SoftSyncExec
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -290,21 +291,21 @@ pub async fn sync_folder(
         || !dst_remove_files.is_empty()
         || !dst_remove_dirs.is_empty();
     if has_any {
-        println!("{} -> {}:", src_dir.display(), dst_dir.display());
+        info!("{} -> {}:", src_dir.display(), dst_dir.display());
         if !src_copy_files.is_empty() {
-            println!("Src copy: {src_copy_files:?}");
+            info!("Src copy: {src_copy_files:?}");
         }
         if !src_move_files.is_empty() {
-            println!("Src move: {src_move_files:?}");
+            info!("Src move: {src_move_files:?}");
         }
         if !src_remove_files.is_empty() {
-            println!("Src remove: {src_remove_files:?}");
+            info!("Src remove: {src_remove_files:?}");
         }
         if !dst_remove_files.is_empty() {
-            println!("Dst remove: {dst_remove_files:?}");
+            info!("Dst remove: {dst_remove_files:?}");
         }
         if !dst_remove_dirs.is_empty() {
-            println!("Dst remove dir: {dst_remove_dirs:?}");
+            info!("Dst remove dir: {dst_remove_dirs:?}");
         }
     }
 

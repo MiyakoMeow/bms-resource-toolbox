@@ -326,7 +326,7 @@ async fn process_videos_in_directory(
             continue;
         }
 
-        println!("Processing video: {}", file_path.display());
+        log::info!("Processing video: {}", file_path.display());
 
         // Determine presets to use based on configuration
         let mut presets_to_try = preset_names.to_vec();
@@ -355,7 +355,7 @@ async fn process_videos_in_directory(
                         eprintln!("Failed to remove existing file: {e}");
                     }
                 } else {
-                    println!("Output file exists, skipping: {}", output_path.display());
+                    log::info!("Output file exists, skipping: {}", output_path.display());
                     continue;
                 }
             }
@@ -365,7 +365,7 @@ async fn process_videos_in_directory(
 
             // Execute conversion command
             let cmd = preset.command(&file_path, &output_path);
-            println!("Executing: {cmd}");
+            log::info!("Executing: {cmd}");
 
             let output = Command::new("sh").arg("-c").arg(&cmd).output().await;
 
@@ -373,7 +373,7 @@ async fn process_videos_in_directory(
 
             match output {
                 Ok(output) if output.status.success() => {
-                    println!("Successfully converted: {}", output_path.display());
+                    log::info!("Successfully converted: {}", output_path.display());
                     success = true;
 
                     // Remove original file
@@ -443,7 +443,7 @@ pub async fn process_bms_video_folders(
             continue;
         }
 
-        println!("Processing BMS folder: {}", dir_path.display());
+        log::info!("Processing BMS folder: {}", dir_path.display());
 
         match process_videos_in_directory(
             &dir_path,
@@ -455,7 +455,7 @@ pub async fn process_bms_video_folders(
         )
         .await
         {
-            Ok(true) => println!("Successfully processed {}", dir_path.display()),
+            Ok(true) => log::info!("Successfully processed {}", dir_path.display()),
             Ok(false) => eprintln!("Errors occurred in {}", dir_path.display()),
             Err(e) => eprintln!("Error processing {}: {}", dir_path.display(), e),
         }

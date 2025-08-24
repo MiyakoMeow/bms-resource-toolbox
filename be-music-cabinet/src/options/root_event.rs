@@ -81,7 +81,7 @@ pub async fn generate_work_info_table(root: &Path) -> io::Result<()> {
         }
 
         workbook.close()?;
-        println!("Saved {}", xlsx_path.display());
+        log::info!("Saved {}", xlsx_path.display());
         Ok::<(), XlsxError>(())
     }
     .await

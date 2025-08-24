@@ -44,7 +44,7 @@ pub async fn unzip_file_to_cache_dir(
 
 /* ---------- ZIP ---------- */
 async fn extract_zip(src: &Path, dst: &Path) -> io::Result<()> {
-    println!("Extracting {} to {} (zip)", src.display(), dst.display());
+    log::info!("Extracting {} to {} (zip)", src.display(), dst.display());
     let file = std::fs::File::open(src)?;
     let mut archive = zip::ZipArchive::new(file)?;
     smol::block_on(async move { archive.extract(dst) }).map_err(io::Error::other)
@@ -52,7 +52,7 @@ async fn extract_zip(src: &Path, dst: &Path) -> io::Result<()> {
 
 /* ---------- 7z ---------- */
 async fn extract_7z(src: &Path, dst: &Path) -> io::Result<()> {
-    println!("Extracting {} to {} (7z)", src.display(), dst.display());
+    log::info!("Extracting {} to {} (7z)", src.display(), dst.display());
     // sevenz-rust is a synchronous library, spawn_blocking
     let src = src.to_path_buf();
     let dst = dst.to_path_buf();
@@ -62,7 +62,7 @@ async fn extract_7z(src: &Path, dst: &Path) -> io::Result<()> {
 
 /* ---------- RAR ---------- */
 async fn extract_rar(src: &Path, dst: &Path) -> io::Result<()> {
-    println!("Extracting {} to {} (RAR)", src.display(), dst.display());
+    log::info!("Extracting {} to {} (RAR)", src.display(), dst.display());
     // unrar is a synchronous library
     let src = src.to_path_buf();
     let dst = dst.to_path_buf();
@@ -71,7 +71,7 @@ async fn extract_rar(src: &Path, dst: &Path) -> io::Result<()> {
             .map_err(io::Error::other)?;
     smol::block_on(async move {
         while let Some(header) = archive.read_header().map_err(io::Error::other)? {
-            println!(
+            log::info!(
                 "{} bytes: {}",
                 header.entry().unpacked_size,
                 header.entry().filename.to_string_lossy(),
@@ -142,7 +142,7 @@ pub async fn move_out_files_in_folder_in_cache_dir(
             done = true;
         }
         if cache_folder_count > 1 {
-            println!(
+            log::info!(
                 " !_! {}: has more than 1 folders, please do it manually.",
                 cache_dir_path.display()
             );
@@ -157,13 +157,13 @@ pub async fn move_out_files_in_folder_in_cache_dir(
             let inner_path = cache_dir_path.join(&name);
             let inner_inner = inner_path.join(&name);
             if fs::metadata(&inner_inner).await.is_ok_and(|m| m.is_dir()) {
-                println!(
+                log::info!(
                     " - Renaming inner inner dir name: {}",
                     inner_inner.display()
                 );
                 fs::rename(&inner_inner, format!("{}-rep", inner_inner.display())).await?;
             }
-            println!(
+            log::info!(
                 " - Moving inner files in {} to {}",
                 inner_path.display(),
                 cache_dir_path.display()
@@ -184,7 +184,7 @@ pub async fn move_out_files_in_folder_in_cache_dir(
     }
 
     if cache_folder_count == 0 && cache_file_count == 0 {
-        println!(" !_! {}: Cache is Empty!", cache_dir_path.display());
+        log::info!(" !_! {}: Cache is Empty!", cache_dir_path.display());
         fs::remove_dir(cache_dir_path).await?;
         return Ok(false);
     }
@@ -193,7 +193,7 @@ pub async fn move_out_files_in_folder_in_cache_dir(
     if let Some(mp4) = file_ext_count.get("mp4")
         && mp4.len() > 1
     {
-        println!(
+        log::info!(
             " - Tips: {} has more than 1 mp4 files! {:?}",
             cache_dir_path.display(),
             mp4

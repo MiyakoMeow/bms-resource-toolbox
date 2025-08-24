@@ -4,6 +4,7 @@ pub mod media;
 pub mod options;
 
 use clap::{Parser, Subcommand};
+use log::info;
 use std::path::PathBuf;
 
 use crate::{
@@ -386,79 +387,79 @@ pub async fn run_command(command: &Commands) -> Result<(), Box<dyn std::error::E
     match command {
         Commands::Work { command } => match command {
             WorkCommands::SetName { dir, set_type } => {
-                println!("Setting directory name: {}", dir.display());
-                println!("Set type: {:?}", set_type);
+                info!("Setting directory name: {}", dir.display());
+                info!("Set type: {:?}", set_type);
                 set_name_by_bms(dir, *set_type).await?;
-                println!("Setting completed");
+                info!("Setting completed");
             }
             WorkCommands::UndoSetName { dir, set_type } => {
-                println!("Undoing directory name setting: {}", dir.display());
+                info!("Undoing directory name setting: {}", dir.display());
                 undo_set_name_by_bms(dir, *set_type).await?;
-                println!("Undo completed");
+                info!("Undo completed");
             }
             WorkCommands::RemoveEmptyMedia { dir } => {
-                println!("Removing zero-byte media files: {}", dir.display());
+                info!("Removing zero-byte media files: {}", dir.display());
                 remove_zero_sized_media_files(dir).await?;
-                println!("Removal completed");
+                info!("Removal completed");
             }
         },
         Commands::Root { command } => match command {
             RootCommands::SetName { dir, set_type } => {
-                println!("Setting directory name: {}", dir.display());
-                println!("Set type: {:?}", set_type);
+                info!("Setting directory name: {}", dir.display());
+                info!("Set type: {:?}", set_type);
                 root_set_name_by_bms(dir, *set_type).await?;
-                println!("Setting completed");
+                info!("Setting completed");
             }
             RootCommands::UndoSetName { dir, set_type } => {
-                println!("Undoing directory name setting: {}", dir.display());
+                info!("Undoing directory name setting: {}", dir.display());
                 root_undo_set_name_by_bms(dir, *set_type).await?;
-                println!("Undo completed");
+                info!("Undo completed");
             }
             RootCommands::CopyNumberedNames { from, to } => {
-                println!(
+                info!(
                     "Copying numbered work directory names: {} -> {}",
                     from.display(),
                     to.display()
                 );
                 copy_numbered_workdir_names(from, to).await?;
-                println!("Copy completed");
+                info!("Copy completed");
             }
             RootCommands::SplitByFirstChar { dir } => {
-                println!("Splitting folders by first character: {}", dir.display());
+                info!("Splitting folders by first character: {}", dir.display());
                 split_folders_with_first_char(dir).await?;
-                println!("Split completed");
+                info!("Split completed");
             }
             RootCommands::UndoSplit { dir } => {
-                println!("Undoing split operation: {}", dir.display());
+                info!("Undoing split operation: {}", dir.display());
                 undo_split_pack(dir).await?;
-                println!("Undo completed");
+                info!("Undo completed");
             }
             RootCommands::MergeSplit { dir } => {
-                println!("Merging split folders: {}", dir.display());
+                info!("Merging split folders: {}", dir.display());
                 merge_split_folders(dir).await?;
-                println!("Merge completed");
+                info!("Merge completed");
             }
             RootCommands::MoveWorks { from, to } => {
-                println!("Moving works: {} -> {}", from.display(), to.display());
+                info!("Moving works: {} -> {}", from.display(), to.display());
                 move_works_in_pack(from, to).await?;
-                println!("Move completed");
+                info!("Move completed");
             }
             RootCommands::MoveOutWorks { dir } => {
-                println!("Moving out one level directory: {}", dir.display());
+                info!("Moving out one level directory: {}", dir.display());
                 move_out_works(dir).await?;
-                println!("Move out completed");
+                info!("Move out completed");
             }
             RootCommands::MoveSameName { from, to } => {
-                println!(
+                info!(
                     "Moving works with same name: {} -> {}",
                     from.display(),
                     to.display()
                 );
                 move_works_with_same_name(from, to).await?;
-                println!("Move completed");
+                info!("Move completed");
             }
             RootCommands::RemoveUnneedMedia { dir, rule } => {
-                println!(
+                info!(
                     "Removing unnecessary media files: {} (rule: {})",
                     dir.display(),
                     rule
@@ -470,150 +471,150 @@ pub async fn run_command(command: &Commands) -> Result<(), Box<dyn std::error::E
                     _ => None,
                 };
                 remove_unneed_media_files(dir, rule_config).await?;
-                println!("Removal completed");
+                info!("Removal completed");
             }
             RootCommands::ScanSimilarFolders { dir, similarity } => {
-                println!(
+                info!(
                     "Scanning similar folders: {} (similarity threshold: {})",
                     dir.display(),
                     similarity
                 );
                 let results = scan_folder_similar_folders(dir, *similarity).await?;
                 for (former, current, sim) in results {
-                    println!("Similarity {:.3}: {} <-> {}", sim, former, current);
+                    info!("Similarity {:.3}: {} <-> {}", sim, former, current);
                 }
-                println!("Scan completed");
+                info!("Scan completed");
             }
         },
         Commands::Pack { command } => match command {
             PackCommands::RawToHq { dir } => {
-                println!("Raw pack -> HQ pack: {}", dir.display());
+                info!("Raw pack -> HQ pack: {}", dir.display());
                 pack_raw_to_hq(dir).await?;
-                println!("Conversion completed");
+                info!("Conversion completed");
             }
             PackCommands::HqToLq { dir } => {
-                println!("HQ pack -> LQ pack: {}", dir.display());
+                info!("HQ pack -> LQ pack: {}", dir.display());
                 pack_hq_to_lq(dir).await?;
-                println!("Conversion completed");
+                info!("Conversion completed");
             }
             PackCommands::SetupRawpackToHq { pack_dir, root_dir } => {
-                println!(
+                info!(
                     "Pack generation script: {} -> {}",
                     pack_dir.display(),
                     root_dir.display()
                 );
                 pack_setup_rawpack_to_hq(pack_dir, root_dir).await?;
-                println!("Generation completed");
+                info!("Generation completed");
             }
             PackCommands::UpdateRawpackToHq {
                 pack_dir,
                 root_dir,
                 sync_dir,
             } => {
-                println!(
+                info!(
                     "Pack update script: {} -> {} (sync: {})",
                     pack_dir.display(),
                     root_dir.display(),
                     sync_dir.display()
                 );
                 pack_update_rawpack_to_hq(pack_dir, root_dir, sync_dir).await?;
-                println!("Update completed");
+                info!("Update completed");
             }
         },
         Commands::Bms { command } => match command {
             BmsCommands::ParseBms { file } => {
-                println!("Parsing BMS file: {}", file.display());
+                info!("Parsing BMS file: {}", file.display());
                 let result = parse_bms_file(file).await?;
-                println!("Parse result: {:?}", result);
+                info!("Parse result: {:?}", result);
             }
             BmsCommands::ParseBmson { file } => {
-                println!("Parsing BMSON file: {}", file.display());
+                info!("Parsing BMSON file: {}", file.display());
                 let result = parse_bmson_file(file).await?;
-                println!("Parse result: {:?}", result);
+                info!("Parse result: {:?}", result);
             }
             BmsCommands::GetBmsList { dir } => {
-                println!("Getting BMS file list: {}", dir.display());
+                info!("Getting BMS file list: {}", dir.display());
                 let results = get_dir_bms_list(dir).await?;
-                println!("Found {} BMS files", results.len());
+                info!("Found {} BMS files", results.len());
                 for (i, bms) in results.iter().enumerate() {
-                    println!("  {}. {:?}", i + 1, bms);
+                    info!("  {}. {:?}", i + 1, bms);
                 }
             }
             BmsCommands::GetBmsInfo { dir } => {
-                println!("Getting BMS information: {}", dir.display());
+                info!("Getting BMS information: {}", dir.display());
                 let result = get_dir_bms_info(dir).await?;
                 match result {
-                    Some(info) => println!("BMS information: {:?}", info),
-                    None => println!("No BMS information found"),
+                    Some(info) => info!("BMS information: {:?}", info),
+                    None => info!("No BMS information found"),
                 }
             }
             BmsCommands::IsWorkDir { dir } => {
-                println!("Checking if it's a work directory: {}", dir.display());
+                info!("Checking if it's a work directory: {}", dir.display());
                 let result = is_work_dir(dir).await?;
-                println!("Is work directory: {}", result);
+                info!("Is work directory: {}", result);
             }
             BmsCommands::IsRootDir { dir } => {
-                println!("Checking if it's a root directory: {}", dir.display());
+                info!("Checking if it's a root directory: {}", dir.display());
                 let result = is_root_dir(dir).await?;
-                println!("Is root directory: {}", result);
+                info!("Is root directory: {}", result);
             }
         },
         Commands::Fs { command } => match command {
             FsCommands::IsFileSame { file1, file2 } => {
-                println!(
+                info!(
                     "Checking if files have same content: {} <-> {}",
                     file1.display(),
                     file2.display()
                 );
                 let result = is_file_same_content(file1, file2).await?;
-                println!("Files have same content: {}", result);
+                info!("Files have same content: {}", result);
             }
             FsCommands::IsDirHavingFile { dir } => {
-                println!("Checking if directory contains files: {}", dir.display());
+                info!("Checking if directory contains files: {}", dir.display());
                 let result = is_dir_having_file(dir).await?;
-                println!("Directory contains files: {}", result);
+                info!("Directory contains files: {}", result);
             }
             FsCommands::RemoveEmptyFolders { dir } => {
-                println!("Removing empty folders: {}", dir.display());
+                info!("Removing empty folders: {}", dir.display());
                 remove_empty_folders(dir).await?;
-                println!("Removal completed");
+                info!("Removal completed");
             }
             FsCommands::BmsDirSimilarity { dir1, dir2 } => {
-                println!(
+                info!(
                     "Calculating BMS directory similarity: {} <-> {}",
                     dir1.display(),
                     dir2.display()
                 );
                 let result = bms_dir_similarity(&dir1, &dir2).await?;
-                println!("Similarity: {:.3}", result);
+                info!("Similarity: {:.3}", result);
             }
         },
         Commands::RootEvent { command } => match command {
             RootEventCommands::CheckNumFolder { dir, max } => {
-                println!(
+                info!(
                     "Checking numbered folders: {} (max count: {})",
                     dir.display(),
                     max
                 );
                 let results = check_num_folder(dir, *max).await?;
-                println!("Found {} numbered folders", results.len());
+                info!("Found {} numbered folders", results.len());
                 for path in results {
-                    println!("  {}", path.display());
+                    info!("  {}", path.display());
                 }
             }
             RootEventCommands::CreateNumFolders { dir, count } => {
-                println!(
+                info!(
                     "Creating numbered folders: {} (count: {})",
                     dir.display(),
                     count
                 );
                 create_num_folders(dir, *count).await?;
-                println!("Creation completed");
+                info!("Creation completed");
             }
             RootEventCommands::GenerateWorkInfoTable { dir } => {
-                println!("Generating work information table: {}", dir.display());
+                info!("Generating work information table: {}", dir.display());
                 generate_work_info_table(dir).await?;
-                println!("Generation completed");
+                info!("Generation completed");
             }
         },
         Commands::Rawpack { command } => match command {
@@ -623,14 +624,14 @@ pub async fn run_command(command: &Commands) -> Result<(), Box<dyn std::error::E
                 root_dir,
                 confirm,
             } => {
-                println!(
+                info!(
                     "Extracting numerically named pack files: {} -> {} (cache: {})",
                     pack_dir.display(),
                     root_dir.display(),
                     cache_dir.display()
                 );
                 unzip_numeric_to_bms_folder(pack_dir, cache_dir, root_dir, *confirm).await?;
-                println!("Extraction completed");
+                info!("Extraction completed");
             }
             RawpackCommands::UnzipWithNameToBmsFolder {
                 pack_dir,
@@ -638,19 +639,19 @@ pub async fn run_command(command: &Commands) -> Result<(), Box<dyn std::error::E
                 root_dir,
                 confirm,
             } => {
-                println!(
+                info!(
                     "Extracting files with names: {} -> {} (cache: {})",
                     pack_dir.display(),
                     root_dir.display(),
                     cache_dir.display()
                 );
                 unzip_with_name_to_bms_folder(pack_dir, cache_dir, root_dir, *confirm).await?;
-                println!("Extraction completed");
+                info!("Extraction completed");
             }
             RawpackCommands::SetFileNum { dir } => {
-                println!("Setting file numbers: {}", dir.display());
+                info!("Setting file numbers: {}", dir.display());
                 set_file_num(dir).await?;
-                println!("Setting completed");
+                info!("Setting completed");
             }
         },
     }

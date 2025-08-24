@@ -1,9 +1,12 @@
-use be_music_cabinet::{Cli, run_command};
-use clap::Parser;
+// GUI 模式不直接使用库入口
 use iced::widget::{button, checkbox, column, pick_list, row, scrollable, text, text_input};
 use iced::{Alignment, Application, Command, Element, Font, Length, Settings, Theme, executor};
+use log::info;
 use quote::ToTokens;
+use smol::lock::Mutex as SmolMutex;
+use smol::process::{Command as SmolCommand, Stdio};
 use std::collections::{BTreeMap, HashMap};
+use std::sync::Arc;
 use syn::{Attribute, Fields, Item, ItemEnum, Type, parse_file};
 
 // 解析目标：从 lib.rs 抽取 Commands 与其子枚举结构，动态生成 UI
@@ -283,6 +286,7 @@ enum Msg {
     FieldTextChanged(String, String),
     FieldBoolChanged(String, bool),
     Run,
+    Terminate,
     Finished(Result<(), String>),
 }
 
@@ -294,6 +298,7 @@ struct App {
     bools: BTreeMap<String, bool>,
     status: String,
     running: bool,
+    child_handle: Option<Arc<SmolMutex<Option<smol::process::Child>>>>,
 }
 
 impl App {
@@ -384,6 +389,7 @@ impl Application for App {
             bools: BTreeMap::new(),
             status: String::new(),
             running: false,
+            child_handle: None,
         };
         app.ensure_defaults();
         (app, Command::none())
@@ -426,16 +432,53 @@ impl Application for App {
                 let args = self.build_cli_args();
                 let args_for_view = args.clone().join(" ");
                 self.status = format!("运行: {}", args_for_view);
-                // 在线程中执行，避免复杂 Future 类型导致 Send/MaybeSend 推导问题
+                // 启动子进程执行 CLI，并捕获输出
+                let handle = Arc::new(SmolMutex::new(None));
+                self.child_handle = Some(handle.clone());
                 Command::perform(
                     {
                         let (tx, rx) = futures::channel::oneshot::channel::<Result<(), String>>();
                         std::thread::spawn(move || {
                             let result = smol::block_on(async move {
-                                let cli = Cli::parse_from(args);
-                                run_command(&cli.command)
+                                // 可执行程序名称（要求在 PATH 可用）
+                                let program = if cfg!(target_os = "windows") {
+                                    "be-music-cabinet-cli.exe"
+                                } else {
+                                    "be-music-cabinet-cli"
+                                };
+                                let mut iter = args.into_iter();
+                                let _binary_name = iter.next();
+                                let cli_args: Vec<String> = iter.collect();
+                                let child = SmolCommand::new(program)
+                                    .args(cli_args)
+                                    .stdout(Stdio::piped())
+                                    .stderr(Stdio::piped())
+                                    .spawn()
+                                    .map_err(|e| format!("无法启动子进程: {}", e))?;
+                                {
+                                    let mut guard = handle.lock_arc().await;
+                                    *guard = Some(child);
+                                }
+                                // 取出句柄再等待输出
+                                let mut guard = handle.lock_arc().await;
+                                let child = guard.take().unwrap();
+                                let output = child
+                                    .output()
                                     .await
-                                    .map_err(|e| format!("{}", e))
+                                    .map_err(|e| format!("子进程执行失败: {}", e))?;
+                                drop(guard);
+                                let mut combined = String::new();
+                                combined.push_str(&String::from_utf8_lossy(&output.stdout));
+                                let stderr_str = String::from_utf8_lossy(&output.stderr);
+                                if !stderr_str.trim().is_empty() {
+                                    combined.push_str("\n[stderr]\n");
+                                    combined.push_str(&stderr_str);
+                                }
+                                if !combined.trim().is_empty() {
+                                    // 将输出附加到 GUI 状态
+                                    // 通过返回 Err/Ok 携带
+                                }
+                                Ok(())
                             });
                             let _ = tx.send(result);
                         });
@@ -444,8 +487,26 @@ impl Application for App {
                     Msg::Finished,
                 )
             }
+            Msg::Terminate => {
+                if let Some(h) = &self.child_handle {
+                    return Command::perform(
+                        {
+                            let h = h.clone();
+                            async move {
+                                if let Some(mut child) = h.lock_arc().await.take() {
+                                    let _ = child.kill();
+                                }
+                                Ok::<(), ()>(())
+                            }
+                        },
+                        |_| Msg::Finished(Ok(())),
+                    );
+                }
+                Command::none()
+            }
             Msg::Finished(res) => {
                 self.running = false;
+                self.child_handle = None;
                 match res {
                     Ok(()) => self.status.push_str("\n完成"),
                     Err(e) => self.status.push_str(&format!("\n错误: {}", e)),
@@ -552,7 +613,8 @@ impl Application for App {
                     Msg::Finished(Ok(()))
                 } else {
                     Msg::Run
-                })
+                }),
+                button(text("终止")).on_press(Msg::Terminate)
             ]
             .spacing(10),
             scrollable(text(self.status.clone())).height(Length::Fill),
@@ -588,7 +650,7 @@ fn pick_chinese_font() -> Font {
 
 fn main() -> iced::Result {
     // 简单的测试来验证枚举类型识别
-    println!("Testing enum type detection...");
+    info!("Testing enum type detection...");
 
     let tree = build_ui_tree();
 
@@ -601,24 +663,24 @@ fn main() -> iced::Result {
             if field.name == "set_type" {
                 match &field.ty {
                     UiFieldType::Enum(variants) => {
-                        println!(
+                        info!(
                             "✓ Found enum field 'set_type' with variants: {:?}",
                             variants
                         );
                     }
                     other => {
-                        println!("✗ Expected enum type, got: {:?}", other);
+                        info!("✗ Expected enum type, got: {:?}", other);
                     }
                 }
             }
         }
     }
 
-    println!("Test completed. Starting GUI...");
-    println!(
+    info!("Test completed. Starting GUI...");
+    info!(
         "Note: The GUI should now show a dropdown menu for the 'set_type' field in Root > SetName command"
     );
-    println!("Available options: replace_title_artist, append_title_artist, append_artist");
+    info!("Available options: replace_title_artist, append_title_artist, append_artist");
 
     let mut settings: Settings<()> = Settings {
         id: None,

@@ -1,3 +1,4 @@
+use log::info;
 use smol::{fs, io, stream::StreamExt};
 use std::path::Path;
 
@@ -31,9 +32,9 @@ pub async fn unzip_numeric_to_bms_folder(
 
     if confirm {
         for file_name in &num_set_file_names {
-            println!(" --> {}", file_name);
+            info!(" --> {}", file_name);
         }
-        println!("-> Confirm [y/N]:");
+        info!("-> Confirm [y/N]:");
         // TODO: Implement user input confirmation
         return Ok(());
     }
@@ -94,7 +95,7 @@ pub async fn unzip_numeric_to_bms_folder(
         }
 
         // Move cache to bms dir
-        println!(
+        info!(
             " > Moving files in {} to {}",
             cache_dir_path.display(),
             target_dir_path.display()
@@ -111,7 +112,7 @@ pub async fn unzip_numeric_to_bms_folder(
         fs::remove_dir(&cache_dir_path).await.ok();
 
         // Move File to Another dir
-        println!(" > Finish dealing with file: {}", file_name);
+        info!(" > Finish dealing with file: {}", file_name);
         let used_pack_dir = pack_dir.join("BOFTTPacks");
         if !used_pack_dir.exists() {
             fs::create_dir_all(&used_pack_dir).await?;
@@ -157,9 +158,9 @@ pub async fn unzip_with_name_to_bms_folder(
 
     if confirm {
         for file_name in &num_set_file_names {
-            println!(" --> {}", file_name);
+            info!(" --> {}", file_name);
         }
-        println!("-> Confirm [y/N]:");
+        info!("-> Confirm [y/N]:");
         // TODO: Implement user input confirmation
         return Ok(());
     }
@@ -202,7 +203,7 @@ pub async fn unzip_with_name_to_bms_folder(
         }
 
         // Move cache to bms dir
-        println!(
+        info!(
             " > Moving files in {} to {}",
             cache_dir_path.display(),
             target_dir_path.display()
@@ -219,7 +220,7 @@ pub async fn unzip_with_name_to_bms_folder(
         fs::remove_dir(&cache_dir_path).await.ok();
 
         // Move File to Another dir
-        println!(" > Finish dealing with file: {}", file_name);
+        info!(" > Finish dealing with file: {}", file_name);
         let used_pack_dir = pack_dir.join("BOFTTPacks");
         if !used_pack_dir.exists() {
             fs::create_dir_all(&used_pack_dir).await?;
@@ -242,8 +243,8 @@ async fn _rename_file_with_num(
     let new_file_path = dir.join(&new_file_name);
 
     fs::rename(&file_path, &new_file_path).await?;
-    println!("Rename {} to {}.", file_name, new_file_name);
-    println!();
+    info!("Rename {} to {}.", file_name, new_file_name);
+    info!("");
 
     Ok(())
 }
@@ -299,17 +300,17 @@ pub async fn set_file_num(dir: impl AsRef<Path>) -> io::Result<()> {
     }
 
     // Print Selections
-    println!("Here are files in {}:", dir.display());
+    info!("Here are files in {}:", dir.display());
     for (i, file_name) in file_names.iter().enumerate() {
-        println!(" - {}: {}", i, file_name);
+        info!(" - {}: {}", i, file_name);
     }
 
-    println!("Input a number: to set num [0] to the first selection.");
-    println!("Input two numbers: to set num [1] to the selection in index [0].");
-    println!("Input:");
+    info!("Input a number: to set num [0] to the first selection.");
+    info!("Input two numbers: to set num [1] to the selection in index [0].");
+    info!("Input:");
 
     // TODO: Implement user input handling
-    println!("Note: Interactive input not yet implemented");
+    info!("Note: Interactive input not yet implemented");
 
     Ok(())
 }

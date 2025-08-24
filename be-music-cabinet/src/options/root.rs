@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use futures::StreamExt;
+use log::info;
 use smol::{fs, io};
 use strsim::jaro_winkler;
 
@@ -81,7 +82,7 @@ pub async fn copy_numbered_workdir_names(
             // Find directory starting with dir_num in src_names
             if let Some(src_name) = src_names.iter().find(|n| n.starts_with(dir_num)) {
                 let target_path = root_to.join(src_name);
-                println!("Rename {:?} -> {}", path.display(), src_name);
+                info!("Rename {:?} -> {}", path.display(), src_name);
                 fs::rename(&path, &target_path).await?;
             }
         }

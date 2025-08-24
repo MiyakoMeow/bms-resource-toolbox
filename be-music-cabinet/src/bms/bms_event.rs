@@ -80,12 +80,12 @@ pub async fn open_browser(url: &str) -> io::Result<()> {
 }
 
 pub async fn activate() {
-    println!("Select BMS Event:");
+    log::info!("Select BMS Event:");
     for event in [BMSEvent::BOFTT, BMSEvent::LetsBMSEdit3] {
-        println!(" {} -> {}", event as u32, event);
+        log::info!(" {} -> {}", event as u32, event);
     }
 
-    print!("Input event value (Default: 20): ");
+    log::info!("Input event value (Default: 20): ");
     io::stdout().flush().unwrap();
     let mut buf = String::new();
     io::stdin().read_line(&mut buf).unwrap();
@@ -94,20 +94,20 @@ pub async fn activate() {
     } else {
         BMSEvent::from_str(&buf).unwrap_or(BMSEvent::BOFTT)
     };
-    println!(" -> Selected Event: {event}");
+    log::info!(" -> Selected Event: {event}");
 
-    println!(" !: Input \"1\": jump to work id 1. (Normal)");
-    println!(" !: Input \"2 5\": jump to work id 2, 3, 4 and 5. (Special: Range)");
-    println!(" !: Input \"2 5 6\": jump to work id 2, 5 and 6. (Normal)");
-    println!(" !: Press Ctrl+C to Quit.");
-    println!("Input id (default: Jump to List):");
+    log::info!(" !: Input \"1\": jump to work id 1. (Normal)");
+    log::info!(" !: Input \"2 5\": jump to work id 2, 3, 4 and 5. (Special: Range)");
+    log::info!(" !: Input \"2 5 6\": jump to work id 2, 5 and 6. (Normal)");
+    log::info!(" !: Press Ctrl+C to Quit.");
+    log::info!("Input id (default: Jump to List):");
 
     loop {
         let mut line = String::new();
         io::stdin().read_line(&mut line).unwrap();
         let line = line.trim();
         if line.is_empty() {
-            println!("Open BMS List.");
+            log::info!("Open BMS List.");
             open_browser(event.list_url()).await.ok();
             continue;
         }
@@ -122,14 +122,14 @@ pub async fn activate() {
         let nums: Result<Vec<u32>, _> = parts.iter().map(|s| s.parse::<u32>()).collect();
 
         let Ok(nums) = nums else {
-            println!("Please input valid number.");
+            log::info!("Please input valid number.");
             return;
         };
         match nums.len() {
             0 => continue,
             1 => {
                 let id = nums[0];
-                println!("Open no.{id}");
+                log::info!("Open no.{id}");
                 open_browser(&event.work_info_url(id)).await.ok();
             }
             2 => {

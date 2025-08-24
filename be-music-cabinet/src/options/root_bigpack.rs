@@ -3,6 +3,7 @@ use std::{
     path::Path,
 };
 
+use log::info;
 use regex::Regex;
 use smol::{fs, io, stream::StreamExt};
 
@@ -190,22 +191,22 @@ pub async fn undo_split_pack(root_dir: impl AsRef<Path>) -> io::Result<()> {
         let folder_name = entry.file_name().to_string_lossy().to_string();
 
         if folder_name.starts_with(&format!("{root_folder_name} [")) && folder_name.ends_with(']') {
-            println!(" - {} <- {}", root_dir.display(), folder_path.display());
+            info!(" - {} <- {}", root_dir.display(), folder_path.display());
             pairs.push((folder_path, root_dir.to_path_buf()));
         }
     }
 
     if pairs.is_empty() {
-        println!("No folders to merge found.");
+        info!("No folders to merge found.");
         return Ok(());
     }
 
-    println!("Found {} folders to merge. Confirm? [y/N]", pairs.len());
+    info!("Found {} folders to merge. Confirm? [y/N]", pairs.len());
     let mut input = String::new();
     std::io::stdin().read_line(&mut input)?;
 
     if !input.trim().to_lowercase().starts_with('y') {
-        println!("Operation cancelled.");
+        info!("Operation cancelled.");
         return Ok(());
     }
 
@@ -268,7 +269,7 @@ pub async fn merge_split_folders(root_dir: impl AsRef<Path>) -> io::Result<()> {
                     .collect();
 
                 if dir_names_with_starter.len() > 2 {
-                    println!(
+                    info!(
                         " !_! {} have more then 2 folders! {:?}",
                         dir_name_without_artist, dir_names_with_starter
                     );
@@ -292,31 +293,31 @@ pub async fn merge_split_folders(root_dir: impl AsRef<Path>) -> io::Result<()> {
     }
 
     if !duplicate_list.is_empty() {
-        println!("Duplicate!");
+        info!("Duplicate!");
         for name in &duplicate_list {
-            println!(" -> {}", name);
+            info!(" -> {}", name);
         }
         return Err(io::Error::other("Duplicate folders found"));
     }
 
     // Confirm
     for (target_dir_name, from_dir_name) in &pairs {
-        println!("- Find Dir pair: {} <- {}", target_dir_name, from_dir_name);
+        info!("- Find Dir pair: {} <- {}", target_dir_name, from_dir_name);
     }
 
-    println!("There are {} actions. Do transferring? [y/N]:", pairs.len());
+    info!("There are {} actions. Do transferring? [y/N]:", pairs.len());
     let mut input = String::new();
     std::io::stdin().read_line(&mut input)?;
 
     if !input.trim().to_lowercase().starts_with('y') {
-        println!("Aborted.");
+        info!("Aborted.");
         return Ok(());
     }
 
     for (target_dir_name, from_dir_name) in pairs {
         let from_dir_path = root_dir.join(&from_dir_name);
         let target_dir_path = root_dir.join(&target_dir_name);
-        println!(" - Moving: {} <- {}", target_dir_name, from_dir_name);
+        info!(" - Moving: {} <- {}", target_dir_name, from_dir_name);
         move_elements_across_dir(
             &from_dir_path,
             &target_dir_path,
@@ -355,7 +356,7 @@ pub async fn move_works_in_pack(
             .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("unknown");
-        println!("Moving: {}", bms_dir_name);
+        info!("Moving: {}", bms_dir_name);
 
         let dst_bms_dir = root_dir_to.join(bms_dir_name);
         move_elements_across_dir(
@@ -369,7 +370,7 @@ pub async fn move_works_in_pack(
     }
 
     if move_count > 0 {
-        println!("Move {} songs.", move_count);
+        info!("Move {} songs.", move_count);
         return Ok(());
     }
 
@@ -458,7 +459,7 @@ async fn workdir_remove_unneed_media_files(
             // File is empty?
             let metadata = fs::metadata(&file_path).await?;
             if metadata.len() == 0 {
-                println!(" - !x!: File {} is Empty! Skipping...", file_path.display());
+                info!(" - !x!: File {} is Empty! Skipping...", file_path.display());
                 continue;
             }
 
@@ -480,12 +481,12 @@ async fn workdir_remove_unneed_media_files(
     }
 
     if !remove_pairs.is_empty() {
-        println!("Entering: {}", work_dir.display());
+        info!("Entering: {}", work_dir.display());
     }
 
     // Remove file
     for (file_path, replacing_file_path) in remove_pairs {
-        println!(
+        info!(
             "- Remove file {}, because {} exists.",
             replacing_file_path
                 .file_name()
@@ -520,7 +521,7 @@ async fn workdir_remove_unneed_media_files(
     if let Some(mp4_count) = ext_count.get("mp4")
         && mp4_count.len() > 1
     {
-        println!(
+        info!(
             " - Tips: {} has more than 1 mp4 files! {:?}",
             work_dir.display(),
             mp4_count
@@ -582,9 +583,9 @@ pub async fn remove_unneed_media_files(
             // Select Preset
             let rules = get_remove_media_file_rules();
             for (i, rule) in rules.iter().enumerate() {
-                println!("- {}: {:?}", i, rule);
+                info!("- {}: {:?}", i, rule);
             }
-            println!("Select Preset (Default: 0):");
+            info!("Select Preset (Default: 0):");
             let mut input = String::new();
             std::io::stdin().read_line(&mut input)?;
             let selection: usize = input.trim().parse().unwrap_or(0);
@@ -592,7 +593,7 @@ pub async fn remove_unneed_media_files(
         }
     };
 
-    println!("Selected: {:?}", rule);
+    info!("Selected: {:?}", rule);
 
     // Do
     let mut entries = fs::read_dir(root_dir).await?;
@@ -679,21 +680,21 @@ pub async fn move_works_with_same_name(
     }
 
     for (from_dir_name, _, to_dir_name, _) in &pairs {
-        println!(" -> {} => {}", from_dir_name, to_dir_name);
+        info!(" -> {} => {}", from_dir_name, to_dir_name);
     }
 
-    println!("Merge? [y/N]");
+    info!("Merge? [y/N]");
     let mut input = String::new();
     std::io::stdin().read_line(&mut input)?;
 
     if !input.trim().to_lowercase().starts_with('y') {
-        println!("Operation cancelled");
+        info!("Operation cancelled");
         return Ok(());
     }
 
     // Merge source folder contents to each matching target folder
     for (_, from_dir_path, _, target_path) in pairs {
-        println!(
+        info!(
             "Merge: '{}' -> '{}'",
             from_dir_path.display(),
             target_path.display()

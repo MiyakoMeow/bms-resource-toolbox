@@ -163,12 +163,12 @@ async fn transfer_audio_in_directory(
     }
 
     if total_files > 0 {
-        println!(
+        log::info!(
             "Entering dir: {}, Input extensions: {:?}",
             dir_path.display(),
             input_extensions
         );
-        println!("Using presets: {presets:?}");
+        log::info!("Using presets: {presets:?}");
     }
 
     // Process each file
@@ -186,11 +186,11 @@ async fn transfer_audio_in_directory(
                     if let Ok(metadata) = fs::metadata(&output_path).await
                         && metadata.len() > 0
                     {
-                        println!("Removing existing file: {}", output_path.display());
+                        log::info!("Removing existing file: {}", output_path.display());
                         let _ = remove_file(&output_path).await;
                     }
                 } else {
-                    println!("Skipping existing file: {}", output_path.display());
+                    log::info!("Skipping existing file: {}", output_path.display());
                     current_preset_index += 1;
                     continue;
                 }
@@ -224,7 +224,7 @@ async fn transfer_audio_in_directory(
                     }
                     Ok(output) => {
                         // Conversion failed
-                        println!(
+                        log::info!(
                             "Preset failed [{}]: {} -> {}",
                             preset.executor,
                             file_path.display(),
@@ -267,10 +267,10 @@ async fn transfer_audio_in_directory(
 
     // Output processing results
     if total_files > 0 {
-        println!("Processed {} files in {}", total_files, dir_path.display());
+        log::info!("Processed {} files in {}", total_files, dir_path.display());
     }
     if !fallback_files.is_empty() {
-        println!(
+        log::info!(
             "{} files failed all presets: {:?}",
             fallback_files.len(),
             fallback_files
@@ -283,7 +283,7 @@ async fn transfer_audio_in_directory(
             eprintln!("stderr: {}", String::from_utf8_lossy(&output.stderr));
         }
         if remove_on_fail {
-            println!("Original files for failed conversions were removed");
+            log::info!("Original files for failed conversions were removed");
         }
     }
 
@@ -330,7 +330,7 @@ pub async fn process_bms_folders(
             continue;
         }
 
-        println!("Processing directory: {}", dir_path.display());
+        log::info!("Processing directory: {}", dir_path.display());
         match transfer_audio_in_directory(
             &dir_path,
             input_extensions,
@@ -341,7 +341,7 @@ pub async fn process_bms_folders(
         )
         .await
         {
-            Ok(true) => println!("Successfully processed {}", dir_path.display()),
+            Ok(true) => log::info!("Successfully processed {}", dir_path.display()),
             Ok(false) => {
                 eprintln!("Errors occurred in {}", dir_path.display());
                 if skip_on_fail {

@@ -14,6 +14,7 @@ use smol::{
 use crate::bms::{BMS_FILE_EXTS, BMSON_FILE_EXTS};
 
 use super::{is_dir_having_file, is_file_same_content};
+use log::{info, warn};
 
 /// Same name enum as Python
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -114,7 +115,7 @@ pub async fn move_elements_across_dir(
             || !is_dir_having_file(&current_ori).await?)
             && let Err(e) = fs::remove_dir_all(&current_ori).await
         {
-            eprintln!(" x PermissionError! ({}) - {}", current_ori.display(), e);
+            warn!(" x PermissionError! ({}) - {}", current_ori.display(), e);
         }
     }
 
@@ -178,7 +179,7 @@ async fn move_action(
     mut push_child: impl FnMut(PathBuf, PathBuf) -> smol::Task<()>,
 ) -> io::Result<()> {
     if options.print_info {
-        println!(" - Moving from {} to {}", src.display(), dst.display());
+        info!(" - Moving from {} to {}", src.display(), dst.display());
     }
 
     let md = fs::metadata(&src).await?;

@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use log::info;
 use smol::{fs, io, stream::StreamExt};
 
 use crate::{
@@ -33,7 +34,7 @@ async fn remove_empty_folder(parent_dir: impl AsRef<Path>) -> io::Result<()> {
             let mut check_entries = fs::read_dir(&path).await?;
             if check_entries.next().await.is_none() {
                 fs::remove_dir(&path).await?;
-                println!("Removed empty folder: {}", path.display());
+                info!("Removed empty folder: {}", path.display());
             }
         }
     }
@@ -47,7 +48,7 @@ pub async fn pack_raw_to_hq(root_dir: impl AsRef<Path>) -> io::Result<()> {
     let root_dir = root_dir.as_ref();
 
     // Parse Audio
-    println!("Parsing Audio... Phase 1: WAV -> FLAC");
+    info!("Parsing Audio... Phase 1: WAV -> FLAC");
     process_bms_folders(
         root_dir,
         &["wav"],
@@ -59,7 +60,7 @@ pub async fn pack_raw_to_hq(root_dir: impl AsRef<Path>) -> io::Result<()> {
     .await?;
 
     // Remove Unneed Media File
-    println!("Removing Unneed Files");
+    info!("Removing Unneed Files");
     remove_unneed_media_files(root_dir, Some(get_remove_media_rule_oraja())).await?;
 
     Ok(())
@@ -71,7 +72,7 @@ pub async fn pack_hq_to_lq(root_dir: impl AsRef<Path>) -> io::Result<()> {
     let root_dir = root_dir.as_ref();
 
     // Parse Audio
-    println!("Parsing Audio... Phase 1: FLAC -> OGG");
+    info!("Parsing Audio... Phase 1: FLAC -> OGG");
     process_bms_folders(
         root_dir,
         &["flac"],
@@ -83,7 +84,7 @@ pub async fn pack_hq_to_lq(root_dir: impl AsRef<Path>) -> io::Result<()> {
     .await?;
 
     // Parse Video
-    println!("Parsing Video...");
+    info!("Parsing Video...");
     process_bms_video_folders(
         root_dir,
         &["mp4"],
@@ -101,29 +102,29 @@ pub async fn pack_hq_to_lq(root_dir: impl AsRef<Path>) -> io::Result<()> {
 #[allow(unused)]
 fn pack_setup_rawpack_to_hq_check(pack_dir: &Path, root_dir: &Path) -> bool {
     // Input 1
-    println!(" - Input 1: Pack dir path");
+    info!(" - Input 1: Pack dir path");
     if !pack_dir.is_dir() {
-        println!("Pack dir is not valid dir.");
+        info!("Pack dir is not valid dir.");
         return false;
     }
 
     // Print Packs
-    println!(" -- There are packs in pack_dir:");
+    info!(" -- There are packs in pack_dir:");
     match get_num_set_file_names(pack_dir) {
         Ok(file_names) => {
             for file_name in file_names {
-                println!(" > {}", file_name);
+                info!(" > {}", file_name);
             }
         }
         Err(e) => {
-            println!("Error reading pack files: {}", e);
+            info!("Error reading pack files: {}", e);
         }
     }
 
     // Input 2
-    println!(" - Input 2: BMS Cache Folder path. (Input a dir path that NOT exists)");
+    info!(" - Input 2: BMS Cache Folder path. (Input a dir path that NOT exists)");
     if root_dir.is_dir() {
-        println!("Root dir is an existing dir.");
+        info!("Root dir is an existing dir.");
         return false;
     }
 
@@ -146,7 +147,7 @@ pub async fn pack_setup_rawpack_to_hq(
     fs::create_dir_all(root_dir).await?;
 
     // Unzip
-    println!(
+    info!(
         " > 1. Unzip packs from {} to {}",
         pack_dir.display(),
         root_dir.display()
@@ -164,7 +165,7 @@ pub async fn pack_setup_rawpack_to_hq(
     }
 
     // Syncing folder name
-    println!(" > 2. Setting dir names from BMS Files");
+    info!(" > 2. Setting dir names from BMS Files");
     let mut entries = fs::read_dir(root_dir).await?;
     while let Some(entry) = entries.next().await {
         let entry = entry?;
@@ -175,7 +176,7 @@ pub async fn pack_setup_rawpack_to_hq(
     }
 
     // Parse Audio
-    println!(" > 3. Parsing Audio... Phase 1: WAV -> FLAC");
+    info!(" > 3. Parsing Audio... Phase 1: WAV -> FLAC");
     process_bms_folders(
         root_dir,
         &["wav"],
@@ -187,7 +188,7 @@ pub async fn pack_setup_rawpack_to_hq(
     .await?;
 
     // Remove Unneed Media File
-    println!(" > 4. Removing Unneed Files");
+    info!(" > 4. Removing Unneed Files");
     remove_unneed_media_files(root_dir, Some(get_remove_media_rule_oraja())).await?;
 
     Ok(())
@@ -197,37 +198,37 @@ pub async fn pack_setup_rawpack_to_hq(
 #[allow(unused)]
 fn pack_update_rawpack_to_hq_check(pack_dir: &Path, root_dir: &Path, sync_dir: &Path) -> bool {
     // Input 1
-    println!(" - Input 1: Pack dir path");
+    info!(" - Input 1: Pack dir path");
     if !pack_dir.is_dir() {
-        println!("Pack dir is not valid dir.");
+        info!("Pack dir is not valid dir.");
         return false;
     }
 
     // Print Packs
-    println!(" -- There are packs in pack_dir:");
+    info!(" -- There are packs in pack_dir:");
     match get_num_set_file_names(pack_dir) {
         Ok(file_names) => {
             for file_name in file_names {
-                println!(" > {}", file_name);
+                info!(" > {}", file_name);
             }
         }
         Err(e) => {
-            println!("Error reading pack files: {}", e);
+            info!("Error reading pack files: {}", e);
         }
     }
 
     // Input 2
-    println!(" - Input 2: BMS Cache Folder path. (Input a dir path that NOT exists)");
+    info!(" - Input 2: BMS Cache Folder path. (Input a dir path that NOT exists)");
     if root_dir.is_dir() {
-        println!("Root dir is an existing dir.");
+        info!("Root dir is an existing dir.");
         return false;
     }
 
     // Input 3
-    println!(" - Input 3: Already exists BMS Folder path. (Input a dir path that ALREADY exists)");
-    println!("This script will use this dir, just for name syncing and file checking.");
+    info!(" - Input 3: Already exists BMS Folder path. (Input a dir path that ALREADY exists)");
+    info!("This script will use this dir, just for name syncing and file checking.");
     if !sync_dir.is_dir() {
-        println!("Syncing dir is not valid dir.");
+        info!("Syncing dir is not valid dir.");
         return false;
     }
 
@@ -252,7 +253,7 @@ pub async fn pack_update_rawpack_to_hq(
     fs::create_dir_all(root_dir).await?;
 
     // Unzip
-    println!(
+    info!(
         " > 1. Unzip packs from {} to {}",
         pack_dir.display(),
         root_dir.display()
@@ -262,7 +263,7 @@ pub async fn pack_update_rawpack_to_hq(
     rawpack_unzip_numeric_to_bms_folder(pack_dir, &cache_dir, root_dir, false).await?;
 
     // Syncing folder name
-    println!(
+    info!(
         " > 2. Syncing dir name from {} to {}",
         sync_dir.display(),
         root_dir.display()
@@ -270,7 +271,7 @@ pub async fn pack_update_rawpack_to_hq(
     copy_numbered_workdir_names(sync_dir, root_dir).await?;
 
     // Parse Audio
-    println!(" > 3. Parsing Audio... Phase 1: WAV -> FLAC");
+    info!(" > 3. Parsing Audio... Phase 1: WAV -> FLAC");
     process_bms_folders(
         root_dir,
         &["wav"],
@@ -282,11 +283,11 @@ pub async fn pack_update_rawpack_to_hq(
     .await?;
 
     // Remove Unneed Media File
-    println!(" > 4. Removing Unneed Files");
+    info!(" > 4. Removing Unneed Files");
     remove_unneed_media_files(root_dir, Some(get_remove_media_rule_oraja())).await?;
 
     // Soft syncing
-    println!(
+    info!(
         " > 5. Syncing dir files from {} to {}",
         root_dir.display(),
         sync_dir.display()
@@ -294,7 +295,7 @@ pub async fn pack_update_rawpack_to_hq(
     sync_folder(root_dir, sync_dir, &preset_for_append()).await?;
 
     // Remove Empty folder
-    println!(" > 6. Remove empty folder in {}", root_dir.display());
+    info!(" > 6. Remove empty folder in {}", root_dir.display());
     remove_empty_folder(root_dir).await?;
 
     Ok(())

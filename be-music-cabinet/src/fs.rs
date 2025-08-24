@@ -79,9 +79,9 @@ pub async fn remove_empty_folders(parent_dir: impl AsRef<Path>) -> io::Result<()
             continue;
         }
         if !is_dir_having_file(&path).await? {
-            println!("Remove empty dir: {}", path.display());
+            log::info!("Remove empty dir: {}", path.display());
             if let Err(e) = fs::remove_dir_all(&path).await {
-                println!(" x {e}!");
+                log::info!(" x {e}!");
             }
         }
     }
