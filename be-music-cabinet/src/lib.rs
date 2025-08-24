@@ -47,17 +47,23 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    /// Work directory related operations
-    Work {
-        #[command(subcommand)]
-        command: WorkCommands,
-    },
     /// Root directory related operations
+    ///
+    /// - Dir structure in this program: `root_dir/work_dir/xxx.bms`
     Root {
         #[command(subcommand)]
         command: RootCommands,
     },
+    /// Work directory related operations
+    ///
+    /// - Dir structure in this program: `root_dir/work_dir/xxx.bms`
+    Work {
+        #[command(subcommand)]
+        command: WorkCommands,
+    },
     /// Pack processing related operations
+    ///
+    /// - Dir structure in this program: `root_dir/work_dir/xxx.bms`
     Pack {
         #[command(subcommand)]
         command: PackCommands,
@@ -73,6 +79,8 @@ pub enum Commands {
         command: FsCommands,
     },
     /// Root directory event related operations
+    ///
+    /// - Dir structure in this program: `root_dir/work_dir/xxx.bms`
     RootEvent {
         #[command(subcommand)]
         command: RootEventCommands,
@@ -89,34 +97,34 @@ pub enum WorkCommands {
     /// Set directory name based on BMS file
     SetName {
         /// Work directory path
-        #[arg(value_name = "DIR")]
+        #[arg(value_name = "Work directory")]
         dir: PathBuf,
         /// Set type: replace_title_artist, append_title_artist, append_artist
-        #[arg(long, default_value = "replace_title_artist")]
+        #[arg(long, default_value = "replace_title_artist", value_name = "Set type")]
         set_type: BmsFolderSetNameType,
         /// Dry run: only print actions
-        #[arg(long)]
+        #[arg(long, value_name = "Dry run")]
         dry_run: bool,
     },
     /// Undo directory name setting
     UndoSetName {
         /// Work directory path
-        #[arg(value_name = "DIR")]
+        #[arg(value_name = "Work directory")]
         dir: PathBuf,
         /// Set type: replace_title_artist, append_title_artist, append_artist
-        #[arg(long, default_value = "append_artist")]
+        #[arg(long, default_value = "append_artist", value_name = "Set type")]
         set_type: BmsFolderSetNameType,
         /// Dry run: only print actions
-        #[arg(long)]
+        #[arg(long, value_name = "Dry run")]
         dry_run: bool,
     },
     /// Remove zero-byte media files
     RemoveEmptyMedia {
         /// Work directory path
-        #[arg(value_name = "DIR")]
+        #[arg(value_name = "Work directory")]
         dir: PathBuf,
         /// Dry run: only print actions
-        #[arg(long)]
+        #[arg(long, value_name = "Dry run")]
         dry_run: bool,
     },
 }
@@ -126,37 +134,37 @@ pub enum BmsCommands {
     /// Parse BMS file
     ParseBms {
         /// BMS file path
-        #[arg(value_name = "FILE")]
+        #[arg(value_name = "BMS file")]
         file: PathBuf,
     },
     /// Parse BMSON file
     ParseBmson {
         /// BMSON file path
-        #[arg(value_name = "FILE")]
+        #[arg(value_name = "BMSON file")]
         file: PathBuf,
     },
     /// Get BMS file list in directory
     GetBmsList {
         /// Directory path
-        #[arg(value_name = "DIR")]
+        #[arg(value_name = "Target directory")]
         dir: PathBuf,
     },
     /// Get BMS information in directory
     GetBmsInfo {
         /// Directory path
-        #[arg(value_name = "DIR")]
+        #[arg(value_name = "Target directory")]
         dir: PathBuf,
     },
     /// Check if it's a work directory
     IsWorkDir {
         /// Directory path
-        #[arg(value_name = "DIR")]
+        #[arg(value_name = "Target directory")]
         dir: PathBuf,
     },
     /// Check if it's a root directory
     IsRootDir {
         /// Directory path
-        #[arg(value_name = "DIR")]
+        #[arg(value_name = "Target directory")]
         dir: PathBuf,
     },
 }
@@ -166,34 +174,34 @@ pub enum FsCommands {
     /// Check if two files have the same content
     IsFileSame {
         /// First file path
-        #[arg(value_name = "FILE1")]
+        #[arg(value_name = "First file")]
         file1: PathBuf,
         /// Second file path
-        #[arg(value_name = "FILE2")]
+        #[arg(value_name = "Second file")]
         file2: PathBuf,
     },
     /// Check if directory contains files
     IsDirHavingFile {
         /// Directory path
-        #[arg(value_name = "DIR")]
+        #[arg(value_name = "Target directory")]
         dir: PathBuf,
     },
     /// Remove empty folders
     RemoveEmptyFolders {
         /// Parent directory path
-        #[arg(value_name = "DIR")]
+        #[arg(value_name = "Parent directory")]
         dir: PathBuf,
         /// Dry run: only print actions
-        #[arg(long)]
+        #[arg(long, value_name = "Dry run")]
         dry_run: bool,
     },
     /// Calculate BMS directory similarity
     BmsDirSimilarity {
         /// First directory path
-        #[arg(value_name = "DIR1")]
+        #[arg(value_name = "First directory")]
         dir1: PathBuf,
         /// Second directory path
-        #[arg(value_name = "DIR2")]
+        #[arg(value_name = "Second directory")]
         dir2: PathBuf,
     },
 }
@@ -203,25 +211,25 @@ pub enum RootEventCommands {
     /// Check numbered folders
     CheckNumFolder {
         /// Root directory path
-        #[arg(value_name = "DIR")]
+        #[arg(value_name = "Root directory")]
         dir: PathBuf,
         /// Maximum count
-        #[arg(value_name = "MAX")]
+        #[arg(value_name = "Maximum count")]
         max: usize,
     },
     /// Create numbered folders
     CreateNumFolders {
         /// Root directory path
-        #[arg(value_name = "DIR")]
+        #[arg(value_name = "Root directory")]
         dir: PathBuf,
         /// Folder count
-        #[arg(value_name = "COUNT")]
+        #[arg(value_name = "Folder count")]
         count: usize,
     },
     /// Generate work information table
     GenerateWorkInfoTable {
         /// Root directory path
-        #[arg(value_name = "DIR")]
+        #[arg(value_name = "Root directory")]
         dir: PathBuf,
     },
 }
@@ -231,37 +239,37 @@ pub enum RawpackCommands {
     /// Extract numerically named pack files to BMS folders
     UnzipNumericToBmsFolder {
         /// Pack directory path
-        #[arg(value_name = "PACK_DIR")]
+        #[arg(value_name = "Pack directory")]
         pack_dir: PathBuf,
         /// Cache directory path
-        #[arg(value_name = "CACHE_DIR")]
+        #[arg(value_name = "Cache directory")]
         cache_dir: PathBuf,
         /// Root directory path
-        #[arg(value_name = "ROOT_DIR")]
+        #[arg(value_name = "Root directory")]
         root_dir: PathBuf,
         /// Confirm before processing
-        #[arg(long)]
+        #[arg(long, value_name = "Confirm")]
         confirm: bool,
     },
     /// Extract files with names to BMS folders
     UnzipWithNameToBmsFolder {
         /// Pack directory path
-        #[arg(value_name = "PACK_DIR")]
+        #[arg(value_name = "Pack directory")]
         pack_dir: PathBuf,
         /// Cache directory path
-        #[arg(value_name = "CACHE_DIR")]
+        #[arg(value_name = "Cache directory")]
         cache_dir: PathBuf,
         /// Root directory path
-        #[arg(value_name = "ROOT_DIR")]
+        #[arg(value_name = "Root directory")]
         root_dir: PathBuf,
         /// Confirm before processing
-        #[arg(long)]
+        #[arg(long, value_name = "Confirm")]
         confirm: bool,
     },
     /// Set file number (interactive)
     SetFileNum {
         /// Directory path
-        #[arg(value_name = "DIR")]
+        #[arg(value_name = "Target directory")]
         dir: PathBuf,
     },
 }
@@ -271,82 +279,82 @@ pub enum RootCommands {
     /// Set directory name based on BMS file
     SetName {
         /// Root directory path
-        #[arg(value_name = "DIR")]
+        #[arg(value_name = "Root directory")]
         dir: PathBuf,
         /// Set type: replace_title_artist, append_title_artist, append_artist
-        #[arg(long, default_value = "replace_title_artist")]
+        #[arg(long, default_value = "replace_title_artist", value_name = "Set type")]
         set_type: BmsFolderSetNameType,
         /// Dry run: only print actions
-        #[arg(long)]
+        #[arg(long, value_name = "Dry run")]
         dry_run: bool,
     },
     /// Undo directory name setting
     UndoSetName {
         /// Root directory path
-        #[arg(value_name = "DIR")]
+        #[arg(value_name = "Root directory")]
         dir: PathBuf,
         /// Set type: replace_title_artist, append_title_artist, append_artist
-        #[arg(long, default_value = "append_artist")]
+        #[arg(long, default_value = "append_artist", value_name = "Set type")]
         set_type: BmsFolderSetNameType,
         /// Dry run: only print actions
-        #[arg(long)]
+        #[arg(long, value_name = "Dry run")]
         dry_run: bool,
     },
     /// Copy numbered work directory names
     CopyNumberedNames {
         /// Source directory path
-        #[arg(value_name = "FROM")]
+        #[arg(value_name = "Source directory")]
         from: PathBuf,
         /// Target directory path
-        #[arg(value_name = "TO")]
+        #[arg(value_name = "Target directory")]
         to: PathBuf,
         /// Dry run: only print actions
-        #[arg(long)]
+        #[arg(long, value_name = "Dry run")]
         dry_run: bool,
     },
     /// Split folders by first character
     SplitByFirstChar {
         /// Root directory path
-        #[arg(value_name = "DIR")]
+        #[arg(value_name = "Root directory")]
         dir: PathBuf,
         /// Dry run: only print actions
-        #[arg(long)]
+        #[arg(long, value_name = "Dry run")]
         dry_run: bool,
     },
     /// Undo split operation
     UndoSplit {
         /// Target directory path
-        #[arg(value_name = "DIR")]
+        #[arg(value_name = "Target directory")]
         dir: PathBuf,
         /// Dry run: only print actions
-        #[arg(long)]
+        #[arg(long, value_name = "Dry run")]
         dry_run: bool,
     },
     /// Merge split folders
     MergeSplit {
         /// Root directory path
-        #[arg(value_name = "DIR")]
+        #[arg(value_name = "Root directory")]
         dir: PathBuf,
         /// Dry run: only print actions
-        #[arg(long)]
+        #[arg(long, value_name = "Dry run")]
         dry_run: bool,
     },
     /// Move works
     MoveWorks {
         /// Source directory path
-        #[arg(value_name = "FROM")]
+        #[arg(value_name = "Source directory")]
         from: PathBuf,
         /// Target directory path
-        #[arg(value_name = "TO")]
+        #[arg(value_name = "Target directory")]
         to: PathBuf,
         /// Dry run: only print actions
-        #[arg(long)]
+        #[arg(long, value_name = "Dry run")]
         dry_run: bool,
     },
     /// Move out one level directory
     MoveOutWorks {
         /// Target root directory path
-        #[arg(value_name = "DIR")]
+        #[arg(value_name = "Target root directory")]
         dir: PathBuf,
         /// Dry run: only print actions
         #[arg(long)]
@@ -355,10 +363,10 @@ pub enum RootCommands {
     /// Move works with same name
     MoveSameName {
         /// Source directory path
-        #[arg(value_name = "FROM")]
+        #[arg(value_name = "Source directory")]
         from: PathBuf,
         /// Target directory path
-        #[arg(value_name = "TO")]
+        #[arg(value_name = "Target directory")]
         to: PathBuf,
         /// Dry run: only print actions
         #[arg(long)]
@@ -367,19 +375,19 @@ pub enum RootCommands {
     /// Remove unnecessary media files
     RemoveUnneedMedia {
         /// Root directory path
-        #[arg(value_name = "DIR")]
+        #[arg(value_name = "Root directory")]
         dir: PathBuf,
         /// Rule preset
-        #[arg(long, value_enum, default_value = "oraja", value_name = "PRESET")]
+        #[arg(long, value_enum, default_value = "oraja", value_name = "Rule preset")]
         rule: RemoveMediaPreset,
     },
     /// Scan similar folders
     ScanSimilarFolders {
         /// Root directory path
-        #[arg(value_name = "DIR")]
+        #[arg(value_name = "Root directory")]
         dir: PathBuf,
         /// Similarity threshold
-        #[arg(long, default_value = "0.7")]
+        #[arg(long, default_value = "0.7", value_name = "Similarity")]
         similarity: f64,
     },
 }
@@ -389,34 +397,34 @@ pub enum PackCommands {
     /// Raw pack -> HQ pack
     RawToHq {
         /// Root directory path
-        #[arg(value_name = "DIR")]
+        #[arg(value_name = "Root directory")]
         dir: PathBuf,
     },
     /// HQ pack -> LQ pack
     HqToLq {
         /// Root directory path
-        #[arg(value_name = "DIR")]
+        #[arg(value_name = "Root directory")]
         dir: PathBuf,
     },
     /// Pack generation script: Raw pack -> HQ pack
     SetupRawpackToHq {
         /// Pack directory path
-        #[arg(value_name = "PACK_DIR")]
+        #[arg(value_name = "Pack directory")]
         pack_dir: PathBuf,
         /// Root directory path
-        #[arg(value_name = "ROOT_DIR")]
+        #[arg(value_name = "Root directory")]
         root_dir: PathBuf,
     },
     /// Pack update script: Raw pack -> HQ pack
     UpdateRawpackToHq {
         /// Pack directory path
-        #[arg(value_name = "PACK_DIR")]
+        #[arg(value_name = "Pack directory")]
         pack_dir: PathBuf,
         /// Root directory path
-        #[arg(value_name = "ROOT_DIR")]
+        #[arg(value_name = "Root directory")]
         root_dir: PathBuf,
         /// Sync directory path
-        #[arg(value_name = "SYNC_DIR")]
+        #[arg(value_name = "Sync directory")]
         sync_dir: PathBuf,
     },
 }
