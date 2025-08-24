@@ -461,7 +461,7 @@ impl MwApplication for App {
                 let args = self.build_cli_args();
                 let args_for_view = args.clone().join(" ");
                 self.status = format!("已启动: {}", args_for_view);
-                let (win_id, open_cmd) = window::spawn(window::Settings::default());
+                let (win_id, open_cmd) = window::spawn(window::Settings { size: [800u16, 400u16].into(), ..window::Settings::default() });
                 let (abort_handle, abort_reg) = AbortHandle::new_pair();
                 let task_id = NEXT_TASK_ID.fetch_add(1, Ordering::Relaxed);
                 self.windows.insert(
@@ -692,6 +692,8 @@ fn main() -> iced::Result {
     settings.default_font = pick_chinese_font();
     settings.default_text_size = 16.into();
     settings.antialiasing = true;
+    // 设置主窗口默认尺寸 800x400
+    settings.window.size = [800u16, 400u16].into();
     <App as MwApplication>::run(settings)
 }
 
