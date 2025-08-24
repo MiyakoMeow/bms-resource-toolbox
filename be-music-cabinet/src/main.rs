@@ -10,6 +10,8 @@ use iced::{Subscription, time};
 use log::info;
 use quote::ToTokens;
 use std::collections::{BTreeMap, HashMap};
+use std::fs;
+use std::path::PathBuf as StdPathBuf;
 use std::sync::{
     Arc, Mutex as StdMutex,
     atomic::{AtomicU64, Ordering},
@@ -306,6 +308,7 @@ enum Msg {
     SubChanged(usize),
     FieldTextChanged(String, String),
     FieldBoolChanged(String, bool),
+    PickDir(String), // key for the PathBuf field
     Run,
     TickAll,
     LogTerminate(window::Id),
@@ -319,6 +322,7 @@ struct App {
     bools: BTreeMap<String, bool>,
     status: String,
     windows: BTreeMap<window::Id, TaskWindow>,
+    path_history: Vec<String>,
 }
 
 struct TaskWindow {
@@ -400,6 +404,32 @@ impl App {
         }
         args
     }
+
+    fn capture_and_save_paths(&mut self) {
+        let mut any_new = false;
+        for (_key, val) in self.inputs.iter() {
+            if val.is_empty() {
+                continue;
+            }
+            // 简单判断：认为包含路径分隔符或者看起来像驱动器盘符的为路径
+            let looks_like_path = val.contains('/')
+                || val.contains('\\')
+                || (val.len() >= 2
+                    && val.as_bytes()[1] == b':'
+                    && val.as_bytes()[0].is_ascii_alphabetic());
+            if looks_like_path && !self.path_history.iter().any(|p| p == val) {
+                self.path_history.insert(0, val.clone());
+                // 限制最多保留 50 条
+                if self.path_history.len() > 50 {
+                    self.path_history.truncate(50);
+                }
+                any_new = true;
+            }
+        }
+        if any_new {
+            let _ = save_path_history(&self.path_history);
+        }
+    }
 }
 
 impl MwApplication for App {
@@ -411,6 +441,7 @@ impl MwApplication for App {
     fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
         // 初始化 GUI 日志器
         init_gui_logger();
+        let path_history = load_path_history();
         let mut app = App {
             tree: build_ui_tree(),
             top_idx: 0,
@@ -419,6 +450,7 @@ impl MwApplication for App {
             bools: BTreeMap::new(),
             status: String::new(),
             windows: BTreeMap::new(),
+            path_history,
         };
         app.ensure_defaults();
         (app, Command::none())
@@ -460,10 +492,21 @@ impl MwApplication for App {
                 self.bools.insert(key, value);
                 Command::none()
             }
+            Msg::PickDir(key) => {
+                let pick = async move {
+                    let dlg = rfd::FileDialog::new();
+                    dlg.pick_folder()
+                        .map(|p| p.to_string_lossy().to_string())
+                        .unwrap_or_default()
+                };
+                Command::perform(pick, move |path| Msg::FieldTextChanged(key.clone(), path))
+            }
             Msg::Run => {
                 let args = self.build_cli_args();
                 let args_for_view = args.clone().join(" ");
                 self.status = format!("已启动: {}", args_for_view);
+                // 记录本次填写的路径到历史
+                self.capture_and_save_paths();
                 let (win_id, open_cmd) = window::spawn(window::Settings {
                     size: [800u16, 400u16].into(),
                     ..window::Settings::default()
@@ -581,6 +624,34 @@ impl MwApplication for App {
                             }
                         })
                         .width(Length::Fill)
+                    ]
+                    .spacing(10)
+                    .into()
+                }
+                UiFieldType::PathBuf => {
+                    let val = self.inputs.get(&key).cloned().unwrap_or_default();
+                    let history = self.path_history.clone();
+                    let selected = if history.iter().any(|h| h == &val) {
+                        Some(val.clone())
+                    } else {
+                        None
+                    };
+                    row![
+                        text(label),
+                        text_input("", &val)
+                            .on_input({
+                                let k = key.clone();
+                                move |v| Msg::FieldTextChanged(k.clone(), v)
+                            })
+                            .width(Length::Fill),
+                        button(text("选择…")).on_press({
+                            let k = key.clone();
+                            Msg::PickDir(k)
+                        }),
+                        pick_list(history, selected, {
+                            let k = key.clone();
+                            move |v: String| Msg::FieldTextChanged(k.clone(), v)
+                        })
                     ]
                     .spacing(10)
                     .into()
@@ -815,4 +886,26 @@ fn start_task_for_window(task_id: TaskId, abort_reg: AbortRegistration, args: Ve
     })
     .detach();
     push_line(task_id, format!("[已启动] {}", cmd_line_for_log));
+}
+
+// ========================= 路径历史：保存与加载 =========================
+const HISTORY_FILE: &str = "path_history.json";
+
+fn history_file_path() -> StdPathBuf {
+    // 运行目录下
+    StdPathBuf::from(HISTORY_FILE)
+}
+
+fn load_path_history() -> Vec<String> {
+    let path = history_file_path();
+    match fs::read_to_string(&path) {
+        Ok(s) => serde_json::from_str::<Vec<String>>(&s).unwrap_or_default(),
+        Err(_) => Vec::new(),
+    }
+}
+
+fn save_path_history(list: &Vec<String>) -> Result<(), String> {
+    let path = history_file_path();
+    let content = serde_json::to_string_pretty(list).map_err(|e| e.to_string())?;
+    fs::write(&path, content).map_err(|e| e.to_string())
 }

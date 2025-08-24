@@ -12,6 +12,7 @@ test*
 
 # Fs History
 fs/history.log
+path_history.json
 
 # Rust cache
 /target
