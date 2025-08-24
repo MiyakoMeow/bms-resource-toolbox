@@ -6,6 +6,7 @@ use smol::{fs, io};
 use strsim::jaro_winkler;
 
 use super::work::BmsFolderSetNameType;
+use crate::fs::lock::acquire_disk_locks;
 
 pub async fn set_name_by_bms(
     root_dir: &Path,
@@ -92,6 +93,8 @@ pub async fn copy_numbered_workdir_names(
                 if dry_run {
                     info!("Dry-run: no changes made");
                 } else {
+                    // Acquire disk locks for file rename operation (smart locking to avoid duplicate locks on same disk)
+                    let _lock_guards = acquire_disk_locks(&[&path, &target_path]).await;
                     fs::rename(&path, &target_path).await?;
                 }
             }

@@ -3,6 +3,7 @@ use std::{collections::HashMap, path::Path};
 use smol::{fs, io, stream::StreamExt};
 
 use super::is_file_same_content;
+use super::lock::{acquire_disk_lock, acquire_disk_locks};
 use log::info;
 
 /// Equivalent to Python SoftSyncExec
@@ -228,8 +229,13 @@ pub async fn sync_folder(
         let dst_file_exists = dst_path.exists();
         let mut same = dst_file_exists;
         if dst_file_exists {
-            let src_md = fs::metadata(&src_path).await?;
-            let dst_md = fs::metadata(&dst_path).await?;
+            // Acquire disk locks for metadata reading
+            let (src_md, dst_md) = {
+                let _lock_guards = acquire_disk_locks(&[&src_path, &dst_path]).await;
+                let src_md = fs::metadata(&src_path).await?;
+                let dst_md = fs::metadata(&dst_path).await?;
+                (src_md, dst_md)
+            }; // 锁在这里被 drop，元数据读取完成后立即释放
 
             if preset.check_file_size && same {
                 same &= src_md.len() == dst_md.len();
@@ -247,6 +253,9 @@ pub async fn sync_folder(
 
         // Execute
         if !dst_file_exists || !same {
+            // Acquire disk locks for file operations (smart locking to avoid duplicate locks on same disk)
+            let _lock_guards = acquire_disk_locks(&[&src_path, &dst_path]).await;
+
             match preset.exec {
                 SoftSyncExec::None => {}
                 SoftSyncExec::Copy => {
@@ -261,6 +270,8 @@ pub async fn sync_folder(
         }
 
         if preset.remove_src_same_files && dst_file_exists && same {
+            // Acquire disk lock for file removal
+            let _src_lock_guard = acquire_disk_lock(&src_path).await;
             fs::remove_file(&src_path).await?;
             src_remove_files.push(name.to_string_lossy().into_owned());
         }
@@ -274,9 +285,13 @@ pub async fn sync_folder(
 
             if !smol::block_on(async { src_path.exists() }) {
                 if entry.file_type().await?.is_dir() {
+                    // Acquire disk lock for directory removal
+                    let _dst_lock_guard = acquire_disk_lock(&dst_path).await;
                     fs::remove_dir_all(&dst_path).await?;
                     dst_remove_dirs.push(name.to_string_lossy().into_owned());
                 } else {
+                    // Acquire disk lock for file removal
+                    let _dst_lock_guard = acquire_disk_lock(&dst_path).await;
                     fs::remove_file(&dst_path).await?;
                     dst_remove_files.push(name.to_string_lossy().into_owned());
                 }

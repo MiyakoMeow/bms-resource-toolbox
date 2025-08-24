@@ -74,6 +74,28 @@ pub async fn acquire_disk_lock(path: &Path) -> smol::lock::SemaphoreGuard<'stati
     }
 }
 
+/// 智能获取多个路径的磁盘锁，避免在同一磁盘上重复获取锁
+/// 使用示例：
+/// ```rust
+/// let _guards = acquire_disk_locks(&[&src_path, &dst_path]).await;
+/// // 在这里进行文件操作
+/// // 当 guards 被 drop 时，锁会自动释放
+/// ```
+pub async fn acquire_disk_locks(paths: &[&Path]) -> Vec<smol::lock::SemaphoreGuard<'static>> {
+    let mut disk_keys = std::collections::HashSet::new();
+    let mut guards = Vec::new();
+
+    for path in paths {
+        let disk_key = get_disk_key(path);
+        if disk_keys.insert(disk_key) {
+            // 只有在这个磁盘的锁还没有获取过时才获取
+            guards.push(acquire_disk_lock(path).await);
+        }
+    }
+
+    guards
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -3,6 +3,7 @@ pub mod work;
 
 use std::{cell::LazyCell, collections::HashMap, fs::FileType, path::Path};
 
+use crate::fs::lock::acquire_disk_lock;
 use bms_rs::{
     bms::{BmsOutput, BmsWarning, parse_bms, prelude::PlayingWarning},
     bmson::{Bmson, bmson_to_bms::BmsonToBmsOutput},
@@ -37,13 +38,23 @@ pub const MEDIA_FILE_EXTS_FILE_EXTS: LazyCell<Vec<&str>> = LazyCell::new(|| {
 });
 
 pub async fn parse_bms_file(file: &Path) -> io::Result<BmsOutput> {
-    let bytes = fs::read(file).await?;
+    // Acquire disk lock for file reading
+    let bytes = {
+        let _lock_guard = acquire_disk_lock(file).await;
+        fs::read(file).await?
+    }; // 锁在这里被 drop，文件读取完成后立即释放
+
     let (str, _encoding, _has_error) = encoding_rs::SHIFT_JIS.decode(&bytes);
     Ok(parse_bms(&str))
 }
 
 pub async fn parse_bmson_file(file: &Path) -> io::Result<BmsOutput> {
-    let bytes = fs::read(file).await?;
+    // Acquire disk lock for file reading
+    let bytes = {
+        let _lock_guard = acquire_disk_lock(file).await;
+        fs::read(file).await?
+    }; // 锁在这里被 drop，文件读取完成后立即释放
+
     let bmson: Bmson = serde_json::from_slice(&bytes).map_err(io::Error::other)?;
     let BmsonToBmsOutput {
         bms,
@@ -62,6 +73,7 @@ pub async fn parse_bmson_file(file: &Path) -> io::Result<BmsOutput> {
 }
 
 pub async fn get_dir_bms_list(dir: &Path) -> io::Result<Vec<BmsOutput>> {
+    // TODO: Fix type inference issue and implement parallel processing
     let mut bms_list = Vec::new();
     let mut dir_entry = fs::read_dir(dir).await?;
     while let Some(entry) = dir_entry.next().await {

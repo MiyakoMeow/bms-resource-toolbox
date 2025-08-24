@@ -5,6 +5,7 @@ use std::path::Path;
 use smol::stream::StreamExt;
 use smol::{fs, io};
 
+use crate::fs::lock::{acquire_disk_lock, acquire_disk_locks};
 use crate::fs::moving::{MoveOptions, move_elements_across_dir};
 
 /// Extract supported archives to specified cache directory
@@ -14,6 +15,7 @@ pub async fn unzip_file_to_cache_dir(
 ) -> io::Result<()> {
     let file_path = file_path.as_ref();
     let cache_dir_path = cache_dir_path.as_ref();
+
     let file_name = file_path
         .file_name()
         .and_then(OsStr::to_str)
@@ -26,9 +28,21 @@ pub async fn unzip_file_to_cache_dir(
         .to_lowercase();
 
     match ext.as_str() {
-        "zip" => extract_zip(file_path, cache_dir_path).await?,
-        "7z" => extract_7z(file_path, cache_dir_path).await?,
-        "rar" => extract_rar(file_path, cache_dir_path).await?,
+        "zip" => {
+            // Acquire disk locks for file operations (smart locking to avoid duplicate locks on same disk)
+            let _lock_guards = acquire_disk_locks(&[file_path, cache_dir_path]).await;
+            extract_zip(file_path, cache_dir_path).await?
+        }
+        "7z" => {
+            // Acquire disk locks for file operations (smart locking to avoid duplicate locks on same disk)
+            let _lock_guards = acquire_disk_locks(&[file_path, cache_dir_path]).await;
+            extract_7z(file_path, cache_dir_path).await?
+        }
+        "rar" => {
+            // Acquire disk locks for file operations (smart locking to avoid duplicate locks on same disk)
+            let _lock_guards = acquire_disk_locks(&[file_path, cache_dir_path]).await;
+            extract_rar(file_path, cache_dir_path).await?
+        }
         _ => {
             // Not an archive => copy after space
             let target_name = file_name
@@ -36,6 +50,8 @@ pub async fn unzip_file_to_cache_dir(
                 .map(|(_, s)| s)
                 .unwrap_or(file_name);
             let target = cache_dir_path.join(target_name);
+            // Acquire disk locks for file copy operation
+            let _lock_guards = acquire_disk_locks(&[file_path, cache_dir_path]).await;
             fs::copy(file_path, target).await?;
         }
     }
@@ -106,6 +122,7 @@ pub async fn move_out_files_in_folder_in_cache_dir(
     cache_dir_path: impl AsRef<Path>,
 ) -> io::Result<bool> {
     let cache_dir_path = cache_dir_path.as_ref();
+
     let mut done = false;
     let mut error = false;
 
@@ -123,6 +140,8 @@ pub async fn move_out_files_in_folder_in_cache_dir(
             let path = entry.path();
             if entry.file_type().await?.is_dir() {
                 if name == "__MACOSX" {
+                    // Acquire disk lock for directory removal
+                    let _lock_guard = acquire_disk_lock(&path).await;
                     fs::remove_dir_all(&path).await?;
                     continue;
                 }
@@ -161,6 +180,8 @@ pub async fn move_out_files_in_folder_in_cache_dir(
                     " - Renaming inner inner dir name: {}",
                     inner_inner.display()
                 );
+                // Acquire disk lock for file rename operation
+                let _lock_guard = acquire_disk_lock(&inner_inner).await;
                 fs::rename(&inner_inner, format!("{}-rep", inner_inner.display())).await?;
             }
             log::info!(
@@ -175,6 +196,8 @@ pub async fn move_out_files_in_folder_in_cache_dir(
                 Default::default(),
             )
             .await?;
+            // Acquire disk lock for directory removal
+            let _lock_guard = acquire_disk_lock(&inner_path).await;
             fs::remove_dir(&inner_path).await.ok();
         }
     }
@@ -185,6 +208,8 @@ pub async fn move_out_files_in_folder_in_cache_dir(
 
     if cache_folder_count == 0 && cache_file_count == 0 {
         log::info!(" !_! {}: Cache is Empty!", cache_dir_path.display());
+        // Acquire disk lock for directory removal
+        let _lock_guard = acquire_disk_lock(cache_dir_path).await;
         fs::remove_dir(cache_dir_path).await?;
         return Ok(false);
     }
