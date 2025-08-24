@@ -88,14 +88,20 @@ pub async fn move_elements_across_dir(
     if !fs::metadata(&dir_path_ori).await?.is_dir() {
         return Ok(());
     }
-    if !fs::metadata(&dir_path_dst).await.is_ok_and(|m| m.is_dir()) {
-        fs::create_dir_all(&dir_path_dst).await?;
-    }
-
-    // If target directory doesn't exist, directly mv the entire directory
-    if !fs::metadata(&dir_path_dst).await.is_ok_and(|m| m.is_dir()) {
-        fs::rename(&dir_path_ori, &dir_path_dst).await?;
-        return Ok(());
+    // If target directory doesn't exist, directly move the entire directory.
+    // Do this check BEFORE creating the target directory, otherwise we'd
+    // unnecessarily enumerate and move children one-by-one.
+    match fs::metadata(&dir_path_dst).await {
+        Err(_) => {
+            fs::rename(&dir_path_ori, &dir_path_dst).await?;
+            return Ok(());
+        }
+        Ok(m) if !m.is_dir() => {
+            return Err(io::Error::other(
+                "destination path exists and is not a directory",
+            ));
+        }
+        Ok(_) => {}
     }
 
     // Use queue to manage directories to be processed
