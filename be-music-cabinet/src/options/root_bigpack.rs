@@ -500,10 +500,9 @@ pub async fn move_out_works(target_root_dir: impl AsRef<Path>, dry_run: bool) ->
 
         // Check if directory is empty and remove it
         let mut check_entries = fs::read_dir(&root_dir_path).await?;
-        if check_entries.next().await.is_none()
-            && !dry_run {
-                fs::remove_dir(&root_dir_path).await?;
-            }
+        if check_entries.next().await.is_none() && !dry_run {
+            fs::remove_dir(&root_dir_path).await?;
+        }
     }
 
     if dry_run {

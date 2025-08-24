@@ -1,6 +1,9 @@
 // GUI 模式不直接使用库入口
 use iced::multi_window::Application as MwApplication;
-use iced::widget::{button, checkbox, column, pick_list, row, scrollable, text, text_input};
+use iced::widget::tooltip::Position;
+use iced::widget::{
+    button, checkbox, column, pick_list, row, scrollable, text, text_input, tooltip,
+};
 use iced::window;
 use iced::{Alignment, Command, Element, Font, Length, Settings, Theme, executor};
 use iced::{Subscription, time};
@@ -44,12 +47,14 @@ struct UiFieldSpec {
     long_name: Option<String>,
     default: Option<String>,
     value_name: Option<String>,
+    doc: Option<String>,
 }
 
 #[derive(Debug, Clone)]
 struct UiVariantSpec {
     name: String,
     fields: Vec<UiFieldSpec>,
+    doc: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -61,6 +66,7 @@ struct UiSubEnumSpec {
 struct UiTopSpec {
     variant_ident: String,
     sub_enum_ident: String,
+    doc: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -136,8 +142,31 @@ fn extract_default_value(attr: &Attribute) -> Option<String> {
     None
 }
 
-// 保留空实现，后续可扩展使用；当前未使用
-// 已移除文档提取逻辑（当前未使用）
+// 从属性中提取累积的文档注释字符串（由 /// 转为 #[doc = "..."]）
+fn extract_doc_string(attrs: &[Attribute]) -> Option<String> {
+    let mut lines: Vec<String> = Vec::new();
+    for a in attrs {
+        if a.path().is_ident("doc") {
+            let s = a.to_token_stream().to_string();
+            if let Some(pos) = s.find('"') {
+                let rest = &s[pos + 1..];
+                if let Some(end) = rest.rfind('"') {
+                    let mut line = rest[..end].to_string();
+                    // 去掉行首的一个空格（rustdoc 常见的前导空格）
+                    if line.starts_with(' ') {
+                        line.remove(0);
+                    }
+                    lines.push(line);
+                }
+            }
+        }
+    }
+    if lines.is_empty() {
+        None
+    } else {
+        Some(lines.join("\n"))
+    }
+}
 
 fn to_kebab_case(name: &str) -> String {
     let mut out = String::new();
@@ -199,6 +228,7 @@ fn build_ui_tree() -> UiTree {
             top_commands.push(UiTopSpec {
                 variant_ident: var.ident.to_string(),
                 sub_enum_ident: sub,
+                doc: extract_doc_string(&var.attrs),
             });
         }
     }
@@ -219,6 +249,7 @@ fn build_ui_tree() -> UiTree {
                                 .unwrap_or_else(|| "arg".to_string());
 
                             let ty = type_to_ui_type(&f.ty);
+                            let field_doc = extract_doc_string(&f.attrs);
                             let mut has_long = false;
                             let mut value_name = None;
                             let mut default = None;
@@ -247,6 +278,7 @@ fn build_ui_tree() -> UiTree {
                                 long_name,
                                 default,
                                 value_name,
+                                doc: field_doc,
                             });
                         }
                     }
@@ -255,6 +287,7 @@ fn build_ui_tree() -> UiTree {
                 variants.push(UiVariantSpec {
                     name: v.ident.to_string(),
                     fields: fields_spec,
+                    doc: extract_doc_string(&v.attrs),
                 });
             }
             sub_enums.insert(top.sub_enum_ident.clone(), UiSubEnumSpec { variants });
@@ -567,26 +600,41 @@ impl MwApplication for App {
                     .into()
                 }
             };
+            let row_widget: Element<_> = if let Some(doc) = f.doc.as_ref() {
+                tooltip::Tooltip::new(row_widget, text(doc.clone()), Position::FollowCursor).into()
+            } else {
+                row_widget
+            };
             fields_col = fields_col.push(row_widget);
         }
 
+        let top_pick: Element<_> = {
+            let pl = pick_list(tops.clone(), Some(tops[self.top_idx].clone()), move |v| {
+                let idx = tops.iter().position(|t| t == &v).unwrap_or(0);
+                Msg::TopChanged(idx)
+            });
+            if let Some(doc) = self.current_top().doc.as_ref() {
+                tooltip::Tooltip::new(pl, text(doc.clone()), Position::FollowCursor).into()
+            } else {
+                pl.into()
+            }
+        };
+
+        let sub_pick: Element<_> = {
+            let pl = pick_list(subs.clone(), Some(subs[self.sub_idx].clone()), move |v| {
+                let idx = subs.iter().position(|t| t == &v).unwrap_or(0);
+                Msg::SubChanged(idx)
+            });
+            if let Some(doc) = self.current_variant().doc.as_ref() {
+                tooltip::Tooltip::new(pl, text(doc.clone()), Position::FollowCursor).into()
+            } else {
+                pl.into()
+            }
+        };
+
         let content = column![
-            row![
-                text("命令").size(18),
-                pick_list(tops.clone(), Some(tops[self.top_idx].clone()), move |v| {
-                    let idx = tops.iter().position(|t| t == &v).unwrap_or(0);
-                    Msg::TopChanged(idx)
-                })
-            ]
-            .spacing(10),
-            row![
-                text("子命令").size(18),
-                pick_list(subs.clone(), Some(subs[self.sub_idx].clone()), move |v| {
-                    let idx = subs.iter().position(|t| t == &v).unwrap_or(0);
-                    Msg::SubChanged(idx)
-                })
-            ]
-            .spacing(10),
+            row![text("命令").size(18), top_pick,].spacing(10),
+            row![text("子命令").size(18), sub_pick,].spacing(10),
             fields_col,
             row![button(text("执行")).on_press(Msg::Run),].spacing(10),
             scrollable(text(self.status.clone())).height(Length::Fill),
