@@ -129,6 +129,9 @@ pub async fn split_folders_with_first_char(
     root_dir: impl AsRef<Path>,
     dry_run: bool,
 ) -> io::Result<()> {
+    if dry_run {
+        info!("[dry-run] Start: split_folders_with_first_char");
+    }
     let root_dir = root_dir.as_ref();
     let root_folder_name = root_dir
         .file_name()
@@ -164,9 +167,8 @@ pub async fn split_folders_with_first_char(
         let target_dir = parent_dir.join(format!("{root_folder_name} [{rule}]"));
 
         if !target_dir.exists() {
-            if dry_run {
-                info!("[dry-run] Would create dir: {}", target_dir.display());
-            } else {
+            info!("Create dir: {}", target_dir.display());
+            if !dry_run {
                 fs::create_dir(&target_dir).await?;
             }
         }
@@ -178,11 +180,13 @@ pub async fn split_folders_with_first_char(
             element_path.display(),
             target_path.display()
         );
-        if dry_run {
-            info!("[dry-run] Skipped moving");
-        } else {
+        if !dry_run {
             fs::rename(&element_path, &target_path).await?;
         }
+    }
+
+    if dry_run {
+        info!("[dry-run] End: split_folders_with_first_char");
     }
 
     Ok(())
@@ -190,6 +194,9 @@ pub async fn split_folders_with_first_char(
 
 /// (Undo operation) Split works in this directory into multiple folders according to first character
 pub async fn undo_split_pack(root_dir: impl AsRef<Path>, dry_run: bool) -> io::Result<()> {
+    if dry_run {
+        info!("[dry-run] Start: undo_split_pack");
+    }
     let root_dir = root_dir.as_ref();
     let root_folder_name = root_dir
         .file_name()
@@ -225,14 +232,10 @@ pub async fn undo_split_pack(root_dir: impl AsRef<Path>, dry_run: bool) -> io::R
     }
 
     if dry_run {
-        info!("Dry-run enabled. No changes will be made.");
         for (from_dir, to_dir) in &pairs {
-            info!(
-                " - Would move: {} -> {}",
-                from_dir.display(),
-                to_dir.display()
-            );
+            info!(" - Moving: {} -> {}", from_dir.display(), to_dir.display());
         }
+        info!("[dry-run] End: undo_split_pack");
         return Ok(());
     }
 
@@ -248,11 +251,17 @@ pub async fn undo_split_pack(root_dir: impl AsRef<Path>, dry_run: bool) -> io::R
         .await?;
     }
 
+    if dry_run {
+        info!("[dry-run] End: undo_split_pack");
+    }
     Ok(())
 }
 
 /// Merge split folders
 pub async fn merge_split_folders(root_dir: impl AsRef<Path>, dry_run: bool) -> io::Result<()> {
+    if dry_run {
+        info!("[dry-run] Start: merge_split_folders");
+    }
     let root_dir = root_dir.as_ref();
     let mut dir_names = Vec::new();
     let mut entries = fs::read_dir(root_dir).await?;
@@ -338,10 +347,10 @@ pub async fn merge_split_folders(root_dir: impl AsRef<Path>, dry_run: bool) -> i
     }
 
     if dry_run {
-        info!("Dry-run enabled. No changes will be made.");
         for (target_dir_name, from_dir_name) in &pairs {
-            info!(" - Would move: {} <- {}", target_dir_name, from_dir_name);
+            info!(" - Moving: {} <- {}", target_dir_name, from_dir_name);
         }
+        info!("[dry-run] End: merge_split_folders");
         return Ok(());
     }
 
@@ -360,6 +369,9 @@ pub async fn merge_split_folders(root_dir: impl AsRef<Path>, dry_run: bool) -> i
         .await?;
     }
 
+    if dry_run {
+        info!("[dry-run] End: merge_split_folders");
+    }
     Ok(())
 }
 
@@ -369,6 +381,9 @@ pub async fn move_works_in_pack(
     root_dir_to: impl AsRef<Path>,
     dry_run: bool,
 ) -> io::Result<()> {
+    if dry_run {
+        info!("[dry-run] Start: move_works_in_pack");
+    }
     let root_dir_from = root_dir_from.as_ref();
     let root_dir_to = root_dir_to.as_ref();
 
@@ -398,9 +413,7 @@ pub async fn move_works_in_pack(
             bms_dir.display(),
             dst_bms_dir.display()
         );
-        if dry_run {
-            info!("[dry-run] Skipped moving");
-        } else {
+        if !dry_run {
             move_elements_across_dir(
                 &bms_dir,
                 &dst_bms_dir,
@@ -423,9 +436,7 @@ pub async fn move_works_in_pack(
         root_dir_from.display(),
         root_dir_to.display()
     );
-    if dry_run {
-        info!("[dry-run] Skipped moving");
-    } else {
+    if !dry_run {
         move_elements_across_dir(
             root_dir_from,
             root_dir_to,
@@ -435,11 +446,17 @@ pub async fn move_works_in_pack(
         .await?;
     }
 
+    if dry_run {
+        info!("[dry-run] End: move_works_in_pack");
+    }
     Ok(())
 }
 
 /// Move out one level directory (auto merge)
 pub async fn move_out_works(target_root_dir: impl AsRef<Path>, dry_run: bool) -> io::Result<()> {
+    if dry_run {
+        info!("[dry-run] Start: move_out_works");
+    }
     let target_root_dir = target_root_dir.as_ref();
     let mut entries = fs::read_dir(target_root_dir).await?;
 
@@ -470,9 +487,7 @@ pub async fn move_out_works(target_root_dir: impl AsRef<Path>, dry_run: bool) ->
                 work_dir_path.display(),
                 target_work_dir_path.display()
             );
-            if dry_run {
-                info!("[dry-run] Skipped moving");
-            } else {
+            if !dry_run {
                 move_elements_across_dir(
                     &work_dir_path,
                     &target_work_dir_path,
@@ -485,11 +500,15 @@ pub async fn move_out_works(target_root_dir: impl AsRef<Path>, dry_run: bool) ->
 
         // Check if directory is empty and remove it
         let mut check_entries = fs::read_dir(&root_dir_path).await?;
-        if check_entries.next().await.is_none() {
-            fs::remove_dir(&root_dir_path).await?;
-        }
+        if check_entries.next().await.is_none()
+            && !dry_run {
+                fs::remove_dir(&root_dir_path).await?;
+            }
     }
 
+    if dry_run {
+        info!("[dry-run] End: move_out_works");
+    }
     Ok(())
 }
 

@@ -65,6 +65,9 @@ pub async fn set_name_by_bms(
     set_type: BmsFolderSetNameType,
     dry_run: bool,
 ) -> io::Result<()> {
+    if dry_run {
+        log::info!("[dry-run] Start: work::set_name_by_bms");
+    }
     let bms_info = get_dir_bms_info(work_dir)
         .await?
         .ok_or(io::Error::other("Bms file not found"))?;
@@ -89,21 +92,22 @@ pub async fn set_name_by_bms(
         work_dir.display(),
         target_work_dir.display()
     );
-    if dry_run {
-        log::info!("Dry-run: no changes made");
-        return Ok(());
-    }
-    fs::DirBuilder::new()
-        .recursive(true)
-        .create(&target_work_dir)
+    if !dry_run {
+        fs::DirBuilder::new()
+            .recursive(true)
+            .create(&target_work_dir)
+            .await?;
+        move_elements_across_dir(
+            work_dir,
+            target_work_dir,
+            Default::default(),
+            replace_options_update_pack(),
+        )
         .await?;
-    move_elements_across_dir(
-        work_dir,
-        target_work_dir,
-        Default::default(),
-        replace_options_update_pack(),
-    )
-    .await?;
+    }
+    if dry_run {
+        log::info!("[dry-run] End: work::set_name_by_bms");
+    }
     Ok(())
 }
 
@@ -112,6 +116,9 @@ pub async fn undo_set_name_by_bms(
     set_type: BmsFolderSetNameType,
     dry_run: bool,
 ) -> io::Result<()> {
+    if dry_run {
+        log::info!("[dry-run] Start: work::undo_set_name_by_bms");
+    }
     let work_dir_name = work_dir
         .file_name()
         .ok_or(io::Error::other("Dir name not exists"))?
@@ -136,11 +143,12 @@ pub async fn undo_set_name_by_bms(
         work_dir.display(),
         new_dir_path.display()
     );
-    if dry_run {
-        log::info!("Dry-run: no changes made");
-        return Ok(());
+    if !dry_run {
+        fs::rename(work_dir, new_dir_path).await?;
     }
-    fs::rename(work_dir, new_dir_path).await?;
+    if dry_run {
+        log::info!("[dry-run] End: work::undo_set_name_by_bms");
+    }
     Ok(())
 }
 
@@ -149,6 +157,9 @@ pub async fn remove_zero_sized_media_files(
     work_dir: impl AsRef<Path>,
     dry_run: bool,
 ) -> io::Result<()> {
+    if dry_run {
+        log::info!("[dry-run] Start: work::remove_zero_sized_media_files");
+    }
     let mut stack = VecDeque::new();
     stack.push_back(work_dir.as_ref().to_path_buf());
 
@@ -179,9 +190,15 @@ pub async fn remove_zero_sized_media_files(
         }
     }
 
-    // Wait for all deletion tasks to complete
-    for task in tasks {
-        task.await?;
+    if !dry_run {
+        // Wait for all deletion tasks to complete
+        for task in tasks {
+            task.await?;
+        }
+    }
+
+    if dry_run {
+        log::info!("[dry-run] End: work::remove_zero_sized_media_files");
     }
 
     Ok(())
