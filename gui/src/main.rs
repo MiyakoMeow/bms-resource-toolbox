@@ -45,6 +45,8 @@ enum Msg {
     Run,
     TickAll,
     LogTerminate(window::Id),
+    UpdateMaxLines(window::Id, usize),
+    ToggleAutoScroll(window::Id, bool),
 }
 
 struct App {
@@ -64,6 +66,8 @@ struct TaskWindow {
     logs: String,
     running: bool,
     abort_handle: Option<AbortHandle>,
+    max_lines: usize,
+    auto_scroll: bool,
 }
 
 impl App {
@@ -101,6 +105,40 @@ impl App {
                     let default_val = f.default.clone().unwrap_or_else(String::new);
                     self.inputs.entry(key).or_insert(default_val);
                 }
+            }
+        }
+    }
+
+    fn cleanup_closed_windows(&mut self) {
+        // 检查任务是否已完成，如果已完成且窗口已关闭，则清理内存
+        let mut to_remove = Vec::new();
+        for (wid, w) in &mut self.windows {
+            if !w.running {
+                // 检查任务是否真的已完成（通过检查日志缓冲区是否为空）
+                let m = buffers();
+                let guard = m.lock().unwrap();
+                if !guard.contains_key(&w.task_id)
+                    || guard.get(&w.task_id).map(|v| v.is_empty()).unwrap_or(true)
+                {
+                    to_remove.push(*wid);
+                }
+            }
+        }
+
+        for wid in to_remove {
+            if let Some(w) = self.windows.remove(&wid) {
+                // 清理日志缓冲区
+                let m = buffers();
+                let mut guard = m.lock().unwrap();
+                guard.remove(&w.task_id);
+                // 中止任务
+                if let Some(h) = w.abort_handle {
+                    h.abort();
+                }
+                // 清理日志字符串，释放内存
+                drop(w.logs);
+                // 清理参数向量，释放内存
+                drop(w.args);
             }
         }
     }
@@ -254,6 +292,8 @@ impl MwApplication for App {
                         logs: String::new(),
                         running: true,
                         abort_handle: Some(abort_handle),
+                        max_lines: 1000,
+                        auto_scroll: true,
                     },
                 );
                 start_task_for_window(task_id, abort_reg, args);
@@ -271,9 +311,27 @@ impl MwApplication for App {
                                     w.logs.push('\n');
                                 }
                             }
+
+                            // 限制日志行数
+                            let log_lines: Vec<&str> = w.logs.lines().collect();
+                            if log_lines.len() > w.max_lines {
+                                w.logs = log_lines[log_lines.len() - w.max_lines..].join("\n");
+                                if !w.logs.ends_with('\n') {
+                                    w.logs.push('\n');
+                                }
+                            }
+
+                            // 如果启用了自动滚动，确保能看到最新内容
+                            if w.auto_scroll {
+                                // 这里不需要额外处理，因为iced会自动滚动到最新内容
+                            }
                         }
                     }
                 }
+
+                // 清理已关闭的窗口
+                self.cleanup_closed_windows();
+
                 Command::none()
             }
             Msg::LogTerminate(wid) => {
@@ -282,6 +340,30 @@ impl MwApplication for App {
                         h.abort();
                     }
                     w.running = false;
+                }
+                Command::none()
+            }
+
+            Msg::UpdateMaxLines(wid, max_lines) => {
+                if let Some(w) = self.windows.get_mut(&wid) {
+                    // 验证输入范围
+                    if max_lines > 0 && max_lines <= 100000 {
+                        w.max_lines = max_lines;
+                        // 限制日志行数
+                        let lines: Vec<&str> = w.logs.lines().collect();
+                        if lines.len() > max_lines {
+                            w.logs = lines[lines.len() - max_lines..].join("\n");
+                            if !w.logs.ends_with('\n') {
+                                w.logs.push('\n');
+                            }
+                        }
+                    }
+                }
+                Command::none()
+            }
+            Msg::ToggleAutoScroll(wid, auto_scroll) => {
+                if let Some(w) = self.windows.get_mut(&wid) {
+                    w.auto_scroll = auto_scroll;
                 }
                 Command::none()
             }
@@ -295,6 +377,22 @@ impl MwApplication for App {
             let content = column![
                 scrollable(text(w.logs.clone())).height(Length::Fill),
                 row![
+                    text("Max Lines:"),
+                    text_input("1000", &w.max_lines.to_string())
+                        .on_input(move |input| {
+                            if let Ok(value) = input.parse::<usize>() {
+                                if value > 0 && value <= 100000 {
+                                    Msg::UpdateMaxLines(id, value)
+                                } else {
+                                    Msg::TickAll
+                                }
+                            } else {
+                                Msg::TickAll
+                            }
+                        })
+                        .width(Length::Fixed(80.0)),
+                    checkbox("Auto Scroll", w.auto_scroll)
+                        .on_toggle(move |checked| Msg::ToggleAutoScroll(id, checked)),
                     button(text(if w.running { "Terminate" } else { "Stopped" })).on_press(
                         if w.running {
                             Msg::LogTerminate(id)
@@ -455,6 +553,7 @@ impl MwApplication for App {
     }
 
     fn subscription(&self) -> Subscription<Self::Message> {
+        // 处理定时器
         time::every(std::time::Duration::from_millis(200)).map(|_| Msg::TickAll)
     }
 }
