@@ -114,6 +114,9 @@ pub enum WorkCommands {
         /// Dry run: only print actions
         #[arg(long, value_name = "Dry run")]
         dry_run: bool,
+        /// Skip directories that are already formatted
+        #[arg(long, default_value = "true", value_name = "Skip already formatted")]
+        skip_already_formatted: bool,
     },
     /// Undo directory name setting
     UndoSetName {
@@ -123,14 +126,6 @@ pub enum WorkCommands {
         /// Set type: replace_title_artist, append_title_artist, append_artist
         #[arg(long, default_value = "append_artist", value_name = "Set type")]
         set_type: BmsFolderSetNameType,
-        /// Replace preset: default, update_pack
-        #[arg(
-            long,
-            value_enum,
-            default_value = "update_pack",
-            value_name = "Replace preset"
-        )]
-        replace: ReplacePreset,
         /// Dry run: only print actions
         #[arg(long, value_name = "Dry run")]
         dry_run: bool,
@@ -328,6 +323,9 @@ pub enum RootCommands {
         /// Dry run: only print actions
         #[arg(long, value_name = "Dry run")]
         dry_run: bool,
+        /// Skip directories that are already formatted
+        #[arg(long, default_value = "true", value_name = "Skip already formatted")]
+        skip_already_formatted: bool,
     },
     /// Undo directory name setting
     UndoSetName {
@@ -337,14 +335,6 @@ pub enum RootCommands {
         /// Set type: replace_title_artist, append_title_artist, append_artist
         #[arg(long, default_value = "append_artist", value_name = "Set type")]
         set_type: BmsFolderSetNameType,
-        /// Replace preset: default, update_pack
-        #[arg(
-            long,
-            value_enum,
-            default_value = "update_pack",
-            value_name = "Replace preset"
-        )]
-        replace: ReplacePreset,
         /// Dry run: only print actions
         #[arg(long, value_name = "Dry run")]
         dry_run: bool,
@@ -518,20 +508,21 @@ pub async fn run_command(command: &Commands) -> Result<(), Box<dyn std::error::E
                 set_type,
                 replace,
                 dry_run,
+                skip_already_formatted,
             } => {
                 info!("Setting directory name: {}", dir.display());
                 info!("Set type: {:?}", set_type);
-                set_name_by_bms(dir, *set_type, *dry_run, *replace).await?;
+                set_name_by_bms(dir, *set_type, *dry_run, *replace, *skip_already_formatted)
+                    .await?;
                 info!("Setting completed");
             }
             WorkCommands::UndoSetName {
                 dir,
                 set_type,
-                replace,
                 dry_run,
             } => {
                 info!("Undoing directory name setting: {}", dir.display());
-                undo_set_name_by_bms(dir, *set_type, *dry_run, *replace).await?;
+                undo_set_name_by_bms(dir, *set_type, *dry_run).await?;
                 info!("Undo completed");
             }
             WorkCommands::RemoveEmptyMedia { dir, dry_run } => {
@@ -546,20 +537,21 @@ pub async fn run_command(command: &Commands) -> Result<(), Box<dyn std::error::E
                 set_type,
                 replace,
                 dry_run,
+                skip_already_formatted,
             } => {
                 info!("Setting directory name: {}", dir.display());
                 info!("Set type: {:?}", set_type);
-                root_set_name_by_bms(dir, *set_type, *dry_run, *replace).await?;
+                root_set_name_by_bms(dir, *set_type, *dry_run, *replace, *skip_already_formatted)
+                    .await?;
                 info!("Setting completed");
             }
             RootCommands::UndoSetName {
                 dir,
                 set_type,
-                replace,
                 dry_run,
             } => {
                 info!("Undoing directory name setting: {}", dir.display());
-                root_undo_set_name_by_bms(dir, *set_type, *dry_run, *replace).await?;
+                root_undo_set_name_by_bms(dir, *set_type, *dry_run).await?;
                 info!("Undo completed");
             }
             RootCommands::CopyNumberedNames { from, to, dry_run } => {

@@ -7,6 +7,7 @@ use crate::{
     bms::get_dir_bms_info,
     fs::{
         get_vaild_fs_name,
+        lock::acquire_disk_locks,
         moving::{ReplacePreset, move_elements_across_dir, replace_options_from_preset},
     },
 };
@@ -59,12 +60,31 @@ impl ValueEnum for BmsFolderSetNameType {
     }
 }
 
+/// Check if directory name already follows the "XX [XX]" pattern
+fn is_already_formatted(dir_name: &str, set_type: BmsFolderSetNameType) -> bool {
+    match set_type {
+        BmsFolderSetNameType::ReplaceTitleArtist => {
+            // 检查是否已经是 "Title [Artist]" 格式
+            dir_name.contains(" [") && dir_name.ends_with("]")
+        }
+        BmsFolderSetNameType::AppendTitleArtist => {
+            // 检查是否已经包含 "Title [Artist]" 格式
+            dir_name.contains(" [") && dir_name.ends_with("]")
+        }
+        BmsFolderSetNameType::AppendArtist => {
+            // 检查是否已经包含 " [Artist]" 格式
+            dir_name.contains(" [") && dir_name.ends_with("]")
+        }
+    }
+}
+
 /// This script is suitable for cases where you want to append "Title [Artist]" after work folder name
 pub async fn set_name_by_bms(
     work_dir: &Path,
     set_type: BmsFolderSetNameType,
     dry_run: bool,
     replace_preset: ReplacePreset,
+    skip_already_formatted: bool,
 ) -> io::Result<()> {
     if dry_run {
         log::info!("[dry-run] Start: work::set_name_by_bms");
@@ -78,6 +98,18 @@ pub async fn set_name_by_bms(
         .file_name()
         .ok_or(io::Error::other("Dir name not exists"))?
         .to_string_lossy();
+
+    // 如果启用了跳过已格式化目录的选项，检查目录名是否已经是目标格式
+    if skip_already_formatted && is_already_formatted(&work_dir_name, set_type) {
+        if dry_run {
+            log::info!(
+                "[dry-run] Directory already formatted, skipping: {}",
+                work_dir.display()
+            );
+        }
+        return Ok(());
+    }
+
     let target_dir_name = match set_type {
         BmsFolderSetNameType::ReplaceTitleArtist => format!("{title} [{artist}]"),
         BmsFolderSetNameType::AppendTitleArtist => format!("{work_dir_name} {title} [{artist}]"),
@@ -88,6 +120,18 @@ pub async fn set_name_by_bms(
         .parent()
         .ok_or(io::Error::other("Dir name not exists"))?
         .join(target_dir_name);
+
+    // 如果源目录与目标目录相同，则跳过操作
+    if work_dir == target_work_dir {
+        if dry_run {
+            log::info!(
+                "[dry-run] Source and target directories are the same, skipping: {}",
+                work_dir.display()
+            );
+        }
+        return Ok(());
+    }
+
     log::info!(
         "Rename work dir by moving content: {} -> {}",
         work_dir.display(),
@@ -115,7 +159,6 @@ pub async fn undo_set_name_by_bms(
     work_dir: &Path,
     set_type: BmsFolderSetNameType,
     dry_run: bool,
-    replace_preset: ReplacePreset,
 ) -> io::Result<()> {
     if dry_run {
         log::info!("[dry-run] Start: work::undo_set_name_by_bms");
@@ -124,34 +167,79 @@ pub async fn undo_set_name_by_bms(
         .file_name()
         .ok_or(io::Error::other("Dir name not exists"))?
         .to_string_lossy();
-    let new_dir_name = match set_type {
+
+    // 根据不同的set_type，提取原始目录名
+    let original_dir_name = match set_type {
         BmsFolderSetNameType::ReplaceTitleArtist => {
-            work_dir_name.split(" ").next().unwrap_or(&work_dir_name)
+            // 对于ReplaceTitleArtist，原始名称应该是第一个单词
+            work_dir_name
+                .split_whitespace()
+                .next()
+                .unwrap_or(&work_dir_name)
         }
         BmsFolderSetNameType::AppendTitleArtist => {
-            work_dir_name.split(" ").next().unwrap_or(&work_dir_name)
+            // 对于AppendTitleArtist，原始名称是第一个单词
+            work_dir_name
+                .split_whitespace()
+                .next()
+                .unwrap_or(&work_dir_name)
         }
         BmsFolderSetNameType::AppendArtist => {
-            work_dir_name.split(" ").next().unwrap_or(&work_dir_name)
+            // 对于AppendArtist，原始名称是第一个单词
+            work_dir_name
+                .split_whitespace()
+                .next()
+                .unwrap_or(&work_dir_name)
         }
     };
+
+    // 确保至少保留1个单词
+    let original_dir_name = if original_dir_name.is_empty() {
+        &work_dir_name
+    } else {
+        original_dir_name
+    };
+
     let new_dir_path = work_dir
         .parent()
         .ok_or(io::Error::other("Dir name not exists"))?
-        .join(new_dir_name);
+        .join(original_dir_name);
+
+    // 如果源目录与目标目录相同，则跳过操作
+    if work_dir == new_dir_path {
+        if dry_run {
+            log::info!(
+                "[dry-run] Source and target directories are the same, skipping: {}",
+                work_dir.display()
+            );
+        }
+        return Ok(());
+    }
+
+    // 检查目标目录是否已存在，如果存在则添加数字后缀
+    let mut final_dir_path = new_dir_path.clone();
+    let mut counter = 1;
+    while final_dir_path.exists() {
+        let new_name = format!("{}_{}", original_dir_name, counter);
+        final_dir_path = work_dir
+            .parent()
+            .ok_or(io::Error::other("Dir name not exists"))?
+            .join(new_name);
+        counter += 1;
+    }
+
     log::info!(
         "Undo rename: {} -> {}",
         work_dir.display(),
-        new_dir_path.display()
+        final_dir_path.display()
     );
+
     if !dry_run {
-        move_elements_across_dir(
-            work_dir,
-            &new_dir_path,
-            replace_options_from_preset(replace_preset),
-        )
-        .await?;
+        // 仅使用fs::rename，不使用move_elements_across_dir
+        let _locks = acquire_disk_locks(&[work_dir, &final_dir_path]).await;
+        fs::rename(work_dir, &final_dir_path).await?;
     }
+
     if dry_run {
         log::info!("[dry-run] End: work::undo_set_name_by_bms");
     }

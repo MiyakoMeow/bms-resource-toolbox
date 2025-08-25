@@ -25,6 +25,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 BmsFolderSetNameType::AppendTitleArtist,
                 false,
                 ReplacePreset::UpdatePack,
+                true, // skip_already_formatted
             )
             .await?;
             println!("Setting completed");

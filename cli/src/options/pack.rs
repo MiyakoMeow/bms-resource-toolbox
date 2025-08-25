@@ -184,6 +184,7 @@ pub async fn pack_setup_rawpack_to_hq(
                 BmsFolderSetNameType::AppendTitleArtist,
                 false,
                 ReplacePreset::UpdatePack,
+                true, // skip_already_formatted
             )
             .await?;
         }

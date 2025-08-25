@@ -14,13 +14,21 @@ pub async fn set_name_by_bms(
     set_type: BmsFolderSetNameType,
     dry_run: bool,
     replace_preset: ReplacePreset,
+    skip_already_formatted: bool,
 ) -> io::Result<()> {
     let mut entries = fs::read_dir(root_dir).await?;
     while let Some(entry) = entries.next().await {
         let entry = entry?;
         let path = entry.path();
         if path.is_dir() {
-            super::work::set_name_by_bms(&path, set_type, dry_run, replace_preset).await?;
+            super::work::set_name_by_bms(
+                &path,
+                set_type,
+                dry_run,
+                replace_preset,
+                skip_already_formatted,
+            )
+            .await?;
         }
     }
 
@@ -31,14 +39,13 @@ pub async fn undo_set_name_by_bms(
     root_dir: &Path,
     set_type: BmsFolderSetNameType,
     dry_run: bool,
-    replace_preset: ReplacePreset,
 ) -> io::Result<()> {
     let mut entries = fs::read_dir(root_dir).await?;
     while let Some(entry) = entries.next().await {
         let entry = entry?;
         let path = entry.path();
         if path.is_dir() {
-            super::work::undo_set_name_by_bms(&path, set_type, dry_run, replace_preset).await?;
+            super::work::undo_set_name_by_bms(&path, set_type, dry_run).await?;
         }
     }
     Ok(())

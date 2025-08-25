@@ -44,12 +44,13 @@ use be_music_cabinet::options::{
     work::{set_name_by_bms, BmsFolderSetNameType},
     root_bigpack::{remove_unneed_media_files, get_remove_media_rule_oraja},
     pack::pack_raw_to_hq,
+    fs::moving::ReplacePreset,
 };
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Set directory name
-    set_name_by_bms("./MyBMSFolder", BmsFolderSetNameType::AppendTitleArtist).await?;
+    set_name_by_bms("./MyBMSFolder", BmsFolderSetNameType::AppendTitleArtist, false, ReplacePreset::UpdatePack, true).await?;
     
     // Remove unnecessary media files
     remove_unneed_media_files("./BMSRoot", Some(get_remove_media_rule_oraja())).await?;
