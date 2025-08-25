@@ -13,7 +13,7 @@ use smol::{
 
 use crate::bms::{BMS_FILE_EXTS, BMSON_FILE_EXTS};
 
-use super::{is_dir_having_file, is_file_same_content, lock::acquire_disk_lock};
+use super::{is_dir_having_file, is_file_same_content, lock::acquire_disk_locks};
 use log::{info, warn};
 
 /// Same name enum as Python
@@ -115,30 +115,45 @@ pub async fn move_elements_across_dir(
 ) -> io::Result<()> {
     let dir_path_ori = dir_path_ori.as_ref();
     let dir_path_dst = dir_path_dst.as_ref();
-    if !dir_path_ori.exists() {
-        return Ok(());
-    }
+    // Lock and read source metadata
+    let _l_ori = acquire_disk_locks(&[dir_path_ori]).await;
+    let ori_md = match fs::metadata(&dir_path_ori).await {
+        Ok(m) => m,
+        Err(_) => return Ok(()),
+    };
+    drop(_l_ori);
 
     if dir_path_ori == dir_path_dst {
         return Ok(());
     }
-    if !fs::metadata(&dir_path_ori).await?.is_dir() {
+    if !ori_md.is_dir() {
         return Ok(());
     }
     // If target directory doesn't exist, directly move the entire directory.
     // Do this check BEFORE creating the target directory, otherwise we'd
     // unnecessarily enumerate and move children one-by-one.
-    match fs::metadata(&dir_path_dst).await {
-        Err(_) => {
-            fs::rename(&dir_path_ori, &dir_path_dst).await?;
-            return Ok(());
+    // Lock and read destination metadata
+    let _l_dst = acquire_disk_locks(&[dir_path_dst]).await;
+    let dst_meta_res = fs::metadata(&dir_path_dst).await;
+    drop(_l_dst);
+
+    match dst_meta_res {
+        Ok(m) => {
+            if !m.is_dir() {
+                return Err(io::Error::other(
+                    "destination path exists and is not a directory",
+                ));
+            }
         }
-        Ok(m) if !m.is_dir() => {
-            return Err(io::Error::other(
-                "destination path exists and is not a directory",
-            ));
+        Err(e) => {
+            if e.kind() == io::ErrorKind::NotFound {
+                let _l = acquire_disk_locks(&[dir_path_ori, dir_path_dst]).await;
+                fs::rename(&dir_path_ori, &dir_path_dst).await?;
+                return Ok(());
+            } else {
+                return Err(e);
+            }
         }
-        Ok(_) => {}
     }
 
     // Use queue to manage directories to be processed
@@ -173,93 +188,182 @@ async fn process_directory(
     replace_options: &ReplaceOptions,
 ) -> io::Result<Vec<(PathBuf, PathBuf)>> {
     // Collect entries to be processed (files / subdirectories)
+    let _l_rd = acquire_disk_locks(&[dir_path_ori]).await;
     let mut entries = fs::read_dir(dir_path_ori).await?;
+    drop(_l_rd);
     let next_folder_paths = Arc::new(Mutex::new(Vec::new()));
-    let mut paths: Vec<(PathBuf, PathBuf)> = Vec::new();
+    let mut pairs: Vec<(PathBuf, PathBuf)> = Vec::new();
 
     while let Some(entry) = StreamExt::next(&mut entries).await {
         let entry = entry?;
         let src = entry.path();
         let dst = dir_path_dst.join(entry.file_name());
-        paths.push((src, dst));
+        pairs.push((src, dst));
     }
 
-    // Process all entries under current directory concurrently
-    // Use disk locks to control concurrency
-    let futures: Vec<_> = paths
+    // Pre-fetch metadata concurrently (avoid Path::is_dir/is_file) with disk locks
+    let meta_futs: Vec<_> = pairs
+        .iter()
+        .map(|(src, dst)| async move {
+            let _locks = acquire_disk_locks(&[src.as_path(), dst.as_path()]).await;
+            let src_md = fs::metadata(src).await?;
+            let dst_md_opt = match fs::metadata(dst).await {
+                Ok(m) => Some(m),
+                Err(e) if e.kind() == io::ErrorKind::NotFound => None,
+                Err(e) => return Err(e),
+            };
+            Ok::<
+                (
+                    PathBuf,
+                    PathBuf,
+                    smol::fs::Metadata,
+                    Option<smol::fs::Metadata>,
+                ),
+                io::Error,
+            >((src.clone(), dst.clone(), src_md, dst_md_opt))
+        })
+        .collect();
+    let metas = futures::future::try_join_all(meta_futs).await?;
+
+    // Buckets
+    let mut subdir_both_exist: Vec<(PathBuf, PathBuf)> = Vec::new();
+    let mut dir_direct_moves: Vec<(PathBuf, PathBuf)> = Vec::new();
+    let mut file_skip_ops: Vec<(PathBuf, PathBuf)> = Vec::new();
+    let mut file_rename_ops: Vec<(PathBuf, PathBuf)> = Vec::new();
+    let mut file_replace_ops: Vec<(PathBuf, PathBuf)> = Vec::new();
+
+    for (src, dst, src_md, dst_md_opt) in metas {
+        if src_md.is_dir() {
+            match dst_md_opt {
+                Some(m) if m.is_dir() => {
+                    subdir_both_exist.push((src, dst));
+                }
+                _ => {
+                    // Destination missing or not a directory -> move directly
+                    dir_direct_moves.push((src, dst));
+                }
+            }
+        } else if src_md.is_file() {
+            let action = replace_options.for_path(&src);
+            match action {
+                ReplaceAction::Skip => file_skip_ops.push((src, dst)),
+                ReplaceAction::Rename => file_rename_ops.push((src, dst)),
+                _ => file_replace_ops.push((src, dst)),
+            }
+        }
+    }
+
+    // Stage 1: both side subdirectories exist -> enqueue for next round
+    {
+        let mut next = next_folder_paths.lock_arc().await;
+        next.extend(subdir_both_exist);
+    }
+
+    // Stage 2a: directory direct moves (in parallel)
+    let futs_dir: Vec<_> = dir_direct_moves
+        .into_iter()
+        .map(|(src, dst)| async move {
+            info!(" - Moving from {} to {}", src.display(), dst.display());
+            let _locks = acquire_disk_locks(&[&src, &dst]).await;
+            fs::rename(&src, &dst).await?;
+            Ok::<(), io::Error>(())
+        })
+        .collect();
+    futures::future::try_join_all(futs_dir).await?;
+
+    // Stage 2b: file Skip actions (parallel)
+    let rep_clone = replace_options.clone();
+    let futs_skip: Vec<_> = file_skip_ops
         .into_iter()
         .map(|(src, dst)| {
-            let rep = replace_options.clone();
-            let next_folder_paths = Arc::clone(&next_folder_paths);
+            let rep = rep_clone.clone();
             async move {
-                // Acquire disk lock for the source path
-                let _lock_guard = acquire_disk_lock(&src).await;
-
-                let next_folder_paths_cloned = Arc::clone(&next_folder_paths);
-                let _ = move_action(&src, &dst, rep, move |ori: PathBuf, dst: PathBuf| {
-                    let next_folder_paths = Arc::clone(&next_folder_paths_cloned);
-                    smol::spawn(async move {
-                        let mut next = next_folder_paths.lock_arc().await;
-                        next.push((ori, dst));
-                    })
-                })
-                .await;
+                info!(" - Moving from {} to {}", src.display(), dst.display());
+                let _ld = acquire_disk_locks(&[&dst]).await;
+                let exists = fs::metadata(&dst).await.is_ok();
+                drop(_ld);
+                if exists {
+                    return Ok::<(), io::Error>(());
+                }
+                move_file(&src, &dst, &rep).await?;
+                Ok::<(), io::Error>(())
             }
         })
         .collect();
+    futures::future::try_join_all(futs_skip).await?;
 
-    // Wait for all operations to complete
-    futures::future::join_all(futures).await;
+    // Stage 2c: file Rename actions (parallel)
+    let futs_rename: Vec<_> = file_rename_ops
+        .into_iter()
+        .map(|(src, dst)| async move {
+            info!(" - Moving from {} to {}", src.display(), dst.display());
+            let _locks = acquire_disk_locks(&[&src, &dst]).await;
+            move_file_rename(&src, &dst).await?;
+            Ok::<(), io::Error>(())
+        })
+        .collect();
+    futures::future::try_join_all(futs_rename).await?;
+
+    // Stage 3: remaining overwrites (Replace / CheckReplace) (parallel)
+    let rep_clone2 = replace_options.clone();
+    let futs_replace: Vec<_> = file_replace_ops
+        .into_iter()
+        .map(|(src, dst)| {
+            let rep = rep_clone2.clone();
+            async move {
+                info!(" - Moving from {} to {}", src.display(), dst.display());
+                let _locks = acquire_disk_locks(&[&src, &dst]).await;
+                move_file(&src, &dst, &rep).await?;
+                Ok::<(), io::Error>(())
+            }
+        })
+        .collect();
+    futures::future::try_join_all(futs_replace).await?;
 
     // Return subdirectories that need further processing
     Ok(next_folder_paths.lock_arc().await.clone())
 }
 
-/// Entry point for moving a single file/directory
-async fn move_action(
-    src: &Path,
-    dst: &Path,
-    rep: ReplaceOptions,
-    mut push_child: impl FnMut(PathBuf, PathBuf) -> smol::Task<()>,
-) -> io::Result<()> {
-    info!(" - Moving from {} to {}", src.display(), dst.display());
-
-    let md = fs::metadata(&src).await?;
-    if md.is_file() {
-        move_file(src, dst, &rep).await?;
-    } else if md.is_dir() {
-        // If target directory doesn't exist, move directly
-        if !fs::metadata(&dst).await.is_ok_and(|m| m.is_dir()) {
-            fs::rename(src, dst).await?;
-        } else {
-            // Defer to next round of processing
-            push_child(src.to_path_buf(), dst.to_path_buf()).await;
-        }
-    }
-    Ok(())
-}
+// removed unused move_action
 
 /// Move a single file, handle conflicts according to strategy
 async fn move_file(src: &Path, dst: &Path, rep: &ReplaceOptions) -> io::Result<()> {
     let action = rep.for_path(src);
 
     match action {
-        ReplaceAction::Replace => fs::rename(src, dst).await,
+        ReplaceAction::Replace => {
+            let _locks = acquire_disk_locks(&[src, dst]).await;
+            fs::rename(src, dst).await
+        }
         ReplaceAction::Skip => {
-            if dst.exists() {
+            let _ld = acquire_disk_locks(&[dst]).await;
+            let exists = fs::metadata(&dst).await.is_ok();
+            drop(_ld);
+            if exists {
                 return Ok(());
             }
+            let _locks = acquire_disk_locks(&[src, dst]).await;
             fs::rename(src, dst).await
         }
         ReplaceAction::Rename => move_file_rename(src, dst).await,
         ReplaceAction::CheckReplace => {
-            if !dst.exists() {
-                fs::rename(src, dst).await
-            } else if is_file_same_content(src, dst).await? {
-                // Same content, directly overwrite
+            let _ld = acquire_disk_locks(&[dst]).await;
+            let dst_exists = fs::metadata(&dst).await.is_ok();
+            drop(_ld);
+            if !dst_exists {
+                let _locks = acquire_disk_locks(&[src, dst]).await;
                 fs::rename(src, dst).await
             } else {
-                move_file_rename(src, dst).await
+                let _lr = acquire_disk_locks(&[src, dst]).await;
+                let same = is_file_same_content(src, dst).await?;
+                drop(_lr);
+                if same {
+                    // Same content, directly overwrite
+                    let _locks = acquire_disk_locks(&[src, dst]).await;
+                    fs::rename(src, dst).await
+                } else {
+                    move_file_rename(src, dst).await
+                }
             }
         }
     }
@@ -282,12 +386,17 @@ async fn move_file_rename(src: &Path, dst_dir: &Path) -> io::Result<()> {
             format!("{stem}.{i}.{ext}")
         };
         dst.set_file_name(name);
-        if !dst.exists() {
+        if fs::metadata(&dst).await.is_err() {
+            let _locks = acquire_disk_locks(&[src, &dst]).await;
             fs::rename(src, &dst).await?;
             return Ok(());
         }
-        if is_file_same_content(src, &dst).await? {
+        let _lr = acquire_disk_locks(&[src, &dst]).await;
+        let same = is_file_same_content(src, &dst).await?;
+        drop(_lr);
+        if same {
             // File with same name and content already exists, skip
+            let _ls = acquire_disk_locks(&[src]).await;
             fs::remove_file(src).await?;
             return Ok(());
         }
