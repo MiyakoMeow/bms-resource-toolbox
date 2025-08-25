@@ -46,6 +46,52 @@ impl ReplaceOptions {
     }
 }
 
+/// 预设的替换策略
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ReplacePreset {
+    /// 与 ReplaceOptions::default() 等价
+    Default = 0,
+    /// 与 replace_options_update_pack() 等价
+    UpdatePack = 1,
+}
+
+impl std::str::FromStr for ReplacePreset {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "default" => Ok(ReplacePreset::Default),
+            "update_pack" | "update-pack" => Ok(ReplacePreset::UpdatePack),
+            _ => Err(format!(
+                "Unknown preset: {}. Valid values: default, update_pack",
+                s
+            )),
+        }
+    }
+}
+
+impl clap::ValueEnum for ReplacePreset {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[Self::Default, Self::UpdatePack]
+    }
+
+    fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
+        let name = match self {
+            ReplacePreset::Default => "default",
+            ReplacePreset::UpdatePack => "update_pack",
+        };
+        Some(clap::builder::PossibleValue::new(name))
+    }
+}
+
+/// 从预设获取具体的 ReplaceOptions
+pub fn replace_options_from_preset(preset: ReplacePreset) -> ReplaceOptions {
+    match preset {
+        ReplacePreset::Default => ReplaceOptions::default(),
+        ReplacePreset::UpdatePack => replace_options_update_pack(),
+    }
+}
+
 /// Default update pack strategy
 pub fn replace_options_update_pack() -> ReplaceOptions {
     ReplaceOptions {
@@ -61,17 +107,10 @@ pub fn replace_options_update_pack() -> ReplaceOptions {
     }
 }
 
-/// Move options
-#[derive(Debug, Default, Clone, Copy)]
-pub struct MoveOptions {
-    pub print_info: bool,
-}
-
 /// Recursively move directory contents (using loops instead of recursion)
 pub async fn move_elements_across_dir(
     dir_path_ori: impl AsRef<Path>,
     dir_path_dst: impl AsRef<Path>,
-    options: MoveOptions,
     replace_options: ReplaceOptions,
 ) -> io::Result<()> {
     let dir_path_ori = dir_path_ori.as_ref();
@@ -108,8 +147,7 @@ pub async fn move_elements_across_dir(
 
     while let Some((current_ori, current_dst)) = pending_dirs.pop_front() {
         // Process current directory with adaptive concurrency
-        let next_dirs =
-            process_directory(&current_ori, &current_dst, options, &replace_options).await?;
+        let next_dirs = process_directory(&current_ori, &current_dst, &replace_options).await?;
 
         // Add newly discovered subdirectories to the queue
         for (ori, dst) in next_dirs {
@@ -132,7 +170,6 @@ pub async fn move_elements_across_dir(
 async fn process_directory(
     dir_path_ori: &Path,
     dir_path_dst: &Path,
-    options: MoveOptions,
     replace_options: &ReplaceOptions,
 ) -> io::Result<Vec<(PathBuf, PathBuf)>> {
     // Collect entries to be processed (files / subdirectories)
@@ -159,19 +196,13 @@ async fn process_directory(
                 let _lock_guard = acquire_disk_lock(&src).await;
 
                 let next_folder_paths_cloned = Arc::clone(&next_folder_paths);
-                let _ = move_action(
-                    &src,
-                    &dst,
-                    options,
-                    rep,
-                    move |ori: PathBuf, dst: PathBuf| {
-                        let next_folder_paths = Arc::clone(&next_folder_paths_cloned);
-                        smol::spawn(async move {
-                            let mut next = next_folder_paths.lock_arc().await;
-                            next.push((ori, dst));
-                        })
-                    },
-                )
+                let _ = move_action(&src, &dst, rep, move |ori: PathBuf, dst: PathBuf| {
+                    let next_folder_paths = Arc::clone(&next_folder_paths_cloned);
+                    smol::spawn(async move {
+                        let mut next = next_folder_paths.lock_arc().await;
+                        next.push((ori, dst));
+                    })
+                })
                 .await;
             }
         })
@@ -188,13 +219,10 @@ async fn process_directory(
 async fn move_action(
     src: &Path,
     dst: &Path,
-    options: MoveOptions,
     rep: ReplaceOptions,
     mut push_child: impl FnMut(PathBuf, PathBuf) -> smol::Task<()>,
 ) -> io::Result<()> {
-    if options.print_info {
-        info!(" - Moving from {} to {}", src.display(), dst.display());
-    }
+    info!(" - Moving from {} to {}", src.display(), dst.display());
 
     let md = fs::metadata(&src).await?;
     if md.is_file() {
@@ -336,10 +364,9 @@ mod tests {
                 .expect("Failed to create test structure");
 
             // Execute move
-            let options = MoveOptions { print_info: false };
             let replace_options = ReplaceOptions::default();
 
-            move_elements_across_dir(&src_dir, &dst_dir, options, replace_options)
+            move_elements_across_dir(&src_dir, &dst_dir, replace_options)
                 .await
                 .expect("Move operation failed");
 
@@ -386,13 +413,12 @@ mod tests {
                 .expect("Failed to create file");
 
             // Use Skip strategy
-            let options = MoveOptions { print_info: false };
             let replace_options = ReplaceOptions {
                 default: ReplaceAction::Skip,
                 ..Default::default()
             };
 
-            move_elements_across_dir(&src_dir, &dst_dir, options, replace_options)
+            move_elements_across_dir(&src_dir, &dst_dir, replace_options)
                 .await
                 .expect("Move operation failed");
 
@@ -437,13 +463,12 @@ mod tests {
                 .expect("Failed to create file");
 
             // Use Rename strategy
-            let options = MoveOptions { print_info: false };
             let replace_options = ReplaceOptions {
                 default: ReplaceAction::Rename,
                 ..Default::default()
             };
 
-            move_elements_across_dir(&src_dir, &dst_dir, options, replace_options)
+            move_elements_across_dir(&src_dir, &dst_dir, replace_options)
                 .await
                 .expect("Move operation failed");
 
@@ -490,13 +515,12 @@ mod tests {
                 .expect("Failed to create file");
 
             // Use CheckReplace strategy
-            let options = MoveOptions { print_info: false };
             let replace_options = ReplaceOptions {
                 default: ReplaceAction::CheckReplace,
                 ..Default::default()
             };
 
-            move_elements_across_dir(&src_dir, &dst_dir, options, replace_options)
+            move_elements_across_dir(&src_dir, &dst_dir, replace_options)
                 .await
                 .expect("Move operation failed");
 
@@ -531,11 +555,8 @@ mod tests {
                 .expect("Failed to create test structure");
 
             // Try to move to the same directory
-            let options = MoveOptions { print_info: false };
             let replace_options = ReplaceOptions::default();
-
-            let result =
-                move_elements_across_dir(&src_dir, &src_dir, options, replace_options).await;
+            let result = move_elements_across_dir(&src_dir, &src_dir, replace_options).await;
             assert!(result.is_ok(), "Moving to same directory should succeed");
 
             // Verify directory structure remains unchanged
@@ -556,11 +577,8 @@ mod tests {
             let src_dir = temp_dir.path().join("nonexistent");
             let dst_dir = temp_dir.path().join("dst");
 
-            let options = MoveOptions { print_info: false };
             let replace_options = ReplaceOptions::default();
-
-            let result =
-                move_elements_across_dir(&src_dir, &dst_dir, options, replace_options).await;
+            let result = move_elements_across_dir(&src_dir, &dst_dir, replace_options).await;
             assert!(
                 result.is_ok(),
                 "Moving non-existent directory should succeed (no operation)"
@@ -606,7 +624,6 @@ mod tests {
                 .expect("Failed to create file");
 
             // Use specific extension rules
-            let options = MoveOptions { print_info: false };
             let mut replace_options = ReplaceOptions::default();
             replace_options
                 .ext
@@ -616,7 +633,7 @@ mod tests {
                 .insert("bms".to_string(), ReplaceAction::Rename);
             replace_options.default = ReplaceAction::Replace;
 
-            move_elements_across_dir(&src_dir, &dst_dir, options, replace_options)
+            move_elements_across_dir(&src_dir, &dst_dir, replace_options)
                 .await
                 .expect("Move operation failed");
 

@@ -4,7 +4,7 @@ use std::path::Path;
 
 use crate::fs::{
     is_dir_having_file,
-    moving::{MoveOptions, move_elements_across_dir},
+    moving::{ReplacePreset, move_elements_across_dir, replace_options_from_preset},
     rawpack::{
         get_num_set_file_names, move_out_files_in_folder_in_cache_dir, unzip_file_to_cache_dir,
     },
@@ -16,6 +16,7 @@ pub async fn unzip_numeric_to_bms_folder(
     cache_dir: impl AsRef<Path>,
     root_dir: impl AsRef<Path>,
     confirm: bool,
+    replace_preset: ReplacePreset,
 ) -> io::Result<()> {
     let pack_dir = pack_dir.as_ref();
     let cache_dir = cache_dir.as_ref();
@@ -58,7 +59,8 @@ pub async fn unzip_numeric_to_bms_folder(
         unzip_file_to_cache_dir(&file_path, &cache_dir_path).await?;
 
         // Move files in dir
-        let move_result = move_out_files_in_folder_in_cache_dir(&cache_dir_path).await?;
+        let move_result =
+            move_out_files_in_folder_in_cache_dir(&cache_dir_path, replace_preset).await?;
         if !move_result {
             continue;
         }
@@ -103,8 +105,7 @@ pub async fn unzip_numeric_to_bms_folder(
         move_elements_across_dir(
             &cache_dir_path,
             &target_dir_path,
-            MoveOptions::default(),
-            Default::default(),
+            replace_options_from_preset(replace_preset),
         )
         .await?;
 
@@ -129,6 +130,7 @@ pub async fn unzip_with_name_to_bms_folder(
     cache_dir: impl AsRef<Path>,
     root_dir: impl AsRef<Path>,
     confirm: bool,
+    replace_preset: ReplacePreset,
 ) -> io::Result<()> {
     let pack_dir = pack_dir.as_ref();
     let cache_dir = cache_dir.as_ref();
@@ -190,7 +192,8 @@ pub async fn unzip_with_name_to_bms_folder(
         unzip_file_to_cache_dir(&file_path, &cache_dir_path).await?;
 
         // Move files in dir
-        let move_result = move_out_files_in_folder_in_cache_dir(&cache_dir_path).await?;
+        let move_result =
+            move_out_files_in_folder_in_cache_dir(&cache_dir_path, replace_preset).await?;
         if !move_result {
             continue;
         }
@@ -211,8 +214,7 @@ pub async fn unzip_with_name_to_bms_folder(
         move_elements_across_dir(
             &cache_dir_path,
             &target_dir_path,
-            MoveOptions::default(),
-            Default::default(),
+            replace_options_from_preset(replace_preset),
         )
         .await?;
 

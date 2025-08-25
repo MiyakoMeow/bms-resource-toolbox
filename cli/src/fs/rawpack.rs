@@ -6,7 +6,7 @@ use smol::stream::StreamExt;
 use smol::{fs, io};
 
 use crate::fs::lock::{acquire_disk_lock, acquire_disk_locks};
-use crate::fs::moving::{MoveOptions, move_elements_across_dir};
+use crate::fs::moving::{ReplacePreset, move_elements_across_dir, replace_options_from_preset};
 
 /// Extract supported archives to specified cache directory
 pub async fn unzip_file_to_cache_dir(
@@ -120,6 +120,7 @@ pub fn get_num_set_file_names(pack_dir: impl AsRef<Path>) -> io::Result<Vec<Stri
 /// Flatten next level files/directories in cache directory to current level
 pub async fn move_out_files_in_folder_in_cache_dir(
     cache_dir_path: impl AsRef<Path>,
+    replace_preset: ReplacePreset,
 ) -> io::Result<bool> {
     let cache_dir_path = cache_dir_path.as_ref();
 
@@ -192,8 +193,7 @@ pub async fn move_out_files_in_folder_in_cache_dir(
             move_elements_across_dir(
                 &inner_path,
                 cache_dir_path,
-                MoveOptions::default(),
-                Default::default(),
+                replace_options_from_preset(replace_preset),
             )
             .await?;
             // Acquire disk lock for directory removal

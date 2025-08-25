@@ -3,6 +3,7 @@ use std::path::Path;
 use log::info;
 use smol::{fs, io, stream::StreamExt};
 
+use crate::fs::moving::ReplacePreset;
 use crate::{
     fs::{
         rawpack::get_num_set_file_names,
@@ -154,7 +155,14 @@ pub async fn pack_setup_rawpack_to_hq(
     );
     let cache_dir = root_dir.join("CacheDir");
     fs::create_dir_all(&cache_dir).await?;
-    rawpack_unzip_numeric_to_bms_folder(pack_dir, &cache_dir, root_dir, false).await?;
+    rawpack_unzip_numeric_to_bms_folder(
+        pack_dir,
+        &cache_dir,
+        root_dir,
+        false,
+        ReplacePreset::UpdatePack,
+    )
+    .await?;
 
     // Check if cache directory is empty, delete if empty
     if cache_dir.exists() {
@@ -171,7 +179,13 @@ pub async fn pack_setup_rawpack_to_hq(
         let entry = entry?;
         let path = entry.path();
         if path.is_dir() {
-            set_name_by_bms(&path, BmsFolderSetNameType::AppendTitleArtist, false).await?;
+            set_name_by_bms(
+                &path,
+                BmsFolderSetNameType::AppendTitleArtist,
+                false,
+                ReplacePreset::UpdatePack,
+            )
+            .await?;
         }
     }
 
@@ -260,7 +274,14 @@ pub async fn pack_update_rawpack_to_hq(
     );
     let cache_dir = root_dir.join("CacheDir");
     fs::create_dir_all(&cache_dir).await?;
-    rawpack_unzip_numeric_to_bms_folder(pack_dir, &cache_dir, root_dir, false).await?;
+    rawpack_unzip_numeric_to_bms_folder(
+        pack_dir,
+        &cache_dir,
+        root_dir,
+        false,
+        ReplacePreset::UpdatePack,
+    )
+    .await?;
 
     // Syncing folder name
     info!(
@@ -376,8 +397,14 @@ mod tests {
 
             // This test mainly verifies if the function structure is correct, actual extraction requires real compressed files
             // Since we don't have real compressed files, we only verify it doesn't panic
-            let result =
-                rawpack_unzip_numeric_to_bms_folder(&pack_dir, &cache_dir, &root_dir, false).await;
+            let result = rawpack_unzip_numeric_to_bms_folder(
+                &pack_dir,
+                &cache_dir,
+                &root_dir,
+                false,
+                ReplacePreset::UpdatePack,
+            )
+            .await;
 
             // Verify function execution completes (should not panic even if it fails)
             assert!(

@@ -7,18 +7,20 @@ use strsim::jaro_winkler;
 
 use super::work::BmsFolderSetNameType;
 use crate::fs::lock::acquire_disk_locks;
+use crate::fs::moving::ReplacePreset;
 
 pub async fn set_name_by_bms(
     root_dir: &Path,
     set_type: BmsFolderSetNameType,
     dry_run: bool,
+    replace_preset: ReplacePreset,
 ) -> io::Result<()> {
     let mut entries = fs::read_dir(root_dir).await?;
     while let Some(entry) = entries.next().await {
         let entry = entry?;
         let path = entry.path();
         if path.is_dir() {
-            super::work::set_name_by_bms(&path, set_type, dry_run).await?;
+            super::work::set_name_by_bms(&path, set_type, dry_run, replace_preset).await?;
         }
     }
 
@@ -29,13 +31,14 @@ pub async fn undo_set_name_by_bms(
     root_dir: &Path,
     set_type: BmsFolderSetNameType,
     dry_run: bool,
+    replace_preset: ReplacePreset,
 ) -> io::Result<()> {
     let mut entries = fs::read_dir(root_dir).await?;
     while let Some(entry) = entries.next().await {
         let entry = entry?;
         let path = entry.path();
         if path.is_dir() {
-            super::work::undo_set_name_by_bms(&path, set_type, dry_run).await?;
+            super::work::undo_set_name_by_bms(&path, set_type, dry_run, replace_preset).await?;
         }
     }
     Ok(())
@@ -108,12 +111,12 @@ pub async fn copy_numbered_workdir_names(
 /// When similarity ≥ `similarity_trigger`, print this pair of directories.
 ///
 /// # Example
-/// ```
-/// use be_music_cabinet::options::root::scan_folder_similar_folders;
+/// ```ignore
+/// use be_music_cabinet_cli::options::root::scan_folder_similar_folders;
 /// use std::io;
 ///
 /// fn main() -> io::Result<()> {
-///     smol::run(async {
+///     smol::block_on(async {
 ///         scan_folder_similar_folders("./", 0.7).await?;
 ///         Ok(())
 ///     })

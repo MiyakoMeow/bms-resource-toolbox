@@ -83,6 +83,9 @@ fn type_to_ui_type(ty: &Type) -> UiFieldType {
             "wav_fill_flac".to_string(),
             "mpg_fill_wmv".to_string(),
         ]),
+        "ReplacePreset" => {
+            UiFieldType::Enum(vec!["default".to_string(), "update_pack".to_string()])
+        }
         _ => UiFieldType::Other,
     }
 }

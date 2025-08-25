@@ -2,6 +2,7 @@
 //!
 //! This example demonstrates how to use various features of be-music-cabinet
 
+use be_music_cabinet_cli::fs::moving::ReplacePreset;
 use be_music_cabinet_cli::options::{
     pack::{pack_hq_to_lq, pack_raw_to_hq},
     root_bigpack::{get_remove_media_rule_oraja, remove_unneed_media_files},
@@ -19,7 +20,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let bms_dir = Path::new("./example_bms_folder");
         if bms_dir.exists() {
             println!("Setting directory name: {}", bms_dir.display());
-            set_name_by_bms(bms_dir, BmsFolderSetNameType::AppendTitleArtist, false).await?;
+            set_name_by_bms(
+                bms_dir,
+                BmsFolderSetNameType::AppendTitleArtist,
+                false,
+                ReplacePreset::UpdatePack,
+            )
+            .await?;
             println!("Setting completed");
         } else {
             println!("Example directory does not exist: {}", bms_dir.display());

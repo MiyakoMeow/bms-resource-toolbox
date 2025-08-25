@@ -7,7 +7,7 @@ use crate::{
     bms::get_dir_bms_info,
     fs::{
         get_vaild_fs_name,
-        moving::{move_elements_across_dir, replace_options_update_pack},
+        moving::{ReplacePreset, move_elements_across_dir, replace_options_from_preset},
     },
 };
 
@@ -64,6 +64,7 @@ pub async fn set_name_by_bms(
     work_dir: &Path,
     set_type: BmsFolderSetNameType,
     dry_run: bool,
+    replace_preset: ReplacePreset,
 ) -> io::Result<()> {
     if dry_run {
         log::info!("[dry-run] Start: work::set_name_by_bms");
@@ -100,8 +101,7 @@ pub async fn set_name_by_bms(
         move_elements_across_dir(
             work_dir,
             target_work_dir,
-            Default::default(),
-            replace_options_update_pack(),
+            replace_options_from_preset(replace_preset),
         )
         .await?;
     }
@@ -115,6 +115,7 @@ pub async fn undo_set_name_by_bms(
     work_dir: &Path,
     set_type: BmsFolderSetNameType,
     dry_run: bool,
+    replace_preset: ReplacePreset,
 ) -> io::Result<()> {
     if dry_run {
         log::info!("[dry-run] Start: work::undo_set_name_by_bms");
@@ -144,7 +145,12 @@ pub async fn undo_set_name_by_bms(
         new_dir_path.display()
     );
     if !dry_run {
-        fs::rename(work_dir, new_dir_path).await?;
+        move_elements_across_dir(
+            work_dir,
+            &new_dir_path,
+            replace_options_from_preset(replace_preset),
+        )
+        .await?;
     }
     if dry_run {
         log::info!("[dry-run] End: work::undo_set_name_by_bms");

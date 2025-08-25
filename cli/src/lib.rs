@@ -7,6 +7,7 @@ use clap::{Parser, Subcommand};
 use log::info;
 use std::path::PathBuf;
 
+use crate::fs::moving::ReplacePreset;
 use crate::{
     bms::{
         get_dir_bms_info, get_dir_bms_list, is_root_dir, is_work_dir, parse_bms_file,
@@ -102,6 +103,14 @@ pub enum WorkCommands {
         /// Set type: replace_title_artist, append_title_artist, append_artist
         #[arg(long, default_value = "replace_title_artist", value_name = "Set type")]
         set_type: BmsFolderSetNameType,
+        /// Replace preset: default, update_pack
+        #[arg(
+            long,
+            value_enum,
+            default_value = "update_pack",
+            value_name = "Replace preset"
+        )]
+        replace: ReplacePreset,
         /// Dry run: only print actions
         #[arg(long, value_name = "Dry run")]
         dry_run: bool,
@@ -114,6 +123,14 @@ pub enum WorkCommands {
         /// Set type: replace_title_artist, append_title_artist, append_artist
         #[arg(long, default_value = "append_artist", value_name = "Set type")]
         set_type: BmsFolderSetNameType,
+        /// Replace preset: default, update_pack
+        #[arg(
+            long,
+            value_enum,
+            default_value = "update_pack",
+            value_name = "Replace preset"
+        )]
+        replace: ReplacePreset,
         /// Dry run: only print actions
         #[arg(long, value_name = "Dry run")]
         dry_run: bool,
@@ -247,6 +264,14 @@ pub enum RawpackCommands {
         /// Root directory path
         #[arg(value_name = "Root directory")]
         root_dir: PathBuf,
+        /// Replace preset: default, update_pack
+        #[arg(
+            long,
+            value_enum,
+            default_value = "update_pack",
+            value_name = "Replace preset"
+        )]
+        replace: ReplacePreset,
         /// Confirm before processing
         #[arg(long, value_name = "Confirm")]
         confirm: bool,
@@ -262,6 +287,14 @@ pub enum RawpackCommands {
         /// Root directory path
         #[arg(value_name = "Root directory")]
         root_dir: PathBuf,
+        /// Replace preset: default, update_pack
+        #[arg(
+            long,
+            value_enum,
+            default_value = "update_pack",
+            value_name = "Replace preset"
+        )]
+        replace: ReplacePreset,
         /// Confirm before processing
         #[arg(long, value_name = "Confirm")]
         confirm: bool,
@@ -284,6 +317,14 @@ pub enum RootCommands {
         /// Set type: replace_title_artist, append_title_artist, append_artist
         #[arg(long, default_value = "replace_title_artist", value_name = "Set type")]
         set_type: BmsFolderSetNameType,
+        /// Replace preset: default, update_pack
+        #[arg(
+            long,
+            value_enum,
+            default_value = "update_pack",
+            value_name = "Replace preset"
+        )]
+        replace: ReplacePreset,
         /// Dry run: only print actions
         #[arg(long, value_name = "Dry run")]
         dry_run: bool,
@@ -296,6 +337,14 @@ pub enum RootCommands {
         /// Set type: replace_title_artist, append_title_artist, append_artist
         #[arg(long, default_value = "append_artist", value_name = "Set type")]
         set_type: BmsFolderSetNameType,
+        /// Replace preset: default, update_pack
+        #[arg(
+            long,
+            value_enum,
+            default_value = "update_pack",
+            value_name = "Replace preset"
+        )]
+        replace: ReplacePreset,
         /// Dry run: only print actions
         #[arg(long, value_name = "Dry run")]
         dry_run: bool,
@@ -335,6 +384,14 @@ pub enum RootCommands {
         /// Root directory path
         #[arg(value_name = "Root directory")]
         dir: PathBuf,
+        /// Replace preset: default, update_pack
+        #[arg(
+            long,
+            value_enum,
+            default_value = "update_pack",
+            value_name = "Replace preset"
+        )]
+        replace: ReplacePreset,
         /// Dry run: only print actions
         #[arg(long, value_name = "Dry run")]
         dry_run: bool,
@@ -347,6 +404,14 @@ pub enum RootCommands {
         /// Target directory path
         #[arg(value_name = "Target directory")]
         to: PathBuf,
+        /// Replace preset: default, update_pack
+        #[arg(
+            long,
+            value_enum,
+            default_value = "update_pack",
+            value_name = "Replace preset"
+        )]
+        replace: ReplacePreset,
         /// Dry run: only print actions
         #[arg(long, value_name = "Dry run")]
         dry_run: bool,
@@ -356,6 +421,14 @@ pub enum RootCommands {
         /// Target root directory path
         #[arg(value_name = "Target root directory")]
         dir: PathBuf,
+        /// Replace preset: default, update_pack
+        #[arg(
+            long,
+            value_enum,
+            default_value = "update_pack",
+            value_name = "Replace preset"
+        )]
+        replace: ReplacePreset,
         /// Dry run: only print actions
         #[arg(long)]
         dry_run: bool,
@@ -368,6 +441,14 @@ pub enum RootCommands {
         /// Target directory path
         #[arg(value_name = "Target directory")]
         to: PathBuf,
+        /// Replace preset: default, update_pack
+        #[arg(
+            long,
+            value_enum,
+            default_value = "update_pack",
+            value_name = "Replace preset"
+        )]
+        replace: ReplacePreset,
         /// Dry run: only print actions
         #[arg(long)]
         dry_run: bool,
@@ -435,20 +516,22 @@ pub async fn run_command(command: &Commands) -> Result<(), Box<dyn std::error::E
             WorkCommands::SetName {
                 dir,
                 set_type,
+                replace,
                 dry_run,
             } => {
                 info!("Setting directory name: {}", dir.display());
                 info!("Set type: {:?}", set_type);
-                set_name_by_bms(dir, *set_type, *dry_run).await?;
+                set_name_by_bms(dir, *set_type, *dry_run, *replace).await?;
                 info!("Setting completed");
             }
             WorkCommands::UndoSetName {
                 dir,
                 set_type,
+                replace,
                 dry_run,
             } => {
                 info!("Undoing directory name setting: {}", dir.display());
-                undo_set_name_by_bms(dir, *set_type, *dry_run).await?;
+                undo_set_name_by_bms(dir, *set_type, *dry_run, *replace).await?;
                 info!("Undo completed");
             }
             WorkCommands::RemoveEmptyMedia { dir, dry_run } => {
@@ -461,20 +544,22 @@ pub async fn run_command(command: &Commands) -> Result<(), Box<dyn std::error::E
             RootCommands::SetName {
                 dir,
                 set_type,
+                replace,
                 dry_run,
             } => {
                 info!("Setting directory name: {}", dir.display());
                 info!("Set type: {:?}", set_type);
-                root_set_name_by_bms(dir, *set_type, *dry_run).await?;
+                root_set_name_by_bms(dir, *set_type, *dry_run, *replace).await?;
                 info!("Setting completed");
             }
             RootCommands::UndoSetName {
                 dir,
                 set_type,
+                replace,
                 dry_run,
             } => {
                 info!("Undoing directory name setting: {}", dir.display());
-                root_undo_set_name_by_bms(dir, *set_type, *dry_run).await?;
+                root_undo_set_name_by_bms(dir, *set_type, *dry_run, *replace).await?;
                 info!("Undo completed");
             }
             RootCommands::CopyNumberedNames { from, to, dry_run } => {
@@ -493,31 +578,50 @@ pub async fn run_command(command: &Commands) -> Result<(), Box<dyn std::error::E
             }
             RootCommands::UndoSplit { dir, dry_run } => {
                 info!("Undoing split operation: {}", dir.display());
-                undo_split_pack(dir, *dry_run).await?;
+                undo_split_pack(dir, *dry_run, crate::fs::moving::ReplacePreset::UpdatePack)
+                    .await?;
                 info!("Undo completed");
             }
-            RootCommands::MergeSplit { dir, dry_run } => {
+            RootCommands::MergeSplit {
+                dir,
+                dry_run,
+                replace,
+            } => {
                 info!("Merging split folders: {}", dir.display());
-                merge_split_folders(dir, *dry_run).await?;
+                merge_split_folders(dir, *dry_run, *replace).await?;
                 info!("Merge completed");
             }
-            RootCommands::MoveWorks { from, to, dry_run } => {
+            RootCommands::MoveWorks {
+                from,
+                to,
+                dry_run,
+                replace,
+            } => {
                 info!("Moving works: {} -> {}", from.display(), to.display());
-                move_works_in_pack(from, to, *dry_run).await?;
+                move_works_in_pack(from, to, *dry_run, *replace).await?;
                 info!("Move completed");
             }
-            RootCommands::MoveOutWorks { dir, dry_run } => {
+            RootCommands::MoveOutWorks {
+                dir,
+                dry_run,
+                replace,
+            } => {
                 info!("Moving out one level directory: {}", dir.display());
-                move_out_works(dir, *dry_run).await?;
+                move_out_works(dir, *dry_run, *replace).await?;
                 info!("Move out completed");
             }
-            RootCommands::MoveSameName { from, to, dry_run } => {
+            RootCommands::MoveSameName {
+                from,
+                to,
+                dry_run,
+                replace,
+            } => {
                 info!(
                     "Moving works with same name: {} -> {}",
                     from.display(),
                     to.display()
                 );
-                move_works_with_same_name(from, to, *dry_run).await?;
+                move_works_with_same_name(from, to, *dry_run, *replace).await?;
                 info!("Move completed");
             }
             RootCommands::RemoveUnneedMedia { dir, rule } => {
@@ -679,6 +783,7 @@ pub async fn run_command(command: &Commands) -> Result<(), Box<dyn std::error::E
                 pack_dir,
                 cache_dir,
                 root_dir,
+                replace,
                 confirm,
             } => {
                 info!(
@@ -687,13 +792,15 @@ pub async fn run_command(command: &Commands) -> Result<(), Box<dyn std::error::E
                     root_dir.display(),
                     cache_dir.display()
                 );
-                unzip_numeric_to_bms_folder(pack_dir, cache_dir, root_dir, *confirm).await?;
+                unzip_numeric_to_bms_folder(pack_dir, cache_dir, root_dir, *confirm, *replace)
+                    .await?;
                 info!("Extraction completed");
             }
             RawpackCommands::UnzipWithNameToBmsFolder {
                 pack_dir,
                 cache_dir,
                 root_dir,
+                replace,
                 confirm,
             } => {
                 info!(
@@ -702,7 +809,8 @@ pub async fn run_command(command: &Commands) -> Result<(), Box<dyn std::error::E
                     root_dir.display(),
                     cache_dir.display()
                 );
-                unzip_with_name_to_bms_folder(pack_dir, cache_dir, root_dir, *confirm).await?;
+                unzip_with_name_to_bms_folder(pack_dir, cache_dir, root_dir, *confirm, *replace)
+                    .await?;
                 info!("Extraction completed");
             }
             RawpackCommands::SetFileNum { dir } => {

@@ -58,7 +58,7 @@ fn get_disk_key(path: &Path) -> String {
 
 /// 获取指定路径所在磁盘的锁并自动管理生命周期
 /// 使用示例：
-/// ```rust
+/// ```ignore
 /// let _guard = acquire_disk_lock(&path).await;
 /// // 在这里进行文件操作
 /// // 当 guard 被 drop 时，锁会自动释放
@@ -76,7 +76,7 @@ pub async fn acquire_disk_lock(path: &Path) -> smol::lock::SemaphoreGuard<'stati
 
 /// 智能获取多个路径的磁盘锁，避免在同一磁盘上重复获取锁
 /// 使用示例：
-/// ```rust
+/// ```ignore
 /// let _guards = acquire_disk_locks(&[&src_path, &dst_path]).await;
 /// // 在这里进行文件操作
 /// // 当 guards 被 drop 时，锁会自动释放

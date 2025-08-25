@@ -9,7 +9,7 @@ use regex::Regex;
 use smol::{fs, io, stream::StreamExt};
 use std::str::FromStr;
 
-use crate::fs::moving::{move_elements_across_dir, replace_options_update_pack};
+use crate::fs::moving::{ReplacePreset, move_elements_across_dir, replace_options_from_preset};
 
 // Japanese hiragana
 static RE_JAPANESE_HIRAGANA: once_cell::sync::Lazy<Regex> =
@@ -193,7 +193,11 @@ pub async fn split_folders_with_first_char(
 }
 
 /// (Undo operation) Split works in this directory into multiple folders according to first character
-pub async fn undo_split_pack(root_dir: impl AsRef<Path>, dry_run: bool) -> io::Result<()> {
+pub async fn undo_split_pack(
+    root_dir: impl AsRef<Path>,
+    dry_run: bool,
+    replace_preset: ReplacePreset,
+) -> io::Result<()> {
     if dry_run {
         info!("[dry-run] Start: undo_split_pack");
     }
@@ -245,8 +249,7 @@ pub async fn undo_split_pack(root_dir: impl AsRef<Path>, dry_run: bool) -> io::R
         move_elements_across_dir(
             &from_dir,
             &to_dir,
-            Default::default(),
-            replace_options_update_pack(),
+            replace_options_from_preset(replace_preset),
         )
         .await?;
     }
@@ -258,7 +261,11 @@ pub async fn undo_split_pack(root_dir: impl AsRef<Path>, dry_run: bool) -> io::R
 }
 
 /// Merge split folders
-pub async fn merge_split_folders(root_dir: impl AsRef<Path>, dry_run: bool) -> io::Result<()> {
+pub async fn merge_split_folders(
+    root_dir: impl AsRef<Path>,
+    dry_run: bool,
+    replace_preset: ReplacePreset,
+) -> io::Result<()> {
     if dry_run {
         info!("[dry-run] Start: merge_split_folders");
     }
@@ -363,8 +370,7 @@ pub async fn merge_split_folders(root_dir: impl AsRef<Path>, dry_run: bool) -> i
         move_elements_across_dir(
             &from_dir_path,
             &target_dir_path,
-            Default::default(),
-            replace_options_update_pack(),
+            replace_options_from_preset(replace_preset),
         )
         .await?;
     }
@@ -380,6 +386,7 @@ pub async fn move_works_in_pack(
     root_dir_from: impl AsRef<Path>,
     root_dir_to: impl AsRef<Path>,
     dry_run: bool,
+    replace_preset: ReplacePreset,
 ) -> io::Result<()> {
     if dry_run {
         info!("[dry-run] Start: move_works_in_pack");
@@ -417,8 +424,7 @@ pub async fn move_works_in_pack(
             move_elements_across_dir(
                 &bms_dir,
                 &dst_bms_dir,
-                Default::default(),
-                replace_options_update_pack(),
+                replace_options_from_preset(replace_preset),
             )
             .await?;
         }
@@ -440,8 +446,7 @@ pub async fn move_works_in_pack(
         move_elements_across_dir(
             root_dir_from,
             root_dir_to,
-            Default::default(),
-            replace_options_update_pack(),
+            replace_options_from_preset(replace_preset),
         )
         .await?;
     }
@@ -453,7 +458,11 @@ pub async fn move_works_in_pack(
 }
 
 /// Move out one level directory (auto merge)
-pub async fn move_out_works(target_root_dir: impl AsRef<Path>, dry_run: bool) -> io::Result<()> {
+pub async fn move_out_works(
+    target_root_dir: impl AsRef<Path>,
+    dry_run: bool,
+    replace_preset: ReplacePreset,
+) -> io::Result<()> {
     if dry_run {
         info!("[dry-run] Start: move_out_works");
     }
@@ -491,8 +500,7 @@ pub async fn move_out_works(target_root_dir: impl AsRef<Path>, dry_run: bool) ->
                 move_elements_across_dir(
                     &work_dir_path,
                     &target_work_dir_path,
-                    Default::default(),
-                    replace_options_update_pack(),
+                    replace_options_from_preset(replace_preset),
                 )
                 .await?;
             }
@@ -730,6 +738,7 @@ pub async fn move_works_with_same_name(
     root_dir_from: impl AsRef<Path>,
     root_dir_to: impl AsRef<Path>,
     dry_run: bool,
+    replace_preset: ReplacePreset,
 ) -> io::Result<()> {
     let root_dir_from = root_dir_from.as_ref();
     let root_dir_to = root_dir_to.as_ref();
@@ -823,8 +832,7 @@ pub async fn move_works_with_same_name(
         move_elements_across_dir(
             &from_dir_path,
             &target_path,
-            Default::default(),
-            replace_options_update_pack(),
+            replace_options_from_preset(replace_preset),
         )
         .await?;
     }
