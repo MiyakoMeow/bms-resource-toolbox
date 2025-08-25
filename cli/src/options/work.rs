@@ -89,9 +89,10 @@ pub async fn set_name_by_bms(
     if dry_run {
         log::info!("[dry-run] Start: work::set_name_by_bms");
     }
-    let bms_info = get_dir_bms_info(work_dir)
-        .await?
-        .ok_or(io::Error::other("Bms file not found"))?;
+    let Some(bms_info) = get_dir_bms_info(work_dir).await? else {
+        log::info!("Bms file not found, skipping: {}", work_dir.display());
+        return Ok(());
+    };
     let title = bms_info.header.title.unwrap_or(DEFAULT_TITLE.to_string());
     let artist = bms_info.header.artist.unwrap_or(DEFAULT_ARTIST.to_string());
     let work_dir_name = work_dir
