@@ -12,6 +12,8 @@ use smol::{
     stream::StreamExt,
 };
 
+use crate::fs::lock::acquire_disk_locks;
+
 /// Signs:
 ///  ：＼／＊？＂＜＞｜
 pub fn get_vaild_fs_name(ori_name: &str) -> String {
@@ -42,6 +44,12 @@ pub async fn is_file_same_content(a: &Path, b: &Path) -> io::Result<bool> {
             hasher.update(&buf[..n]);
         }
         Ok(hasher.finalize())
+    }
+    let _locks = acquire_disk_locks(&[a, b]).await;
+    let a_md = fs::metadata(a).await?;
+    let b_md = fs::metadata(b).await?;
+    if a_md.len() != b_md.len() || a_md.is_dir() || b_md.is_dir() {
+        return Ok(false);
     }
     let a = sha256(a).await?;
     let b = sha256(b).await?;
