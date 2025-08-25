@@ -14,7 +14,7 @@ use smol::{
 use crate::bms::{BMS_FILE_EXTS, BMSON_FILE_EXTS};
 
 use super::{is_dir_having_file, is_file_same_content, lock::acquire_disk_locks};
-use log::{info, warn};
+use log::warn;
 
 /// Same name enum as Python
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -263,7 +263,6 @@ async fn process_directory(
     let futs_dir: Vec<_> = dir_direct_moves
         .into_iter()
         .map(|(src, dst)| async move {
-            info!(" - Moving from {} to {}", src.display(), dst.display());
             let _locks = acquire_disk_locks(&[&src, &dst]).await;
             fs::rename(&src, &dst).await?;
             Ok::<(), io::Error>(())
@@ -278,7 +277,6 @@ async fn process_directory(
         .map(|(src, dst)| {
             let rep = rep_clone.clone();
             async move {
-                info!(" - Moving from {} to {}", src.display(), dst.display());
                 let _ld = acquire_disk_locks(&[&dst]).await;
                 let exists = fs::metadata(&dst).await.is_ok();
                 drop(_ld);
@@ -296,7 +294,6 @@ async fn process_directory(
     let futs_rename: Vec<_> = file_rename_ops
         .into_iter()
         .map(|(src, dst)| async move {
-            info!(" - Moving from {} to {}", src.display(), dst.display());
             let _locks = acquire_disk_locks(&[&src, &dst]).await;
             move_file_rename(&src, &dst).await?;
             Ok::<(), io::Error>(())
@@ -311,7 +308,6 @@ async fn process_directory(
         .map(|(src, dst)| {
             let rep = rep_clone2.clone();
             async move {
-                info!(" - Moving from {} to {}", src.display(), dst.display());
                 let _locks = acquire_disk_locks(&[&src, &dst]).await;
                 move_file(&src, &dst, &rep).await?;
                 Ok::<(), io::Error>(())
