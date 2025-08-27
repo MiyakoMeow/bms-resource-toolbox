@@ -1,4 +1,4 @@
-# be-music-cabinet
+# bms-resource-toolbox
 
 BMS music file management tool that provides rich functionality to organize and process BMS files.
 
@@ -17,7 +17,7 @@ BMS music file management tool that provides rich functionality to organize and 
 
 ```bash
 git clone <repository-url>
-cd be-music-cabinet
+cd bms-resource-toolbox
 cargo build --release
 ```
 
@@ -25,16 +25,16 @@ cargo build --release
 
 ```bash
 # View help
-./target/release/be-music-cabinet --help
+./target/release/bms-resource-toolbox --help
 
 # Set BMS folder name
-./target/release/be-music-cabinet work set-name ./MyBMSFolder
+./target/release/bms-resource-toolbox work set-name ./MyBMSFolder
 
 # Remove unnecessary media files
-./target/release/be-music-cabinet root remove-unneed-media ./BMSRoot
+./target/release/bms-resource-toolbox root remove-unneed-media ./BMSRoot
 
 # Raw pack to HQ pack
-./target/release/be-music-cabinet pack raw-to-hq ./BMSRoot
+./target/release/bms-resource-toolbox pack raw-to-hq ./BMSRoot
 ```
 
 ### Programming Interface Usage
@@ -70,7 +70,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ## Module Structure
 
 ```
-be-music-cabinet/
+bms-resource-toolbox/
 ├── src/
 │   ├── main.rs              # Command line application entry
 │   ├── lib.rs               # Library entry

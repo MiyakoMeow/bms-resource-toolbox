@@ -38,7 +38,7 @@ use crate::{
 };
 
 #[derive(Parser)]
-#[command(name = "be-music-cabinet")]
+#[command(name = "bms-resource-toolbox")]
 #[command(about = "Be-Music Source File Manager")]
 #[command(version)]
 pub struct Cli {

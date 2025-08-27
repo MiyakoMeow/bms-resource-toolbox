@@ -259,9 +259,9 @@ dependencies = [
 
 [[package]]
 name = "async-executor"
-version = "1.13.2"
+version = "1.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb812ffb58524bdd10860d7d974e2f01cc0950c2438a74ee5ec2e2280c6c4ffa"
+checksum = "497c00e0fd83a72a79a39fcbd8e3e2f055d6f6c7e025f3b3d91f4f8e76527fb8"
 dependencies = [
  "async-task",
  "concurrent-queue",
@@ -468,66 +468,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
-name = "be-music-cabinet-cli"
-version = "0.1.0"
-dependencies = [
- "blocking",
- "bms-rs",
- "clap",
- "encoding_rs",
- "env_logger",
- "futures",
- "log",
- "num_cpus",
- "once_cell",
- "regex",
- "serde",
- "serde_json",
- "sevenz-rust",
- "sha3",
- "smol 2.0.2",
- "strsim",
- "syn 2.0.106",
- "sysinfo",
- "tempfile",
- "unrar",
- "which 8.0.0",
- "xlsxwriter",
- "zip",
-]
-
-[[package]]
-name = "be-music-cabinet-gui"
-version = "0.1.0"
-dependencies = [
- "be-music-cabinet-cli",
- "blocking",
- "clap",
- "encoding_rs",
- "env_logger",
- "fontdb 0.23.0",
- "futures",
- "iced",
- "log",
- "once_cell",
- "proc-macro2",
- "quote",
- "rfd",
- "serde",
- "serde_json",
- "sha3",
- "smol 2.0.2",
- "strsim",
- "syn 2.0.106",
- "sysinfo",
- "tempfile",
- "ttf-parser 0.25.1",
- "unicode-segmentation",
- "unicode-width 0.2.1",
- "which 8.0.0",
-]
-
-[[package]]
 name = "bindgen"
 version = "0.69.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -655,6 +595,66 @@ dependencies = [
  "futures-io",
  "futures-lite 2.6.1",
  "piper",
+]
+
+[[package]]
+name = "bms-resource-toolbox-cli"
+version = "0.1.0"
+dependencies = [
+ "blocking",
+ "bms-rs",
+ "clap",
+ "encoding_rs",
+ "env_logger",
+ "futures",
+ "log",
+ "num_cpus",
+ "once_cell",
+ "regex",
+ "serde",
+ "serde_json",
+ "sevenz-rust",
+ "sha3",
+ "smol 2.0.2",
+ "strsim",
+ "syn 2.0.106",
+ "sysinfo",
+ "tempfile",
+ "unrar",
+ "which 8.0.0",
+ "xlsxwriter",
+ "zip",
+]
+
+[[package]]
+name = "bms-resource-toolbox-gui"
+version = "0.1.0"
+dependencies = [
+ "blocking",
+ "bms-resource-toolbox-cli",
+ "clap",
+ "encoding_rs",
+ "env_logger",
+ "fontdb 0.23.0",
+ "futures",
+ "iced",
+ "log",
+ "once_cell",
+ "proc-macro2",
+ "quote",
+ "rfd",
+ "serde",
+ "serde_json",
+ "sha3",
+ "smol 2.0.2",
+ "strsim",
+ "syn 2.0.106",
+ "sysinfo",
+ "tempfile",
+ "ttf-parser 0.25.1",
+ "unicode-segmentation",
+ "unicode-width 0.2.1",
+ "which 8.0.0",
 ]
 
 [[package]]
@@ -857,9 +857,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.45"
+version = "4.5.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fc0e74a703892159f5ae7d3aac52c8e6c392f5ae5f359c70b5881d60aaac318"
+checksum = "2c5e4fcf9c21d2e544ca1ee9d8552de13019a42aa7dbf32747fa7aaf1df76e57"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -867,9 +867,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.44"
+version = "4.5.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b3e7f4214277f3c7aa526a59dd3fbe306a370daee1f8b7b8c987069cd8e888a8"
+checksum = "fecb53a0e6fcfb055f686001bc2e2592fa527efaf38dbe81a6a9563562e57d41"
 dependencies = [
  "anstream",
  "anstyle",
@@ -2513,9 +2513,9 @@ dependencies = [
 
 [[package]]
 name = "liblzma"
-version = "0.4.3"
+version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "272b875472a046e39ff7408374a5a050b112d2142211a0f54a295c0bd1c3c757"
+checksum = "10bf66f4598dc77ff96677c8e763655494f00ff9c1cf79e2eb5bb07bc31f807d"
 dependencies = [
  "liblzma-sys",
 ]

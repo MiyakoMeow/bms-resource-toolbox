@@ -27,7 +27,7 @@ use log::{LevelFilter, Log, Metadata, Record};
 use once_cell::sync::OnceCell;
 
 // Call library side CLI and command execution
-use be_music_cabinet_cli::{Cli, run_command};
+use bms_resource_toolbox_cli::{Cli, run_command};
 
 // Import parser module
 mod parser;
@@ -147,7 +147,7 @@ impl App {
         let top = self.current_top();
         let var = self.current_variant();
         let mut args = Vec::new();
-        args.push("be-music-cabinet".to_string());
+        args.push("bms-resource-toolbox".to_string());
         args.push(to_kebab_case(&top.variant_ident));
         args.push(to_kebab_case(&var.name));
         for f in &var.fields {

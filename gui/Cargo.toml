@@ -1,11 +1,11 @@
 [package]
-name = "be-music-cabinet-gui"
+name = "bms-resource-toolbox-gui"
 version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 
 [dependencies]
-be-music-cabinet-cli = { path = "../cli" }
+bms-resource-toolbox-cli = { path = "../cli" }
 
 smol = { workspace = true }
 sha3 = { workspace = true }

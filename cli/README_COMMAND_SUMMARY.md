@@ -1,6 +1,6 @@
-# be-music-cabinet Command Summary
+# bms-resource-toolbox Command Summary
 
-This document summarizes all available commands for the be-music-cabinet command line application.
+This document summarizes all available commands for the bms-resource-toolbox command line application.
 
 ## Command Categories
 
@@ -90,37 +90,37 @@ Handling events and batch operations for root directories.
 ### Basic Operations
 ```bash
 # Set directory name
-be-music-cabinet work set-name ./MyBMSFolder
+bms-resource-toolbox work set-name ./MyBMSFolder
 
 # Remove unnecessary files
-be-music-cabinet root remove-unneed-media ./BMSRoot
+bms-resource-toolbox root remove-unneed-media ./BMSRoot
 
 # Convert large package
-be-music-cabinet pack raw-to-hq ./BMSRoot
+bms-resource-toolbox pack raw-to-hq ./BMSRoot
 ```
 
 ### File Checking
 ```bash
 # Check directory type
-be-music-cabinet bms is-work-dir ./MyBMSFolder
+bms-resource-toolbox bms is-work-dir ./MyBMSFolder
 
 # Check if files are the same
-be-music-cabinet fs is-file-same ./file1.txt ./file2.txt
+bms-resource-toolbox fs is-file-same ./file1.txt ./file2.txt
 
 # Remove empty folders
-be-music-cabinet fs remove-empty-folders ./BMSRoot
+bms-resource-toolbox fs remove-empty-folders ./BMSRoot
 ```
 
 ### Batch Operations
 ```bash
 # Split folders
-be-music-cabinet root split-by-first-char ./BMSRoot
+bms-resource-toolbox root split-by-first-char ./BMSRoot
 
 # Create numbered folders
-be-music-cabinet root-event create-num-folders ./BMSRoot 100
+bms-resource-toolbox root-event create-num-folders ./BMSRoot 100
 
 # Generate information table
-be-music-cabinet root-event generate-work-info-table ./BMSRoot
+bms-resource-toolbox root-event generate-work-info-table ./BMSRoot
 ```
 
 ## Notes
@@ -135,16 +135,16 @@ be-music-cabinet root-event generate-work-info-table ./BMSRoot
 
 ```bash
 # Main help
-be-music-cabinet --help
+bms-resource-toolbox --help
 
 # Subcommand help
-be-music-cabinet work --help
-be-music-cabinet root --help
-be-music-cabinet pack --help
-be-music-cabinet bms --help
-be-music-cabinet fs --help
-be-music-cabinet root-event --help
+bms-resource-toolbox work --help
+bms-resource-toolbox root --help
+bms-resource-toolbox pack --help
+bms-resource-toolbox bms --help
+bms-resource-toolbox fs --help
+bms-resource-toolbox root-event --help
 
 # Specific command help
-be-music-cabinet work set-name --help
+bms-resource-toolbox work set-name --help
 ```

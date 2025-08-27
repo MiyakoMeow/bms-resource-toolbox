@@ -1,6 +1,6 @@
-//! be-music-cabinet basic usage example
+//! bms-resource-toolbox basic usage example
 //!
-//! This example demonstrates how to use various features of be-music-cabinet
+//! This example demonstrates how to use various features of bms-resource-toolbox
 
 use be_music_cabinet_cli::fs::moving::ReplacePreset;
 use be_music_cabinet_cli::options::{
@@ -12,7 +12,7 @@ use std::path::Path;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     smol::block_on(async {
-        println!("be-music-cabinet basic usage example");
+        println!("bms-resource-toolbox basic usage example");
         println!("================================");
 
         // Example 1: Set BMS folder name
@@ -68,10 +68,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         println!("\nExample execution completed!");
         println!("\nTo use the command line version, run:");
-        println!("  be-music-cabinet --help");
-        println!("  be-music-cabinet work --help");
-        println!("  be-music-cabinet root --help");
-        println!("  be-music-cabinet pack --help");
+        println!("  bms-resource-toolbox --help");
+        println!("  bms-resource-toolbox work --help");
+        println!("  bms-resource-toolbox root --help");
+        println!("  bms-resource-toolbox pack --help");
 
         Ok(())
     })
