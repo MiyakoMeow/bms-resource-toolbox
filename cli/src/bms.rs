@@ -5,9 +5,8 @@ use std::{cell::LazyCell, collections::HashMap, fs::FileType, path::Path};
 
 use blocking::unblock;
 use bms_rs::{
-    bms::{BmsOutput, BmsWarning, parse_bms, prelude::PlayingWarning},
-    bmson::{Bmson, bmson_to_bms::BmsonToBmsOutput},
-    parse::model::Bms,
+    bms::prelude::*,
+    bmson::bmson_to_bms::BmsonToBmsOutput,
 };
 use futures::stream::{self, StreamExt as FuturesStreamExt};
 use smol::{fs, io};
@@ -73,7 +72,13 @@ async fn read_bmson_file(file: &Path) -> io::Result<Vec<u8>> {
 
 /// 仅负责解析 BMSON 字节（CPU 密集，单线程执行）
 fn parse_bmson_bytes(bytes: &[u8]) -> io::Result<BmsOutput> {
-    let bmson: Bmson = serde_json::from_slice(bytes).map_err(io::Error::other)?;
+    let Some(bmson) = serde_json::from_slice(bytes).map_err(io::Error::other)? else {
+        let output = BmsOutput {
+            bms: Bms::default(),
+            warnings: vec![BmsWarning::PlayingError(PlayingError::NoNotes)],
+        };
+        return Ok(output);
+    };
     let BmsonToBmsOutput {
         bms,
         warnings: _,
