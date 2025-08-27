@@ -4,10 +4,7 @@ pub mod work;
 use std::{cell::LazyCell, collections::HashMap, fs::FileType, path::Path};
 
 use blocking::unblock;
-use bms_rs::{
-    bms::prelude::*,
-    bmson::bmson_to_bms::BmsonToBmsOutput,
-};
+use bms_rs::{bms::prelude::*, bmson::bmson_to_bms::BmsonToBmsOutput};
 use futures::stream::{self, StreamExt as FuturesStreamExt};
 use smol::{fs, io};
 
