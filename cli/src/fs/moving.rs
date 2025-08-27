@@ -8,8 +8,9 @@ use smol::{
     fs,
     io::{self},
     lock::Mutex,
-    stream::StreamExt,
 };
+
+use futures::stream::{self, StreamExt as FuturesStreamExt, TryStreamExt};
 
 use crate::bms::{BMS_FILE_EXTS, BMSON_FILE_EXTS};
 
@@ -194,7 +195,7 @@ async fn process_directory(
     let next_folder_paths = Arc::new(Mutex::new(Vec::new()));
     let mut pairs: Vec<(PathBuf, PathBuf)> = Vec::new();
 
-    while let Some(entry) = StreamExt::next(&mut entries).await {
+    while let Some(entry) = smol::stream::StreamExt::next(&mut entries).await {
         let entry = entry?;
         let src = entry.path();
         let dst = dir_path_dst.join(entry.file_name());
@@ -202,28 +203,24 @@ async fn process_directory(
     }
 
     // Pre-fetch metadata concurrently (avoid Path::is_dir/is_file) with disk locks
-    let meta_futs: Vec<_> = pairs
-        .iter()
+    let metas: Vec<(
+        PathBuf,
+        PathBuf,
+        smol::fs::Metadata,
+        Option<smol::fs::Metadata>,
+    )> = stream::iter(pairs.iter().cloned())
         .map(|(src, dst)| async move {
-            let _locks = acquire_disk_locks(&[src.as_path(), dst.as_path()]).await;
-            let src_md = fs::metadata(src).await?;
-            let dst_md_opt = match fs::metadata(dst).await {
+            let src_md = fs::metadata(&src).await?;
+            let dst_md_opt = match fs::metadata(&dst).await {
                 Ok(m) => Some(m),
                 Err(e) if e.kind() == io::ErrorKind::NotFound => None,
                 Err(e) => return Err(e),
             };
-            Ok::<
-                (
-                    PathBuf,
-                    PathBuf,
-                    smol::fs::Metadata,
-                    Option<smol::fs::Metadata>,
-                ),
-                io::Error,
-            >((src.clone(), dst.clone(), src_md, dst_md_opt))
+            Ok::<_, io::Error>((src, dst, src_md, dst_md_opt))
         })
-        .collect();
-    let metas = futures::future::try_join_all(meta_futs).await?;
+        .buffer_unordered(64)
+        .try_collect()
+        .await?;
 
     // Buckets
     let mut subdir_both_exist: Vec<(PathBuf, PathBuf)> = Vec::new();
@@ -259,62 +256,62 @@ async fn process_directory(
         next.extend(subdir_both_exist);
     }
 
-    // Stage 2a: directory direct moves (in parallel)
-    let futs_dir: Vec<_> = dir_direct_moves
-        .into_iter()
+    // Stage 2a: directory direct moves (streamed parallel)
+    stream::iter(dir_direct_moves)
         .map(|(src, dst)| async move {
             let _locks = acquire_disk_locks(&[&src, &dst]).await;
-            fs::rename(&src, &dst).await?;
-            Ok::<(), io::Error>(())
+            let r = fs::rename(&src, &dst).await.map(|_| ());
+            drop(_locks);
+            r
         })
-        .collect();
-    futures::future::try_join_all(futs_dir).await?;
+        .buffer_unordered(64)
+        .try_for_each(|_| async { Ok(()) })
+        .await?;
 
-    // Stage 2b: file Skip actions (parallel)
+    // Stage 2b: file Skip actions (streamed parallel)
     let rep_clone = replace_options.clone();
-    let futs_skip: Vec<_> = file_skip_ops
-        .into_iter()
+    stream::iter(file_skip_ops)
         .map(|(src, dst)| {
             let rep = rep_clone.clone();
             async move {
-                let _ld = acquire_disk_locks(&[&dst]).await;
                 let exists = fs::metadata(&dst).await.is_ok();
-                drop(_ld);
                 if exists {
                     return Ok::<(), io::Error>(());
                 }
-                move_file(&src, &dst, &rep).await?;
-                Ok::<(), io::Error>(())
+                move_file(&src, &dst, &rep).await.map(|_| ())
             }
         })
-        .collect();
-    futures::future::try_join_all(futs_skip).await?;
+        .buffer_unordered(128)
+        .try_for_each(|_| async { Ok(()) })
+        .await?;
 
-    // Stage 2c: file Rename actions (parallel)
-    let futs_rename: Vec<_> = file_rename_ops
-        .into_iter()
+    // Stage 2c: file Rename actions (streamed parallel)
+    stream::iter(file_rename_ops)
         .map(|(src, dst)| async move {
             let _locks = acquire_disk_locks(&[&src, &dst]).await;
-            move_file_rename(&src, &dst).await?;
-            Ok::<(), io::Error>(())
+            let r = move_file_rename(&src, &dst).await.map(|_| ());
+            drop(_locks);
+            r
         })
-        .collect();
-    futures::future::try_join_all(futs_rename).await?;
+        .buffer_unordered(128)
+        .try_for_each(|_| async { Ok(()) })
+        .await?;
 
-    // Stage 3: remaining overwrites (Replace / CheckReplace) (parallel)
+    // Stage 3: remaining overwrites (Replace / CheckReplace) (streamed parallel)
     let rep_clone2 = replace_options.clone();
-    let futs_replace: Vec<_> = file_replace_ops
-        .into_iter()
+    stream::iter(file_replace_ops)
         .map(|(src, dst)| {
             let rep = rep_clone2.clone();
             async move {
                 let _locks = acquire_disk_locks(&[&src, &dst]).await;
-                move_file(&src, &dst, &rep).await?;
-                Ok::<(), io::Error>(())
+                let r = move_file(&src, &dst, &rep).await.map(|_| ());
+                drop(_locks);
+                r
             }
         })
-        .collect();
-    futures::future::try_join_all(futs_replace).await?;
+        .buffer_unordered(128)
+        .try_for_each(|_| async { Ok(()) })
+        .await?;
 
     // Return subdirectories that need further processing
     Ok(next_folder_paths.lock_arc().await.clone())
@@ -329,34 +326,36 @@ async fn move_file(src: &Path, dst: &Path, rep: &ReplaceOptions) -> io::Result<(
     match action {
         ReplaceAction::Replace => {
             let _locks = acquire_disk_locks(&[src, dst]).await;
-            fs::rename(src, dst).await
+            let r = fs::rename(src, dst).await;
+            drop(_locks);
+            r
         }
         ReplaceAction::Skip => {
-            let _ld = acquire_disk_locks(&[dst]).await;
             let exists = fs::metadata(&dst).await.is_ok();
-            drop(_ld);
             if exists {
                 return Ok(());
             }
             let _locks = acquire_disk_locks(&[src, dst]).await;
-            fs::rename(src, dst).await
+            let r = fs::rename(src, dst).await;
+            drop(_locks);
+            r
         }
         ReplaceAction::Rename => move_file_rename(src, dst).await,
         ReplaceAction::CheckReplace => {
-            let _ld = acquire_disk_locks(&[dst]).await;
             let dst_exists = fs::metadata(&dst).await.is_ok();
-            drop(_ld);
             if !dst_exists {
                 let _locks = acquire_disk_locks(&[src, dst]).await;
-                fs::rename(src, dst).await
+                let r = fs::rename(src, dst).await;
+                drop(_locks);
+                r
             } else {
-                let _lr = acquire_disk_locks(&[src, dst]).await;
                 let same = is_file_same_content(src, dst).await?;
-                drop(_lr);
                 if same {
                     // Same content, directly overwrite
                     let _locks = acquire_disk_locks(&[src, dst]).await;
-                    fs::rename(src, dst).await
+                    let r = fs::rename(src, dst).await;
+                    drop(_locks);
+                    r
                 } else {
                     move_file_rename(src, dst).await
                 }
@@ -385,15 +384,15 @@ async fn move_file_rename(src: &Path, dst_dir: &Path) -> io::Result<()> {
         if fs::metadata(&dst).await.is_err() {
             let _locks = acquire_disk_locks(&[src, &dst]).await;
             fs::rename(src, &dst).await?;
+            drop(_locks);
             return Ok(());
         }
-        let _lr = acquire_disk_locks(&[src, &dst]).await;
         let same = is_file_same_content(src, &dst).await?;
-        drop(_lr);
         if same {
             // File with same name and content already exists, skip
             let _ls = acquire_disk_locks(&[src]).await;
             fs::remove_file(src).await?;
+            drop(_ls);
             return Ok(());
         }
     }

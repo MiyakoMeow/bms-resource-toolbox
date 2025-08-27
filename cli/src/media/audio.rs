@@ -8,6 +8,7 @@ use std::{
 
 use crate::fs::lock::acquire_disk_lock;
 use futures::stream::StreamExt as _;
+use futures::stream::{self, TryStreamExt};
 use smol::{
     fs::{self, remove_file},
     io,
@@ -187,18 +188,15 @@ async fn transfer_audio_in_directory(
         }
     }
 
-    // Process each file concurrently using disk locks
+    // Process each file concurrently using disk locks（流式）
     let failures_cloned = failures.clone();
     let had_error_cloned = had_error.clone();
-    let futures: Vec<_> = tasks
-        .into_iter()
+    stream::iter(tasks)
         .map(|file_path| {
             let failures = failures_cloned.clone();
             let had_error = had_error_cloned.clone();
             let presets = presets.to_vec();
             async move {
-                // Acquire disk lock for the file path
-                let _lock_guard = acquire_disk_lock(&file_path).await;
                 let mut current_preset_index = 0;
                 let mut success = false;
 
@@ -213,7 +211,10 @@ async fn transfer_audio_in_directory(
                                 && metadata.len() > 0
                             {
                                 log::info!("Removing existing file: {}", output_path.display());
+                                // Lock only when deleting target
+                                let _lk = acquire_disk_lock(&output_path).await;
                                 let _ = remove_file(&output_path).await;
+                                drop(_lk);
                             }
                         } else {
                             log::info!("Skipping existing file: {}", output_path.display());
@@ -230,7 +231,15 @@ async fn transfer_audio_in_directory(
 
                         match output {
                             Ok(output) if output.status.success() => {
-                                if remove_on_success && let Err(e) = remove_file(&file_path).await {
+                                if remove_on_success
+                                    && let Err(e) = {
+                                        // Lock only when deleting source
+                                        let _lk = acquire_disk_lock(&file_path).await;
+                                        let res = remove_file(&file_path).await;
+                                        drop(_lk);
+                                        res
+                                    }
+                                {
                                     eprintln!(
                                         "Error deleting original file: {} - {}",
                                         file_path.display(),
@@ -263,7 +272,14 @@ async fn transfer_audio_in_directory(
                         let mut guard = failures.lock().unwrap();
                         guard.push(name.to_string());
                     }
-                    if remove_on_fail && let Err(e) = remove_file(&file_path).await {
+                    if remove_on_fail
+                        && let Err(e) = {
+                            let _lk = acquire_disk_lock(&file_path).await;
+                            let res = remove_file(&file_path).await;
+                            drop(_lk);
+                            res
+                        }
+                    {
                         eprintln!(
                             "Error deleting failed file: {} - {}",
                             file_path.display(),
@@ -271,12 +287,13 @@ async fn transfer_audio_in_directory(
                         );
                     }
                 }
+
+                Ok::<(), io::Error>(())
             }
         })
-        .collect();
-
-    // Wait for all tasks to complete
-    futures::future::join_all(futures).await;
+        .buffer_unordered(64)
+        .try_for_each(|_| async { Ok(()) })
+        .await?;
 
     // Output processing results
     if total_files > 0 {

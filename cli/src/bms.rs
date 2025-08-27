@@ -3,14 +3,17 @@ pub mod work;
 
 use std::{cell::LazyCell, collections::HashMap, fs::FileType, path::Path};
 
-use crate::fs::lock::acquire_disk_lock;
+use blocking::unblock;
 use bms_rs::{
     bms::{BmsOutput, BmsWarning, parse_bms, prelude::PlayingWarning},
     bmson::{Bmson, bmson_to_bms::BmsonToBmsOutput},
     parse::model::Bms,
 };
-use smol::{fs, io, stream::StreamExt};
-use work::extract_work_name;
+use futures::stream::{self, StreamExt as FuturesStreamExt};
+use smol::{fs, io};
+
+use self::work::extract_work_name;
+use crate::fs::lock::acquire_disk_lock;
 
 pub const BMS_FILE_EXTS: &[&str] = &["bms", "bme", "bml", "pms"];
 pub const BMSON_FILE_EXTS: &[&str] = &["bmson"];
@@ -37,25 +40,40 @@ pub const MEDIA_FILE_EXTS_FILE_EXTS: LazyCell<Vec<&str>> = LazyCell::new(|| {
         .collect::<Vec<_>>()
 });
 
-pub async fn parse_bms_file(file: &Path) -> io::Result<BmsOutput> {
-    // Acquire disk lock for file reading
+/// 仅负责读取 BMS 文件（异步 IO）
+async fn read_bms_file(file: &Path) -> io::Result<Vec<u8>> {
     let bytes = {
         let _lock_guard = acquire_disk_lock(file).await;
         fs::read(file).await?
-    }; // 锁在这里被 drop，文件读取完成后立即释放
-
-    let (str, _encoding, _has_error) = encoding_rs::SHIFT_JIS.decode(&bytes);
-    Ok(parse_bms(&str))
+    };
+    Ok(bytes)
 }
 
-pub async fn parse_bmson_file(file: &Path) -> io::Result<BmsOutput> {
-    // Acquire disk lock for file reading
+/// 仅负责解析 BMS 字节（CPU 密集，单线程执行）
+fn parse_bms_bytes(bytes: &[u8]) -> BmsOutput {
+    let (str, _encoding, _has_error) = encoding_rs::SHIFT_JIS.decode(bytes);
+    parse_bms(&str)
+}
+
+/// 包装：读取 + 解析
+pub async fn parse_bms_file(file: &Path) -> io::Result<BmsOutput> {
+    let bytes = read_bms_file(file).await?;
+    // 解析阶段保持单线程（不在此处并发）
+    Ok(parse_bms_bytes(&bytes))
+}
+
+/// 仅负责读取 BMSON 文件（异步 IO）
+async fn read_bmson_file(file: &Path) -> io::Result<Vec<u8>> {
     let bytes = {
         let _lock_guard = acquire_disk_lock(file).await;
         fs::read(file).await?
-    }; // 锁在这里被 drop，文件读取完成后立即释放
+    };
+    Ok(bytes)
+}
 
-    let bmson: Bmson = serde_json::from_slice(&bytes).map_err(io::Error::other)?;
+/// 仅负责解析 BMSON 字节（CPU 密集，单线程执行）
+fn parse_bmson_bytes(bytes: &[u8]) -> io::Result<BmsOutput> {
+    let bmson: Bmson = serde_json::from_slice(bytes).map_err(io::Error::other)?;
     let BmsonToBmsOutput {
         bms,
         warnings: _,
@@ -72,11 +90,17 @@ pub async fn parse_bmson_file(file: &Path) -> io::Result<BmsOutput> {
     })
 }
 
+/// 包装：读取 + 解析
+pub async fn parse_bmson_file(file: &Path) -> io::Result<BmsOutput> {
+    let bytes = read_bmson_file(file).await?;
+    parse_bmson_bytes(&bytes)
+}
+
 pub async fn get_dir_bms_list(dir: &Path) -> io::Result<Vec<BmsOutput>> {
-    // Collect all BMS files first
+    // 收集候选文件
     let mut bms_files = Vec::new();
     let mut dir_entry = fs::read_dir(dir).await?;
-    while let Some(entry) = dir_entry.next().await {
+    while let Some(entry) = smol::stream::StreamExt::next(&mut dir_entry).await {
         let entry = entry?;
         let file_type: FileType = entry.file_type().await?;
         if file_type.is_dir() {
@@ -89,48 +113,59 @@ pub async fn get_dir_bms_list(dir: &Path) -> io::Result<Vec<BmsOutput>> {
         }
     }
 
-    // Process files in parallel using disk locks
-    let futures: Vec<_> = bms_files
-        .into_iter()
+    // Stage 1: 并发读取（IO 密集）
+    let read_concurrency: usize = 16;
+    #[derive(Debug)]
+    enum PendingParse {
+        Bms(Vec<u8>),
+        Bmson(Vec<u8>),
+    }
+    // Stage 2: 解析并发度（CPU 密集）
+    let parse_concurrency: usize = num_cpus::get().max(1);
+
+    let parsed_list: Vec<BmsOutput> = stream::iter(bms_files)
         .map(|file_path| async move {
             let ext = file_path.extension().and_then(|p| p.to_str()).unwrap_or("");
-            let bms = if BMS_FILE_EXTS.contains(&ext) {
-                parse_bms_file(&file_path).await?
+            if BMS_FILE_EXTS.contains(&ext) {
+                let bytes = read_bms_file(&file_path).await?;
+                Ok::<Option<PendingParse>, io::Error>(Some(PendingParse::Bms(bytes)))
             } else if BMSON_FILE_EXTS.contains(&ext) {
-                parse_bmson_file(&file_path).await?
+                let bytes = read_bmson_file(&file_path).await?;
+                Ok(Some(PendingParse::Bmson(bytes)))
             } else {
-                return Ok::<std::option::Option<bms_rs::bms::BmsOutput>, io::Error>(
-                    None::<BmsOutput>,
-                );
-            };
-
-            // Check playing error
-            if bms.warnings.iter().any(|warning| {
-                matches!(
-                    warning,
-                    BmsWarning::PlayingError(_)
-                        | BmsWarning::PlayingWarning(PlayingWarning::NoPlayableNotes)
-                )
-            }) {
-                return Ok(None);
+                Ok(None)
             }
-
-            Ok(Some(bms))
         })
-        .collect();
+        .buffer_unordered(read_concurrency)
+        .filter_map(|res| async move { res.ok().flatten() })
+        // Stage 2: 解析（CPU 密集，受限并发）
+        .map(|pending| async move {
+            let parsed: io::Result<BmsOutput> = match pending {
+                PendingParse::Bms(bytes) => {
+                    let r = unblock(move || parse_bms_bytes(&bytes)).await;
+                    Ok(r)
+                }
+                PendingParse::Bmson(bytes) => unblock(move || parse_bmson_bytes(&bytes)).await,
+            };
+            if let Ok(out) = parsed {
+                (!out.warnings.iter().any(|warning| {
+                    matches!(
+                        warning,
+                        BmsWarning::PlayingError(_)
+                            | BmsWarning::PlayingWarning(PlayingWarning::NoPlayableNotes)
+                    )
+                }))
+                .then_some(out)
+            } else {
+                None
+            }
+        })
+        .buffer_unordered(parse_concurrency)
+        .filter_map(|v| async move { v })
+        .collect::<Vec<BmsOutput>>()
+        .await;
 
-    // Wait for all tasks to complete
-    let results = futures::future::join_all(futures).await;
-
-    // Collect successful results
-    let mut bms_list = Vec::new();
-    for result in results {
-        if let Ok(Some(bms)) = result {
-            bms_list.push(bms);
-        }
-    }
-
-    Ok(bms_list)
+    Ok(parsed_list)
 }
 
 /// Get BMS information for an entire directory (information integration)
@@ -187,7 +222,7 @@ pub async fn is_work_dir(dir: &Path) -> io::Result<bool> {
     // Collect all files first
     let mut files = Vec::new();
     let mut read_dir = fs::read_dir(dir).await?;
-    while let Some(entry) = read_dir.next().await {
+    while let Some(entry) = smol::stream::StreamExt::next(&mut read_dir).await {
         let entry = entry?;
         let file_type: FileType = entry.file_type().await?;
         if file_type.is_file() {
@@ -227,7 +262,7 @@ pub async fn is_root_dir(dir: &Path) -> io::Result<bool> {
     // Collect all directories first
     let mut dirs = Vec::new();
     let mut read_dir = fs::read_dir(dir).await?;
-    while let Some(entry) = read_dir.next().await {
+    while let Some(entry) = smol::stream::StreamExt::next(&mut read_dir).await {
         let entry = entry?;
         let file_type: FileType = entry.file_type().await?;
         if file_type.is_dir() {

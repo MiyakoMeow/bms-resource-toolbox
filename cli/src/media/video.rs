@@ -10,7 +10,7 @@ use std::{
 };
 
 use crate::fs::lock::acquire_disk_lock;
-use futures::stream::StreamExt as _;
+use futures::stream::{self, StreamExt as FuturesStreamExt, TryStreamExt};
 use serde::Deserialize;
 use smol::{
     fs::{self, remove_file},
@@ -326,7 +326,7 @@ async fn process_videos_in_directory(
     // Collect tasks
     let mut entries = fs::read_dir(dir_path).await?;
     let mut tasks: Vec<PathBuf> = Vec::new();
-    while let Some(entry) = entries.next().await {
+    while let Some(entry) = smol::stream::StreamExt::next(&mut entries).await {
         let entry = entry?;
         let file_path = entry.path();
         if !file_path.is_file() {
@@ -341,15 +341,12 @@ async fn process_videos_in_directory(
 
     let had_error = Arc::new(AtomicBool::new(false));
 
-    // Process concurrently using disk locks
-    let futures: Vec<_> = tasks
-        .into_iter()
+    // Process concurrently using disk locks（流式）
+    stream::iter(tasks)
         .map(|file_path| {
             let had_error = had_error.clone();
             let preset_names = preset_names.to_vec();
             async move {
-                // Acquire disk lock for the file path
-                let _lock_guard = acquire_disk_lock(&file_path).await;
                 log::info!("Processing video: {}", file_path.display());
 
                 // Choose preset
@@ -373,9 +370,11 @@ async fn process_videos_in_directory(
 
                     if output_path.exists() {
                         if remove_existing {
+                            let _lk = acquire_disk_lock(&output_path).await;
                             if let Err(e) = remove_file(&output_path).await {
                                 eprintln!("Failed to remove existing file: {e}");
                             }
+                            drop(_lk);
                         } else {
                             log::info!("Output file exists, skipping: {}", output_path.display());
                             continue;
@@ -391,7 +390,14 @@ async fn process_videos_in_directory(
                         Ok(output) if output.status.success() => {
                             log::info!("Successfully converted: {}", output_path.display());
                             success = true;
-                            if remove_original && let Err(e) = remove_file(&file_path).await {
+                            if remove_original
+                                && let Err(e) = {
+                                    let _lk = acquire_disk_lock(&file_path).await;
+                                    let res = remove_file(&file_path).await;
+                                    drop(_lk);
+                                    res
+                                }
+                            {
                                 eprintln!("Failed to remove original file: {e}");
                             }
                             break;
@@ -416,12 +422,13 @@ async fn process_videos_in_directory(
                     had_error.store(true, Ordering::Relaxed);
                     eprintln!("All presets failed for: {}", file_path.display());
                 }
+
+                Ok::<(), io::Error>(())
             }
         })
-        .collect();
-
-    // Wait for all tasks to complete
-    futures::future::join_all(futures).await;
+        .buffer_unordered(64)
+        .try_for_each(|_| async { Ok(()) })
+        .await?;
 
     Ok(!had_error.load(Ordering::Relaxed))
 }
@@ -452,7 +459,7 @@ pub async fn process_bms_video_folders(
     }
 
     let mut entries = fs::read_dir(root_dir).await?;
-    while let Some(entry) = entries.next().await {
+    while let Some(entry) = smol::stream::StreamExt::next(&mut entries).await {
         let entry = entry?;
         let dir_path = entry.path();
         if !dir_path.is_dir() {
