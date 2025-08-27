@@ -1,6 +1,6 @@
 use clap::Parser;
 
-use be_music_cabinet_cli::{Cli, run_command};
+use bms_resource_toolbox_cli::{Cli, run_command};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize CLI logger to output logs as-is to terminal
