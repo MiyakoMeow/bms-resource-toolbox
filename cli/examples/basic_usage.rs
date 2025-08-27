@@ -2,8 +2,8 @@
 //!
 //! This example demonstrates how to use various features of bms-resource-toolbox
 
-use be_music_cabinet_cli::fs::moving::ReplacePreset;
-use be_music_cabinet_cli::options::{
+use bms_resource_toolbox_cli::fs::moving::ReplacePreset;
+use bms_resource_toolbox_cli::options::{
     pack::{pack_hq_to_lq, pack_raw_to_hq},
     root_bigpack::{get_remove_media_rule_oraja, remove_unneed_media_files},
     work::{BmsFolderSetNameType, set_name_by_bms},
