@@ -9,7 +9,6 @@ use futures::stream::{self, StreamExt as FuturesStreamExt};
 use smol::{fs, io};
 
 use self::work::extract_work_name;
-use crate::fs::lock::acquire_disk_lock;
 
 pub const BMS_FILE_EXTS: &[&str] = &["bms", "bme", "bml", "pms"];
 pub const BMSON_FILE_EXTS: &[&str] = &["bmson"];
@@ -38,10 +37,7 @@ pub const MEDIA_FILE_EXTS_FILE_EXTS: LazyCell<Vec<&str>> = LazyCell::new(|| {
 
 /// 仅负责读取 BMS 文件（异步 IO）
 async fn read_bms_file(file: &Path) -> io::Result<Vec<u8>> {
-    let bytes = {
-        let _lock_guard = acquire_disk_lock(file).await;
-        fs::read(file).await?
-    };
+    let bytes = { fs::read(file).await? };
     Ok(bytes)
 }
 
@@ -60,10 +56,7 @@ pub async fn parse_bms_file(file: &Path) -> io::Result<BmsOutput> {
 
 /// 仅负责读取 BMSON 文件（异步 IO）
 async fn read_bmson_file(file: &Path) -> io::Result<Vec<u8>> {
-    let bytes = {
-        let _lock_guard = acquire_disk_lock(file).await;
-        fs::read(file).await?
-    };
+    let bytes = { fs::read(file).await? };
     Ok(bytes)
 }
 

@@ -7,7 +7,6 @@ use crate::{
     bms::get_dir_bms_info,
     fs::{
         get_vaild_fs_name,
-        lock::acquire_disk_locks,
         moving::{ReplacePreset, move_elements_across_dir, replace_options_from_preset},
     },
 };
@@ -237,7 +236,6 @@ pub async fn undo_set_name_by_bms(
 
     if !dry_run {
         // 仅使用fs::rename，不使用move_elements_across_dir
-        let _locks = acquire_disk_locks(&[work_dir, &final_dir_path]).await;
         fs::rename(work_dir, &final_dir_path).await?;
     }
 

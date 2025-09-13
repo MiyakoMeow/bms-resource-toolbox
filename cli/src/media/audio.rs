@@ -6,7 +6,6 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::fs::lock::acquire_disk_lock;
 use futures::stream::StreamExt as _;
 use futures::stream::{self, TryStreamExt};
 use smol::{
@@ -212,9 +211,7 @@ async fn transfer_audio_in_directory(
                             {
                                 log::info!("Removing existing file: {}", output_path.display());
                                 // Lock only when deleting target
-                                let _lk = acquire_disk_lock(&output_path).await;
                                 let _ = remove_file(&output_path).await;
-                                drop(_lk);
                             }
                         } else {
                             log::info!("Skipping existing file: {}", output_path.display());
@@ -234,9 +231,7 @@ async fn transfer_audio_in_directory(
                                 if remove_on_success
                                     && let Err(e) = {
                                         // Lock only when deleting source
-                                        let _lk = acquire_disk_lock(&file_path).await;
                                         let res = remove_file(&file_path).await;
-                                        drop(_lk);
                                         res
                                     }
                                 {
@@ -274,9 +269,7 @@ async fn transfer_audio_in_directory(
                     }
                     if remove_on_fail
                         && let Err(e) = {
-                            let _lk = acquire_disk_lock(&file_path).await;
                             let res = remove_file(&file_path).await;
-                            drop(_lk);
                             res
                         }
                     {

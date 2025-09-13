@@ -14,7 +14,7 @@ use futures::stream::{self, StreamExt as FuturesStreamExt, TryStreamExt};
 
 use crate::bms::{BMS_FILE_EXTS, BMSON_FILE_EXTS};
 
-use super::{is_dir_having_file, is_file_same_content, lock::acquire_disk_locks};
+use super::{is_dir_having_file, is_file_same_content};
 use log::warn;
 
 /// Same name enum as Python
@@ -117,12 +117,10 @@ pub async fn move_elements_across_dir(
     let dir_path_ori = dir_path_ori.as_ref();
     let dir_path_dst = dir_path_dst.as_ref();
     // Lock and read source metadata
-    let _l_ori = acquire_disk_locks(&[dir_path_ori]).await;
     let ori_md = match fs::metadata(&dir_path_ori).await {
         Ok(m) => m,
         Err(_) => return Ok(()),
     };
-    drop(_l_ori);
 
     if dir_path_ori == dir_path_dst {
         return Ok(());
@@ -134,9 +132,7 @@ pub async fn move_elements_across_dir(
     // Do this check BEFORE creating the target directory, otherwise we'd
     // unnecessarily enumerate and move children one-by-one.
     // Lock and read destination metadata
-    let _l_dst = acquire_disk_locks(&[dir_path_dst]).await;
     let dst_meta_res = fs::metadata(&dir_path_dst).await;
-    drop(_l_dst);
 
     match dst_meta_res {
         Ok(m) => {
@@ -148,7 +144,6 @@ pub async fn move_elements_across_dir(
         }
         Err(e) => {
             if e.kind() == io::ErrorKind::NotFound {
-                let _l = acquire_disk_locks(&[dir_path_ori, dir_path_dst]).await;
                 fs::rename(&dir_path_ori, &dir_path_dst).await?;
                 return Ok(());
             } else {
@@ -189,9 +184,7 @@ async fn process_directory(
     replace_options: &ReplaceOptions,
 ) -> io::Result<Vec<(PathBuf, PathBuf)>> {
     // Collect entries to be processed (files / subdirectories)
-    let _l_rd = acquire_disk_locks(&[dir_path_ori]).await;
     let mut entries = fs::read_dir(dir_path_ori).await?;
-    drop(_l_rd);
     let next_folder_paths = Arc::new(Mutex::new(Vec::new()));
     let mut pairs: Vec<(PathBuf, PathBuf)> = Vec::new();
 
@@ -259,9 +252,7 @@ async fn process_directory(
     // Stage 2a: directory direct moves (streamed parallel)
     stream::iter(dir_direct_moves)
         .map(|(src, dst)| async move {
-            let _locks = acquire_disk_locks(&[&src, &dst]).await;
             let r = fs::rename(&src, &dst).await.map(|_| ());
-            drop(_locks);
             r
         })
         .buffer_unordered(64)
@@ -288,9 +279,7 @@ async fn process_directory(
     // Stage 2c: file Rename actions (streamed parallel)
     stream::iter(file_rename_ops)
         .map(|(src, dst)| async move {
-            let _locks = acquire_disk_locks(&[&src, &dst]).await;
             let r = move_file_rename(&src, &dst).await.map(|_| ());
-            drop(_locks);
             r
         })
         .buffer_unordered(128)
@@ -303,9 +292,7 @@ async fn process_directory(
         .map(|(src, dst)| {
             let rep = rep_clone2.clone();
             async move {
-                let _locks = acquire_disk_locks(&[&src, &dst]).await;
                 let r = move_file(&src, &dst, &rep).await.map(|_| ());
-                drop(_locks);
                 r
             }
         })
@@ -325,9 +312,7 @@ async fn move_file(src: &Path, dst: &Path, rep: &ReplaceOptions) -> io::Result<(
 
     match action {
         ReplaceAction::Replace => {
-            let _locks = acquire_disk_locks(&[src, dst]).await;
             let r = fs::rename(src, dst).await;
-            drop(_locks);
             r
         }
         ReplaceAction::Skip => {
@@ -335,26 +320,20 @@ async fn move_file(src: &Path, dst: &Path, rep: &ReplaceOptions) -> io::Result<(
             if exists {
                 return Ok(());
             }
-            let _locks = acquire_disk_locks(&[src, dst]).await;
             let r = fs::rename(src, dst).await;
-            drop(_locks);
             r
         }
         ReplaceAction::Rename => move_file_rename(src, dst).await,
         ReplaceAction::CheckReplace => {
             let dst_exists = fs::metadata(&dst).await.is_ok();
             if !dst_exists {
-                let _locks = acquire_disk_locks(&[src, dst]).await;
                 let r = fs::rename(src, dst).await;
-                drop(_locks);
                 r
             } else {
                 let same = is_file_same_content(src, dst).await?;
                 if same {
                     // Same content, directly overwrite
-                    let _locks = acquire_disk_locks(&[src, dst]).await;
                     let r = fs::rename(src, dst).await;
-                    drop(_locks);
                     r
                 } else {
                     move_file_rename(src, dst).await
@@ -382,17 +361,13 @@ async fn move_file_rename(src: &Path, dst_dir: &Path) -> io::Result<()> {
         };
         dst.set_file_name(name);
         if fs::metadata(&dst).await.is_err() {
-            let _locks = acquire_disk_locks(&[src, &dst]).await;
             fs::rename(src, &dst).await?;
-            drop(_locks);
             return Ok(());
         }
         let same = is_file_same_content(src, &dst).await?;
         if same {
             // File with same name and content already exists, skip
-            let _ls = acquire_disk_locks(&[src]).await;
             fs::remove_file(src).await?;
-            drop(_ls);
             return Ok(());
         }
     }

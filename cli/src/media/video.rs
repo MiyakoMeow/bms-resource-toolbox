@@ -9,7 +9,6 @@ use std::{
     },
 };
 
-use crate::fs::lock::acquire_disk_lock;
 use futures::stream::{self, StreamExt as FuturesStreamExt, TryStreamExt};
 use serde::Deserialize;
 use smol::{
@@ -370,11 +369,9 @@ async fn process_videos_in_directory(
 
                     if output_path.exists() {
                         if remove_existing {
-                            let _lk = acquire_disk_lock(&output_path).await;
                             if let Err(e) = remove_file(&output_path).await {
                                 eprintln!("Failed to remove existing file: {e}");
                             }
-                            drop(_lk);
                         } else {
                             log::info!("Output file exists, skipping: {}", output_path.display());
                             continue;
@@ -392,9 +389,7 @@ async fn process_videos_in_directory(
                             success = true;
                             if remove_original
                                 && let Err(e) = {
-                                    let _lk = acquire_disk_lock(&file_path).await;
                                     let res = remove_file(&file_path).await;
-                                    drop(_lk);
                                     res
                                 }
                             {
