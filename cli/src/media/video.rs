@@ -387,12 +387,7 @@ async fn process_videos_in_directory(
                         Ok(output) if output.status.success() => {
                             log::info!("Successfully converted: {}", output_path.display());
                             success = true;
-                            if remove_original
-                                && let Err(e) = {
-                                    let res = remove_file(&file_path).await;
-                                    res
-                                }
-                            {
+                            if remove_original && let Err(e) = { remove_file(&file_path).await } {
                                 eprintln!("Failed to remove original file: {e}");
                             }
                             break;

@@ -251,10 +251,7 @@ async fn process_directory(
 
     // Stage 2a: directory direct moves (streamed parallel)
     stream::iter(dir_direct_moves)
-        .map(|(src, dst)| async move {
-            let r = fs::rename(&src, &dst).await.map(|_| ());
-            r
-        })
+        .map(|(src, dst)| async move { fs::rename(&src, &dst).await.map(|_| ()) })
         .buffer_unordered(64)
         .try_for_each(|_| async { Ok(()) })
         .await?;
@@ -278,10 +275,7 @@ async fn process_directory(
 
     // Stage 2c: file Rename actions (streamed parallel)
     stream::iter(file_rename_ops)
-        .map(|(src, dst)| async move {
-            let r = move_file_rename(&src, &dst).await.map(|_| ());
-            r
-        })
+        .map(|(src, dst)| async move { move_file_rename(&src, &dst).await.map(|_| ()) })
         .buffer_unordered(128)
         .try_for_each(|_| async { Ok(()) })
         .await?;
@@ -291,10 +285,7 @@ async fn process_directory(
     stream::iter(file_replace_ops)
         .map(|(src, dst)| {
             let rep = rep_clone2.clone();
-            async move {
-                let r = move_file(&src, &dst, &rep).await.map(|_| ());
-                r
-            }
+            async move { move_file(&src, &dst, &rep).await.map(|_| ()) }
         })
         .buffer_unordered(128)
         .try_for_each(|_| async { Ok(()) })
@@ -311,30 +302,24 @@ async fn move_file(src: &Path, dst: &Path, rep: &ReplaceOptions) -> io::Result<(
     let action = rep.for_path(src);
 
     match action {
-        ReplaceAction::Replace => {
-            let r = fs::rename(src, dst).await;
-            r
-        }
+        ReplaceAction::Replace => fs::rename(src, dst).await,
         ReplaceAction::Skip => {
             let exists = fs::metadata(&dst).await.is_ok();
             if exists {
                 return Ok(());
             }
-            let r = fs::rename(src, dst).await;
-            r
+            fs::rename(src, dst).await
         }
         ReplaceAction::Rename => move_file_rename(src, dst).await,
         ReplaceAction::CheckReplace => {
             let dst_exists = fs::metadata(&dst).await.is_ok();
             if !dst_exists {
-                let r = fs::rename(src, dst).await;
-                r
+                fs::rename(src, dst).await
             } else {
                 let same = is_file_same_content(src, dst).await?;
                 if same {
                     // Same content, directly overwrite
-                    let r = fs::rename(src, dst).await;
-                    r
+                    fs::rename(src, dst).await
                 } else {
                     move_file_rename(src, dst).await
                 }

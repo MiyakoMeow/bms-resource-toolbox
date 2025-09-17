@@ -231,8 +231,7 @@ async fn transfer_audio_in_directory(
                                 if remove_on_success
                                     && let Err(e) = {
                                         // Lock only when deleting source
-                                        let res = remove_file(&file_path).await;
-                                        res
+                                        remove_file(&file_path).await
                                     }
                                 {
                                     eprintln!(
@@ -267,12 +266,7 @@ async fn transfer_audio_in_directory(
                         let mut guard = failures.lock().unwrap();
                         guard.push(name.to_string());
                     }
-                    if remove_on_fail
-                        && let Err(e) = {
-                            let res = remove_file(&file_path).await;
-                            res
-                        }
-                    {
+                    if remove_on_fail && let Err(e) = { remove_file(&file_path).await } {
                         eprintln!(
                             "Error deleting failed file: {} - {}",
                             file_path.display(),
