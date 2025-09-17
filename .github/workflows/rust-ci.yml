@@ -7,40 +7,62 @@ on:
       - main
 
 jobs:
-  ci:
-    name: CI
+  fmt:
+    name: rustfmt
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
-          components: [rustfmt, clippy]
-      - name: Cache cargo
-        uses: Swatinem/rust-cache@v2
-      
-      # 1. 代码格式化检查
+          components: rustfmt
       - name: Run rustfmt
         run: cargo fmt --all -- --check
-      
-      # 2. 代码质量检查
+
+  clippy:
+    name: clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
       - name: Run clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
-      
-      # 3. 构建项目
+
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
       - name: Build workspace
         run: cargo build --workspace --release
-      
-      # 4. 运行测试
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
       - name: Run tests
         run: cargo test --workspace --all-features --all-targets --no-fail-fast
-      
-      # 5. 安装 cargo-deny
+
+  cargo-deny:
+    name: cargo-deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
       - name: Install cargo-deny
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-deny
-      
-      # 6. 安全检查
       - name: Run cargo-deny (advisories)
         run: cargo deny check advisories
       - name: Run cargo-deny (licenses)
