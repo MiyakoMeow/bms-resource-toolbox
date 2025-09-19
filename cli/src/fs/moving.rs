@@ -653,6 +653,47 @@ mod tests {
     }
 
     #[test]
+    fn test_move_elements_across_dir_nonexistent_target() {
+        smol::block_on(async {
+            let temp_dir = tempdir().expect("Failed to create temp directory");
+            let src_dir = temp_dir.path().join("src");
+            let dst_dir = temp_dir.path().join("nonexistent_dst");
+
+            // Create source directory structure
+            fs::create_dir_all(&src_dir)
+                .await
+                .expect("Failed to create source directory");
+            create_test_structure(&src_dir)
+                .await
+                .expect("Failed to create test structure");
+
+            let replace_options = ReplaceOptions::default();
+            let result = move_elements_across_dir(&src_dir, &dst_dir, replace_options).await;
+            assert!(
+                result.is_ok(),
+                "Moving to non-existent target should succeed"
+            );
+
+            // Verify the entire directory was moved (renamed)
+            assert!(!src_dir.exists(), "Source directory should not exist");
+            assert!(dst_dir.exists(), "Target directory should exist");
+
+            // Verify all files were moved
+            let expected_files = [
+                ("file1.txt", "content1"),
+                ("file2.bms", "content2"),
+                ("subdir/file3.txt", "content3"),
+                ("subdir/nested/file4.txt", "content4"),
+            ];
+            verify_structure(&dst_dir, &expected_files)
+                .await
+                .expect("Failed to verify structure");
+
+            cleanup_test_dir(&temp_dir).await;
+        });
+    }
+
+    #[test]
     fn test_move_elements_across_dir_with_ext_specific_rules() {
         smol::block_on(async {
             let temp_dir = tempdir().expect("Failed to create temp directory");

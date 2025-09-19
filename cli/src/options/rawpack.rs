@@ -92,10 +92,6 @@ pub async fn unzip_numeric_to_bms_folder(
             root_dir.join(id_str)
         };
 
-        if !target_dir_path.exists() {
-            fs::create_dir_all(&target_dir_path).await?;
-        }
-
         // Move cache to bms dir
         info!(
             " > Moving files in {} to {}",
@@ -199,11 +195,6 @@ pub async fn unzip_with_name_to_bms_folder(
         }
 
         let target_dir_path = root_dir.join(file_name_without_ext);
-
-        // Create New Target dir
-        if !target_dir_path.exists() {
-            fs::create_dir_all(&target_dir_path).await?;
-        }
 
         // Move cache to bms dir
         info!(

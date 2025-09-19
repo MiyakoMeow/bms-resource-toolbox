@@ -138,10 +138,6 @@ pub async fn set_name_by_bms(
         target_work_dir.display()
     );
     if !dry_run {
-        fs::DirBuilder::new()
-            .recursive(true)
-            .create(&target_work_dir)
-            .await?;
         move_elements_across_dir(
             work_dir,
             target_work_dir,
