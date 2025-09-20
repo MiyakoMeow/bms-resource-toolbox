@@ -7,27 +7,47 @@ use smol::process::Command;
 #[derive(Debug, Clone, Copy, clap::ValueEnum)]
 #[repr(u32)]
 pub enum BMSEvent {
+    BOFNT = 19,
     BOFTT = 20,
+    LetsBMSEdit = 101,
+    LetsBMSEdit2 = 102,
     LetsBMSEdit3 = 103,
+    LetsBMSEdit4 = 104,
 }
 
 impl BMSEvent {
     /// Event list page
     pub fn list_url(&self) -> &'static str {
         match self {
+            BMSEvent::BOFNT => "https://manbow.nothing.sh/event/event.cgi?action=sp&event=142",
             BMSEvent::BOFTT => "https://manbow.nothing.sh/event/event.cgi?action=sp&event=146",
+            BMSEvent::LetsBMSEdit => "https://venue.bmssearch.net/letsbmsedit",
+            BMSEvent::LetsBMSEdit2 => "https://venue.bmssearch.net/letsbmsedit2",
             BMSEvent::LetsBMSEdit3 => "https://venue.bmssearch.net/letsbmsedit3",
+            BMSEvent::LetsBMSEdit4 => "https://venue.bmssearch.net/letsbmsedit4",
         }
     }
 
     /// Event work details page
     pub fn work_info_url(&self, work_num: u32) -> String {
         match self {
+            BMSEvent::BOFNT => format!(
+                "https://manbow.nothing.sh/event/event.cgi?action=More_def&num={work_num}&event=142",
+            ),
             BMSEvent::BOFTT => format!(
                 "https://manbow.nothing.sh/event/event.cgi?action=More_def&num={work_num}&event=146",
             ),
+            BMSEvent::LetsBMSEdit => {
+                format!("https://venue.bmssearch.net/letsbmsedit/{work_num}")
+            }
+            BMSEvent::LetsBMSEdit2 => {
+                format!("https://venue.bmssearch.net/letsbmsedit2/{work_num}")
+            }
             BMSEvent::LetsBMSEdit3 => {
                 format!("https://venue.bmssearch.net/letsbmsedit3/{work_num}")
+            }
+            BMSEvent::LetsBMSEdit4 => {
+                format!("https://venue.bmssearch.net/letsbmsedit4/{work_num}")
             }
         }
     }
@@ -39,8 +59,12 @@ impl fmt::Display for BMSEvent {
             f,
             "{}",
             match self {
+                BMSEvent::BOFNT => "BOFNT",
                 BMSEvent::BOFTT => "BOFTT",
+                BMSEvent::LetsBMSEdit => "LetsBMSEdit",
+                BMSEvent::LetsBMSEdit2 => "LetsBMSEdit2",
                 BMSEvent::LetsBMSEdit3 => "LetsBMSEdit3",
+                BMSEvent::LetsBMSEdit4 => "LetsBMSEdit4",
             }
         )
     }
@@ -51,8 +75,12 @@ impl FromStr for BMSEvent {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.trim() {
+            "19" | "BOFNT" => Ok(BMSEvent::BOFNT),
             "20" | "BOFTT" => Ok(BMSEvent::BOFTT),
+            "101" | "LetsBMSEdit" => Ok(BMSEvent::LetsBMSEdit),
+            "102" | "LetsBMSEdit2" => Ok(BMSEvent::LetsBMSEdit2),
             "103" | "LetsBMSEdit3" => Ok(BMSEvent::LetsBMSEdit3),
+            "104" | "LetsBMSEdit4" => Ok(BMSEvent::LetsBMSEdit4),
             _ => Err(()),
         }
     }
@@ -77,78 +105,6 @@ pub async fn open_browser(url: &str) -> io::Result<()> {
         Command::new("xdg-open").arg(url).spawn()?;
     }
     Ok(())
-}
-
-/// Interactive BMS event browser (legacy function)
-pub async fn activate() {
-    log::info!("Select BMS Event:");
-    for event in [BMSEvent::BOFTT, BMSEvent::LetsBMSEdit3] {
-        log::info!(" {} -> {}", event as u32, event);
-    }
-
-    log::info!("Input event value (Default: 20): ");
-    io::stdout().flush().unwrap();
-    let mut buf = String::new();
-    io::stdin().read_line(&mut buf).unwrap();
-    let event = if buf.trim().is_empty() {
-        BMSEvent::BOFTT
-    } else {
-        BMSEvent::from_str(&buf).unwrap_or(BMSEvent::BOFTT)
-    };
-    log::info!(" -> Selected Event: {event}");
-
-    log::info!(" !: Input \"1\": jump to work id 1. (Normal)");
-    log::info!(" !: Input \"2 5\": jump to work id 2, 3, 4 and 5. (Special: Range)");
-    log::info!(" !: Input \"2 5 6\": jump to work id 2, 5 and 6. (Normal)");
-    log::info!(" !: Press Ctrl+C to Quit.");
-    log::info!("Input id (default: Jump to List):");
-
-    loop {
-        let mut line = String::new();
-        io::stdin().read_line(&mut line).unwrap();
-        let line = line.trim();
-        if line.is_empty() {
-            log::info!("Open BMS List.");
-            open_browser(event.list_url()).await.ok();
-            continue;
-        }
-
-        // Parse input
-        let parts: Vec<&str> = line
-            .split_whitespace()
-            .flat_map(|s| s.split(','))
-            .filter(|s| !s.is_empty())
-            .collect();
-
-        let nums: Result<Vec<u32>, _> = parts.iter().map(|s| s.parse::<u32>()).collect();
-
-        let Ok(nums) = nums else {
-            log::info!("Please input valid number.");
-            return;
-        };
-        match nums.len() {
-            0 => continue,
-            1 => {
-                let id = nums[0];
-                log::info!("Open no.{id}");
-                open_browser(&event.work_info_url(id)).await.ok();
-            }
-            2 => {
-                let (mut start, mut end) = (nums[0], nums[1]);
-                if start > end {
-                    std::mem::swap(&mut start, &mut end);
-                }
-                for id in start..=end {
-                    open_browser(&event.work_info_url(id)).await.ok();
-                }
-            }
-            _ => {
-                for &id in &nums {
-                    open_browser(&event.work_info_url(id)).await.ok();
-                }
-            }
-        }
-    }
 }
 
 /// Open BMS event list page
