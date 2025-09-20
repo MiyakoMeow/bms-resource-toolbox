@@ -242,68 +242,132 @@ async fn _rename_file_with_num(
     Ok(())
 }
 
-/// Set file number (interactive)
-pub async fn set_file_num(dir: impl AsRef<Path>) -> io::Result<()> {
+/// Set file number (interactive loop)
+pub async fn set_file_num(dir: impl AsRef<Path>, allowed_exts: &[&str]) -> io::Result<()> {
     let dir = dir.as_ref();
 
-    let mut file_names = Vec::new();
-    let mut entries = fs::read_dir(dir).await?;
+    loop {
+        let mut file_names = Vec::new();
+        let mut entries = fs::read_dir(dir).await?;
 
-    while let Some(entry) = entries.next().await {
-        let entry = entry?;
-        let file_name = entry.file_name().to_string_lossy().into_owned();
-        let file_path = entry.path();
+        while let Some(entry) = entries.next().await {
+            let entry = entry?;
+            let file_name = entry.file_name().to_string_lossy().into_owned();
+            let file_path = entry.path();
 
-        // Not File?
-        if !entry.file_type().await?.is_file() {
-            continue;
+            // Not File?
+            let Some(file_type) = entry.file_type().await.ok() else {
+                continue;
+            };
+            if !file_type.is_file() {
+                continue;
+            }
+
+            // Has been numbered?
+            let Some(first_part) = file_name.split_whitespace().next() else {
+                continue;
+            };
+            if first_part.chars().all(|c| c.is_ascii_digit()) {
+                continue;
+            }
+
+            // Linux: Has Partial File?
+            let part_file_path = format!("{}.part", file_path.display());
+            if std::path::Path::new(&part_file_path).exists() {
+                continue;
+            }
+
+            // Linux: Empty File?
+            let Ok(metadata) = fs::metadata(&file_path).await else {
+                continue;
+            };
+            if metadata.len() == 0 {
+                continue;
+            }
+
+            // Is Allowed?
+            let Some(file_ext) = file_name.rsplit('.').next() else {
+                continue;
+            };
+            let file_ext = file_ext.to_lowercase();
+            if !allowed_exts.contains(&file_ext.as_str()) {
+                continue;
+            }
+
+            file_names.push(file_name);
         }
 
-        // Has been numbered?
-        if file_name
-            .split_whitespace()
-            .next()
-            .is_some_and(|s| s.chars().all(|c| c.is_ascii_digit()))
-        {
-            continue;
+        if file_names.is_empty() {
+            info!("No files found to number in {}", dir.display());
+            return Ok(());
         }
 
-        // Linux: Has Partial File?
-        let part_file_path = format!("{}.part", file_path.display());
-        if std::path::Path::new(&part_file_path).exists() {
-            continue;
+        // Print Selections
+        info!("Here are files in {}:", dir.display());
+        for (i, file_name) in file_names.iter().enumerate() {
+            info!(" - {}: {}", i, file_name);
         }
 
-        // Linux: Empty File?
-        let metadata = fs::metadata(&file_path).await?;
-        if metadata.len() == 0 {
-            continue;
+        info!("Input a number: to set num [0] to the first selection.");
+        info!("Input two numbers: to set num [1] to the selection in index [0].");
+        info!("Input 'q' or 'quit' to exit.");
+        info!("Input:");
+
+        // Simple user input handling
+        let mut input = String::new();
+        let Ok(_) = std::io::stdin().read_line(&mut input) else {
+            info!("Failed to read input, exiting.");
+            return Ok(());
+        };
+        let input = input.trim();
+
+        if input.is_empty() {
+            info!("No input provided, exiting.");
+            return Ok(());
         }
 
-        // Is Allowed?
-        let file_ext = file_name.rsplit('.').next().unwrap_or("").to_lowercase();
-        let allowed_exts = ["zip", "7z", "rar", "mp4", "bms", "bme", "bml", "pms"];
-        let allowed = allowed_exts.contains(&file_ext.as_str());
-
-        if !allowed {
-            continue;
+        // Check for exit commands
+        if input == "q" || input == "quit" {
+            info!("Exiting file numbering.");
+            return Ok(());
         }
 
-        file_names.push(file_name);
+        let parts: Vec<&str> = input.split_whitespace().collect();
+        match parts.len() {
+            1 => {
+                // Single number: set num [0] to the first selection
+                let Ok(num) = parts[0].parse::<i32>() else {
+                    info!("Invalid number: {}", parts[0]);
+                    continue;
+                };
+                if num >= 0 && num < file_names.len() as i32 {
+                    _rename_file_with_num(dir, &file_names[num as usize], 0).await?;
+                } else {
+                    info!("Invalid file index: {}", num);
+                }
+            }
+            2 => {
+                // Two numbers: set num [1] to the selection in index [0]
+                let Ok(target_num) = parts[0].parse::<i32>() else {
+                    info!("Invalid target number: {}", parts[0]);
+                    continue;
+                };
+                let Ok(file_index) = parts[1].parse::<i32>() else {
+                    info!("Invalid file index: {}", parts[1]);
+                    continue;
+                };
+                if file_index >= 0 && file_index < file_names.len() as i32 {
+                    _rename_file_with_num(dir, &file_names[file_index as usize], target_num)
+                        .await?;
+                } else {
+                    info!("Invalid file index: {}", file_index);
+                }
+            }
+            _ => {
+                info!("Invalid input format. Expected: <number> or <target_number> <file_index>");
+            }
+        }
+
+        info!(""); // Add blank line for better readability
     }
-
-    // Print Selections
-    info!("Here are files in {}:", dir.display());
-    for (i, file_name) in file_names.iter().enumerate() {
-        info!(" - {}: {}", i, file_name);
-    }
-
-    info!("Input a number: to set num [0] to the first selection.");
-    info!("Input two numbers: to set num [1] to the selection in index [0].");
-    info!("Input:");
-
-    // TODO: Implement user input handling
-    info!("Note: Interactive input not yet implemented");
-
-    Ok(())
 }

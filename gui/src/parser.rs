@@ -218,6 +218,11 @@ pub fn build_ui_tree() -> UiTree {
         if let Some(sub_enum) = enums.get(&top.sub_enum_ident) {
             let mut variants: Vec<UiVariantSpec> = Vec::new();
             for v in &sub_enum.variants {
+                // Skip CLI-only interactive commands
+                if v.ident == "SetFileNum" {
+                    continue;
+                }
+
                 let mut fields_spec: Vec<UiFieldSpec> = Vec::new();
                 match &v.fields {
                     Fields::Named(named) => {

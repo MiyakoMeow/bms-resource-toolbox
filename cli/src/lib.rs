@@ -299,6 +299,13 @@ pub enum RawpackCommands {
         /// Directory path
         #[arg(value_name = "Target directory")]
         dir: PathBuf,
+        /// Allowed file extensions
+        #[arg(
+            long,
+            value_name = "Allowed extensions",
+            default_value = "zip,7z,rar,mp4,bms,bme,bml,pms"
+        )]
+        allowed_exts: Vec<String>,
     },
 }
 
@@ -805,9 +812,11 @@ pub async fn run_command(command: &Commands) -> Result<(), Box<dyn std::error::E
                     .await?;
                 info!("Extraction completed");
             }
-            RawpackCommands::SetFileNum { dir } => {
+            RawpackCommands::SetFileNum { dir, allowed_exts } => {
                 info!("Setting file numbers: {}", dir.display());
-                set_file_num(dir).await?;
+                let allowed_exts_slice: &[&str] =
+                    &allowed_exts.iter().map(|s| s.as_str()).collect::<Vec<_>>();
+                set_file_num(dir, allowed_exts_slice).await?;
                 info!("Setting completed");
             }
         },
