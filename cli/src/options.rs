@@ -1,3 +1,4 @@
+pub mod bms_event;
 pub mod pack;
 pub mod rawpack;
 pub mod root;

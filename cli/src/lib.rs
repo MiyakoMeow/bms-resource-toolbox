@@ -3,18 +3,22 @@ pub mod fs;
 pub mod media;
 pub mod options;
 
-use clap::{Parser, Subcommand};
-use log::info;
 use std::path::PathBuf;
 
-use crate::fs::moving::ReplacePreset;
+use clap::{Parser, Subcommand};
+use log::info;
+
 use crate::{
     bms::{
         get_dir_bms_info, get_dir_bms_list, is_root_dir, is_work_dir, parse_bms_file,
         parse_bmson_file,
     },
-    fs::{bms_dir_similarity, is_dir_having_file, is_file_same_content, remove_empty_folders},
+    fs::{
+        bms_dir_similarity, is_dir_having_file, is_file_same_content, moving::ReplacePreset,
+        remove_empty_folders,
+    },
     options::{
+        bms_event::BMSEvent,
         pack::{
             pack_hq_to_lq, pack_raw_to_hq, pack_setup_rawpack_to_hq, pack_update_rawpack_to_hq,
         },
@@ -90,6 +94,11 @@ pub enum Commands {
     Rawpack {
         #[command(subcommand)]
         command: RawpackCommands,
+    },
+    /// BMS event related operations
+    BmsEvent {
+        #[command(subcommand)]
+        command: BmsEventCommands,
     },
 }
 
@@ -471,6 +480,25 @@ pub enum RootCommands {
 }
 
 #[derive(Subcommand)]
+pub enum BmsEventCommands {
+    /// Open BMS event list page
+    OpenList {
+        /// BMS event type
+        #[arg(value_name = "Event type")]
+        event: BMSEvent,
+    },
+    /// Open multiple BMS event work details pages
+    OpenWorks {
+        /// BMS event type
+        #[arg(value_name = "Event type")]
+        event: BMSEvent,
+        /// Work IDs (space or comma separated)
+        #[arg(value_name = "Work IDs")]
+        work_ids: Vec<u32>,
+    },
+}
+
+#[derive(Subcommand)]
 pub enum PackCommands {
     /// Raw pack -> HQ pack
     RawToHq {
@@ -818,6 +846,16 @@ pub async fn run_command(command: &Commands) -> Result<(), Box<dyn std::error::E
                     &allowed_exts.iter().map(|s| s.as_str()).collect::<Vec<_>>();
                 set_file_num(dir, allowed_exts_slice).await?;
                 info!("Setting completed");
+            }
+        },
+        Commands::BmsEvent { command } => match command {
+            BmsEventCommands::OpenList { event } => {
+                crate::options::bms_event::open_event_list(*event).await?;
+                info!("List opened");
+            }
+            BmsEventCommands::OpenWorks { event, work_ids } => {
+                crate::options::bms_event::open_event_works(*event, work_ids).await?;
+                info!("All work pages opened");
             }
         },
     }

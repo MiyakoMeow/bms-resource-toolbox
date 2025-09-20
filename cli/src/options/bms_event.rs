@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use smol::process::Command;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
 #[repr(u32)]
 pub enum BMSEvent {
     BOFTT = 20,
@@ -79,6 +79,7 @@ pub async fn open_browser(url: &str) -> io::Result<()> {
     Ok(())
 }
 
+/// Interactive BMS event browser (legacy function)
 pub async fn activate() {
     log::info!("Select BMS Event:");
     for event in [BMSEvent::BOFTT, BMSEvent::LetsBMSEdit3] {
@@ -148,4 +149,20 @@ pub async fn activate() {
             }
         }
     }
+}
+
+/// Open BMS event list page
+pub async fn open_event_list(event: BMSEvent) -> io::Result<()> {
+    log::info!("Opening BMS event list: {}", event);
+    open_browser(event.list_url()).await
+}
+
+/// Open multiple BMS event work details pages
+pub async fn open_event_works(event: BMSEvent, work_ids: &[u32]) -> io::Result<()> {
+    log::info!("Opening BMS event works: {} (IDs: {:?})", event, work_ids);
+    for &work_id in work_ids {
+        let url = event.work_info_url(work_id);
+        open_browser(&url).await?;
+    }
+    Ok(())
 }
