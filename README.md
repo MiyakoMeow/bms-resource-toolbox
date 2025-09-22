@@ -88,6 +88,31 @@ bms-resource-toolbox/
 
 ## Development
 
+This project includes automatic Nix integration using rust-overlay for a consistent and up-to-date development environment.
+
+### Quick Setup
+
+#### With Nix (Recommended)
+```bash
+# Enter development environment (includes all dependencies)
+nix develop
+
+# Build the project
+cargo build
+
+# Run tests
+cargo test
+```
+
+#### Without Nix
+```bash
+# Ensure LIBCLANG_PATH is set for bindgen
+export LIBCLANG_PATH=/path/to/llvm/lib
+
+# Build the project
+cargo build
+```
+
 ### Run Tests
 
 ```bash
@@ -105,6 +130,20 @@ cargo run --example basic_usage
 ```bash
 cargo build --release
 ```
+
+### Cursor IDE Integration
+
+This project includes Cursor rules for enhanced development experience:
+
+- **Nix Integration**: Automatic Nix environment detection
+- **Rust Development**: Common cargo commands and workflows
+- **BMS Project**: Project-specific knowledge and workflows
+
+Rules are located in `.cursor/rules/` and provide contextual assistance for:
+- Development environment setup
+- Build and test commands
+- BMS-specific workflows
+- Project structure understanding
 
 ## Dependencies
 
