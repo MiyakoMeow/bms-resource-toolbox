@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use bms_rs::parse::model::Bms;
+use bms_rs::bms::prelude::*;
 use futures::future::try_join_all;
 use smol::{fs, io, stream::StreamExt};
 use xlsxwriter::{Workbook, XlsxError};
