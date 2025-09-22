@@ -22,6 +22,7 @@ use iced::{
     },
     window,
 };
+use lang_core::Language;
 use log::info;
 use log::{LevelFilter, Log, Metadata, Record};
 use once_cell::sync::OnceCell;
@@ -47,6 +48,7 @@ enum Msg {
     LogTerminate(window::Id),
     UpdateMaxLines(window::Id, usize),
     ToggleAutoScroll(window::Id, bool),
+    ToggleLanguage,
 }
 
 struct App {
@@ -58,6 +60,7 @@ struct App {
     status: String,
     windows: BTreeMap<window::Id, TaskWindow>,
     path_history: Vec<String>,
+    lang: Language,
 }
 
 struct TaskWindow {
@@ -222,6 +225,7 @@ impl MwApplication for App {
             status: String::new(),
             windows: BTreeMap::new(),
             path_history,
+            lang: Language::Chinese,
         };
         app.ensure_defaults();
         (app, Command::none())
@@ -246,6 +250,13 @@ impl MwApplication for App {
                 self.inputs.clear();
                 self.bools.clear();
                 self.ensure_defaults();
+                Command::none()
+            }
+            Msg::ToggleLanguage => {
+                self.lang = match self.lang {
+                    Language::Chinese => Language::English,
+                    Language::English => Language::Chinese,
+                };
                 Command::none()
             }
             Msg::SubChanged(i) => {
@@ -413,17 +424,29 @@ impl MwApplication for App {
             .tree
             .top_commands
             .iter()
-            .map(|t| t.variant_ident.clone())
+            .map(|t| match self.lang {
+                Language::Chinese => t.zh_name.clone().unwrap_or_else(|| t.variant_ident.clone()),
+                Language::English => t.en_name.clone().unwrap_or_else(|| t.variant_ident.clone()),
+            })
             .collect();
 
         let subs: Vec<String> = self
             .current_sub_enum()
             .variants
             .iter()
-            .map(|v| v.name.clone())
+            .map(|v| match self.lang {
+                Language::Chinese => v.zh_name.clone().unwrap_or_else(|| v.name.clone()),
+                Language::English => v.en_name.clone().unwrap_or_else(|| v.name.clone()),
+            })
             .collect();
 
-        let mut fields_col = column![].spacing(8).push(text("Parameters").size(18));
+        let mut fields_col = column![].spacing(8).push(
+            text(match self.lang {
+                Language::Chinese => "参数",
+                Language::English => "Parameters",
+            })
+            .size(18),
+        );
         for f in &self.current_variant().fields {
             let key = self.field_key(&f.name);
             let label = f.value_name.as_deref().unwrap_or(&f.name);
@@ -519,7 +542,19 @@ impl MwApplication for App {
                 let idx = tops.iter().position(|t| t == &v).unwrap_or(0);
                 Msg::TopChanged(idx)
             });
-            if let Some(doc) = self.current_top().doc.as_ref() {
+            let doc = match self.lang {
+                Language::Chinese => self
+                    .current_top()
+                    .zh_desc
+                    .as_ref()
+                    .or(self.current_top().doc.as_ref()),
+                Language::English => self
+                    .current_top()
+                    .en_desc
+                    .as_ref()
+                    .or(self.current_top().doc.as_ref()),
+            };
+            if let Some(doc) = doc {
                 tooltip::Tooltip::new(pl, text(doc.clone()), Position::FollowCursor).into()
             } else {
                 pl.into()
@@ -531,7 +566,19 @@ impl MwApplication for App {
                 let idx = subs.iter().position(|t| t == &v).unwrap_or(0);
                 Msg::SubChanged(idx)
             });
-            if let Some(doc) = self.current_variant().doc.as_ref() {
+            let doc = match self.lang {
+                Language::Chinese => self
+                    .current_variant()
+                    .zh_desc
+                    .as_ref()
+                    .or(self.current_variant().doc.as_ref()),
+                Language::English => self
+                    .current_variant()
+                    .en_desc
+                    .as_ref()
+                    .or(self.current_variant().doc.as_ref()),
+            };
+            if let Some(doc) = doc {
                 tooltip::Tooltip::new(pl, text(doc.clone()), Position::FollowCursor).into()
             } else {
                 pl.into()
@@ -539,10 +586,38 @@ impl MwApplication for App {
         };
 
         let content = column![
-            row![text("Command").size(18), top_pick,].spacing(10),
-            row![text("Subcommand").size(18), sub_pick,].spacing(10),
+            row![
+                text(match self.lang {
+                    Language::Chinese => "命令",
+                    Language::English => "Command",
+                })
+                .size(18),
+                top_pick,
+                button(text(match self.lang {
+                    Language::Chinese => "中/英",
+                    Language::English => "ZH/EN",
+                }))
+                .on_press(Msg::ToggleLanguage),
+            ]
+            .spacing(10),
+            row![
+                text(match self.lang {
+                    Language::Chinese => "子命令",
+                    Language::English => "Subcommand",
+                })
+                .size(18),
+                sub_pick,
+            ]
+            .spacing(10),
             fields_col,
-            row![button(text("Execute")).on_press(Msg::Run),].spacing(10),
+            row![
+                button(text(match self.lang {
+                    Language::Chinese => "执行",
+                    Language::English => "Execute",
+                }))
+                .on_press(Msg::Run),
+            ]
+            .spacing(10),
             scrollable(text(self.status.clone())).height(Length::Fill),
         ]
         .padding(12)

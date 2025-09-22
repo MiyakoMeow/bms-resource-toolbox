@@ -611,6 +611,8 @@ dependencies = [
  "encoding_rs",
  "env_logger",
  "futures",
+ "lang-core",
+ "lang-derive",
  "log",
  "num_cpus",
  "once_cell",
@@ -642,6 +644,7 @@ dependencies = [
  "fontdb 0.23.0",
  "futures",
  "iced",
+ "lang-core",
  "log",
  "once_cell",
  "proc-macro2",
@@ -2483,6 +2486,20 @@ checksum = "1618d4ebd923e97d67e7cd363d80aef35fe961005cbbbb3d2dad8bdd1bc63440"
 dependencies = [
  "arrayvec",
  "smallvec",
+]
+
+[[package]]
+name = "lang-core"
+version = "0.1.0"
+
+[[package]]
+name = "lang-derive"
+version = "0.1.0"
+dependencies = [
+ "lang-core",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.106",
 ]
 
 [[package]]

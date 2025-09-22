@@ -1,3 +1,4 @@
+use lang_core::Language;
 use quote::ToTokens;
 use std::collections::HashMap;
 use syn::{Attribute, Fields, Item, ItemEnum, Type, parse_file};
@@ -32,6 +33,10 @@ pub struct UiVariantSpec {
     pub name: String,
     pub fields: Vec<UiFieldSpec>,
     pub doc: Option<String>,
+    pub zh_name: Option<String>,
+    pub zh_desc: Option<String>,
+    pub en_name: Option<String>,
+    pub en_desc: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -44,6 +49,10 @@ pub struct UiTopSpec {
     pub variant_ident: String,
     pub sub_enum_ident: String,
     pub doc: Option<String>,
+    pub zh_name: Option<String>,
+    pub zh_desc: Option<String>,
+    pub en_name: Option<String>,
+    pub en_desc: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -148,6 +157,43 @@ fn extract_doc_string(attrs: &[Attribute]) -> Option<String> {
     }
 }
 
+fn extract_lang(
+    attrs: &[Attribute],
+) -> (
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+) {
+    let mut zh_name = None;
+    let mut zh_desc = None;
+    let mut en_name = None;
+    let mut en_desc = None;
+    for a in attrs {
+        if a.path().is_ident("lang_chinese") || a.path().is_ident("lang_english") {
+            let s = a.to_token_stream().to_string();
+            let name_key = "name = \"";
+            let desc_key = "desc = \"";
+            let nm = s.find(name_key).and_then(|p| {
+                let rest = &s[p + name_key.len()..];
+                rest.find('"').map(|e| rest[..e].to_string())
+            });
+            let ds = s.find(desc_key).and_then(|p| {
+                let rest = &s[p + desc_key.len()..];
+                rest.find('"').map(|e| rest[..e].to_string())
+            });
+            if a.path().is_ident("lang_chinese") {
+                zh_name = nm;
+                zh_desc = ds;
+            } else {
+                en_name = nm;
+                en_desc = ds;
+            }
+        }
+    }
+    (zh_name, zh_desc, en_name, en_desc)
+}
+
 pub fn to_kebab_case(name: &str) -> String {
     let mut out = String::new();
     let mut prev_lower = false;
@@ -205,10 +251,15 @@ pub fn build_ui_tree() -> UiTree {
             }
         }
         if let Some(sub) = sub_enum_ident {
+            let (zh_name, zh_desc, en_name, en_desc) = extract_lang(&var.attrs);
             top_commands.push(UiTopSpec {
                 variant_ident: var.ident.to_string(),
                 sub_enum_ident: sub,
                 doc: extract_doc_string(&var.attrs),
+                zh_name,
+                zh_desc,
+                en_name,
+                en_desc,
             });
         }
     }
@@ -269,10 +320,15 @@ pub fn build_ui_tree() -> UiTree {
                     }
                     Fields::Unnamed(_) | Fields::Unit => {}
                 }
+                let (zh_name, zh_desc, en_name, en_desc) = extract_lang(&v.attrs);
                 variants.push(UiVariantSpec {
                     name: v.ident.to_string(),
                     fields: fields_spec,
                     doc: extract_doc_string(&v.attrs),
+                    zh_name,
+                    zh_desc,
+                    en_name,
+                    en_desc,
                 });
             }
             sub_enums.insert(top.sub_enum_ident.clone(), UiSubEnumSpec { variants });

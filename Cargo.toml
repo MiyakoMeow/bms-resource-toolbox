@@ -1,5 +1,5 @@
 [workspace]
-members = ["cli", "gui"]
+members = ["cli", "gui", "lang-derive", "lang-core"]
 resolver = "3"
 default-members = ["gui"]
 

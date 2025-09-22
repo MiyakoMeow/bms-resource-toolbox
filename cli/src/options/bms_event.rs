@@ -2,16 +2,30 @@ use std::fmt;
 use std::io;
 use std::str::FromStr;
 
+use lang_core::{LangText, Language, Localized as _};
+use lang_derive::Localized;
 use smol::process::Command;
 
-#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+#[derive(Debug, Clone, Copy, clap::ValueEnum, Localized)]
 #[repr(u32)]
 pub enum BMSEvent {
+    #[lang_chinese(name = "BOFNT", desc = "BMS 赛事 BOFNT")]
+    #[lang_english(name = "BOFNT", desc = "BMS Event BOFNT")]
     BOFNT = 19,
+    #[lang_chinese(name = "BOFTT", desc = "BMS 赛事 BOFTT")]
+    #[lang_english(name = "BOFTT", desc = "BMS Event BOFTT")]
     BOFTT = 20,
+    #[lang_chinese(name = "Let's BMS Edit", desc = "BMS 编辑活动（第一期）")]
+    #[lang_english(name = "Let's BMS Edit", desc = "BMS Edit Event (Season 1)")]
     LetsBMSEdit = 101,
+    #[lang_chinese(name = "Let's BMS Edit 2", desc = "BMS 编辑活动（第二期）")]
+    #[lang_english(name = "Let's BMS Edit 2", desc = "BMS Edit Event (Season 2)")]
     LetsBMSEdit2 = 102,
+    #[lang_chinese(name = "Let's BMS Edit 3", desc = "BMS 编辑活动（第三期）")]
+    #[lang_english(name = "Let's BMS Edit 3", desc = "BMS Edit Event (Season 3)")]
     LetsBMSEdit3 = 103,
+    #[lang_chinese(name = "Let's BMS Edit 4", desc = "BMS 编辑活动（第四期）")]
+    #[lang_english(name = "Let's BMS Edit 4", desc = "BMS Edit Event (Season 4)")]
     LetsBMSEdit4 = 104,
 }
 

@@ -6,6 +6,7 @@ pub mod options;
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
+use lang_derive::Localized;
 use log::info;
 
 use crate::{
@@ -50,11 +51,13 @@ pub struct Cli {
     pub command: Commands,
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Localized)]
 pub enum Commands {
     /// Root directory related operations
     ///
     /// - Dir structure in this program: `root_dir/work_dir/xxx.bms`
+    #[lang_chinese(name = "根目录", desc = "根目录相关操作")]
+    #[lang_english(name = "Root", desc = "Root directory related operations")]
     Root {
         #[command(subcommand)]
         command: RootCommands,
@@ -62,6 +65,8 @@ pub enum Commands {
     /// Work directory related operations
     ///
     /// - Dir structure in this program: `root_dir/work_dir/xxx.bms`
+    #[lang_chinese(name = "作品目录", desc = "作品目录相关操作")]
+    #[lang_english(name = "Work", desc = "Work directory related operations")]
     Work {
         #[command(subcommand)]
         command: WorkCommands,
@@ -69,16 +74,22 @@ pub enum Commands {
     /// Pack processing related operations
     ///
     /// - Dir structure in this program: `root_dir/work_dir/xxx.bms`
+    #[lang_chinese(name = "打包处理", desc = "打包处理相关操作")]
+    #[lang_english(name = "Pack", desc = "Pack processing related operations")]
     Pack {
         #[command(subcommand)]
         command: PackCommands,
     },
     /// BMS file related operations
+    #[lang_chinese(name = "BMS 文件", desc = "BMS 文件相关操作")]
+    #[lang_english(name = "Bms", desc = "BMS file related operations")]
     Bms {
         #[command(subcommand)]
         command: BmsCommands,
     },
     /// File system related operations
+    #[lang_chinese(name = "文件系统", desc = "文件系统相关操作")]
+    #[lang_english(name = "Fs", desc = "File system related operations")]
     Fs {
         #[command(subcommand)]
         command: FsCommands,
@@ -86,25 +97,33 @@ pub enum Commands {
     /// Root directory event related operations
     ///
     /// - Dir structure in this program: `root_dir/work_dir/xxx.bms`
+    #[lang_chinese(name = "根目录事件", desc = "根目录事件相关操作")]
+    #[lang_english(name = "RootEvent", desc = "Root directory event related operations")]
     RootEvent {
         #[command(subcommand)]
         command: RootEventCommands,
     },
     /// Raw pack processing related operations
+    #[lang_chinese(name = "原始包处理", desc = "原始包处理相关操作")]
+    #[lang_english(name = "Rawpack", desc = "Raw pack processing related operations")]
     Rawpack {
         #[command(subcommand)]
         command: RawpackCommands,
     },
     /// BMS event related operations
+    #[lang_chinese(name = "BMS 活动", desc = "BMS 活动相关操作")]
+    #[lang_english(name = "BmsEvent", desc = "BMS event related operations")]
     BmsEvent {
         #[command(subcommand)]
         command: BmsEventCommands,
     },
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Localized)]
 pub enum WorkCommands {
     /// Set directory name based on BMS file
+    #[lang_chinese(name = "按BMS设置目录名", desc = "根据BMS文件设置作品目录名称")]
+    #[lang_english(name = "SetName", desc = "Set directory name based on BMS file")]
     SetName {
         /// Work directory path
         #[arg(value_name = "Work directory")]
@@ -128,6 +147,8 @@ pub enum WorkCommands {
         skip_already_formatted: bool,
     },
     /// Undo directory name setting
+    #[lang_chinese(name = "撤销设置目录名", desc = "撤销目录名设置")]
+    #[lang_english(name = "UndoSetName", desc = "Undo directory name setting")]
     UndoSetName {
         /// Work directory path
         #[arg(value_name = "Work directory")]
@@ -140,6 +161,8 @@ pub enum WorkCommands {
         dry_run: bool,
     },
     /// Remove zero-byte media files
+    #[lang_chinese(name = "移除零字节媒体文件", desc = "移除零字节媒体文件")]
+    #[lang_english(name = "RemoveEmptyMedia", desc = "Remove zero-byte media files")]
     RemoveEmptyMedia {
         /// Work directory path
         #[arg(value_name = "Work directory")]
@@ -150,39 +173,51 @@ pub enum WorkCommands {
     },
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Localized)]
 pub enum BmsCommands {
     /// Parse BMS file
+    #[lang_chinese(name = "解析BMS", desc = "解析BMS文件")]
+    #[lang_english(name = "ParseBms", desc = "Parse BMS file")]
     ParseBms {
         /// BMS file path
         #[arg(value_name = "BMS file")]
         file: PathBuf,
     },
     /// Parse BMSON file
+    #[lang_chinese(name = "解析BMSON", desc = "解析BMSON文件")]
+    #[lang_english(name = "ParseBmson", desc = "Parse BMSON file")]
     ParseBmson {
         /// BMSON file path
         #[arg(value_name = "BMSON file")]
         file: PathBuf,
     },
     /// Get BMS file list in directory
+    #[lang_chinese(name = "获取BMS列表", desc = "获取目录中的BMS文件列表")]
+    #[lang_english(name = "GetBmsList", desc = "Get BMS file list in directory")]
     GetBmsList {
         /// Directory path
         #[arg(value_name = "Target directory")]
         dir: PathBuf,
     },
     /// Get BMS information in directory
+    #[lang_chinese(name = "获取BMS信息", desc = "获取目录中的BMS信息")]
+    #[lang_english(name = "GetBmsInfo", desc = "Get BMS information in directory")]
     GetBmsInfo {
         /// Directory path
         #[arg(value_name = "Target directory")]
         dir: PathBuf,
     },
     /// Check if it's a work directory
+    #[lang_chinese(name = "检测作品目录", desc = "检查是否为作品目录")]
+    #[lang_english(name = "IsWorkDir", desc = "Check if it's a work directory")]
     IsWorkDir {
         /// Directory path
         #[arg(value_name = "Target directory")]
         dir: PathBuf,
     },
     /// Check if it's a root directory
+    #[lang_chinese(name = "检测根目录", desc = "检查是否为根目录")]
+    #[lang_english(name = "IsRootDir", desc = "Check if it's a root directory")]
     IsRootDir {
         /// Directory path
         #[arg(value_name = "Target directory")]
@@ -190,9 +225,11 @@ pub enum BmsCommands {
     },
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Localized)]
 pub enum FsCommands {
     /// Check if two files have the same content
+    #[lang_chinese(name = "判断文件相同", desc = "检查两个文件是否内容相同")]
+    #[lang_english(name = "IsFileSame", desc = "Check if two files have the same content")]
     IsFileSame {
         /// First file path
         #[arg(value_name = "First file")]
@@ -202,12 +239,16 @@ pub enum FsCommands {
         file2: PathBuf,
     },
     /// Check if directory contains files
+    #[lang_chinese(name = "检查目录有文件", desc = "检查目录是否包含文件")]
+    #[lang_english(name = "IsDirHavingFile", desc = "Check if directory contains files")]
     IsDirHavingFile {
         /// Directory path
         #[arg(value_name = "Target directory")]
         dir: PathBuf,
     },
     /// Remove empty folders
+    #[lang_chinese(name = "删除空文件夹", desc = "删除空文件夹")]
+    #[lang_english(name = "RemoveEmptyFolders", desc = "Remove empty folders")]
     RemoveEmptyFolders {
         /// Parent directory path
         #[arg(value_name = "Parent directory")]
@@ -217,6 +258,8 @@ pub enum FsCommands {
         dry_run: bool,
     },
     /// Calculate BMS directory similarity
+    #[lang_chinese(name = "计算目录相似度", desc = "计算两个目录的BMS相似度")]
+    #[lang_english(name = "BmsDirSimilarity", desc = "Calculate BMS directory similarity")]
     BmsDirSimilarity {
         /// First directory path
         #[arg(value_name = "First directory")]
@@ -227,9 +270,11 @@ pub enum FsCommands {
     },
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Localized)]
 pub enum RootEventCommands {
     /// Check numbered folders
+    #[lang_chinese(name = "检查编号文件夹", desc = "检查编号文件夹")]
+    #[lang_english(name = "CheckNumFolder", desc = "Check numbered folders")]
     CheckNumFolder {
         /// Root directory path
         #[arg(value_name = "Root directory")]
@@ -239,6 +284,8 @@ pub enum RootEventCommands {
         max: usize,
     },
     /// Create numbered folders
+    #[lang_chinese(name = "创建编号文件夹", desc = "创建编号文件夹")]
+    #[lang_english(name = "CreateNumFolders", desc = "Create numbered folders")]
     CreateNumFolders {
         /// Root directory path
         #[arg(value_name = "Root directory")]
@@ -248,6 +295,11 @@ pub enum RootEventCommands {
         count: usize,
     },
     /// Generate work information table
+    #[lang_chinese(name = "生成作品信息表", desc = "生成作品信息表")]
+    #[lang_english(
+        name = "GenerateWorkInfoTable",
+        desc = "Generate work information table"
+    )]
     GenerateWorkInfoTable {
         /// Root directory path
         #[arg(value_name = "Root directory")]
@@ -255,9 +307,14 @@ pub enum RootEventCommands {
     },
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Localized)]
 pub enum RawpackCommands {
     /// Extract numerically named pack files to BMS folders
+    #[lang_chinese(name = "编号解压到BMS目录", desc = "将按数字命名的包解压到BMS目录")]
+    #[lang_english(
+        name = "UnzipNumericToBmsFolder",
+        desc = "Extract numerically named pack files to BMS folders"
+    )]
     UnzipNumericToBmsFolder {
         /// Pack directory path
         #[arg(value_name = "Pack directory")]
@@ -281,6 +338,11 @@ pub enum RawpackCommands {
         confirm: bool,
     },
     /// Extract files with names to BMS folders
+    #[lang_chinese(name = "按名称解压到BMS目录", desc = "将具名文件解压到BMS目录")]
+    #[lang_english(
+        name = "UnzipWithNameToBmsFolder",
+        desc = "Extract files with names to BMS folders"
+    )]
     UnzipWithNameToBmsFolder {
         /// Pack directory path
         #[arg(value_name = "Pack directory")]
@@ -304,6 +366,8 @@ pub enum RawpackCommands {
         confirm: bool,
     },
     /// Set file number (interactive)
+    #[lang_chinese(name = "设置文件编号", desc = "设置文件编号（交互式）")]
+    #[lang_english(name = "SetFileNum", desc = "Set file number (interactive)")]
     SetFileNum {
         /// Directory path
         #[arg(value_name = "Target directory")]
@@ -318,9 +382,11 @@ pub enum RawpackCommands {
     },
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Localized)]
 pub enum RootCommands {
     /// Set directory name based on BMS file
+    #[lang_chinese(name = "按BMS设置目录名(根)", desc = "为根目录下作品设置名称")]
+    #[lang_english(name = "SetName", desc = "Set directory name based on BMS file")]
     SetName {
         /// Root directory path
         #[arg(value_name = "Root directory")]
@@ -344,6 +410,8 @@ pub enum RootCommands {
         skip_already_formatted: bool,
     },
     /// Undo directory name setting
+    #[lang_chinese(name = "撤销设置目录名(根)", desc = "撤销目录名设置")]
+    #[lang_english(name = "UndoSetName", desc = "Undo directory name setting")]
     UndoSetName {
         /// Root directory path
         #[arg(value_name = "Root directory")]
@@ -356,6 +424,11 @@ pub enum RootCommands {
         dry_run: bool,
     },
     /// Copy numbered work directory names
+    #[lang_chinese(name = "复制编号作品名", desc = "复制编号的作品目录名称")]
+    #[lang_english(
+        name = "CopyNumberedNames",
+        desc = "Copy numbered work directory names"
+    )]
     CopyNumberedNames {
         /// Source directory path
         #[arg(value_name = "Source directory")]
@@ -368,6 +441,8 @@ pub enum RootCommands {
         dry_run: bool,
     },
     /// Split folders by first character
+    #[lang_chinese(name = "按首字符拆分文件夹", desc = "按首字符拆分根目录下文件夹")]
+    #[lang_english(name = "SplitByFirstChar", desc = "Split folders by first character")]
     SplitByFirstChar {
         /// Root directory path
         #[arg(value_name = "Root directory")]
@@ -377,6 +452,8 @@ pub enum RootCommands {
         dry_run: bool,
     },
     /// Undo split operation
+    #[lang_chinese(name = "撤销拆分", desc = "撤销拆分操作")]
+    #[lang_english(name = "UndoSplit", desc = "Undo split operation")]
     UndoSplit {
         /// Target directory path
         #[arg(value_name = "Target directory")]
@@ -386,6 +463,8 @@ pub enum RootCommands {
         dry_run: bool,
     },
     /// Merge split folders
+    #[lang_chinese(name = "合并拆分文件夹", desc = "合并已拆分的文件夹")]
+    #[lang_english(name = "MergeSplit", desc = "Merge split folders")]
     MergeSplit {
         /// Root directory path
         #[arg(value_name = "Root directory")]
@@ -403,6 +482,8 @@ pub enum RootCommands {
         dry_run: bool,
     },
     /// Move works
+    #[lang_chinese(name = "移动作品", desc = "移动作品目录")]
+    #[lang_english(name = "MoveWorks", desc = "Move works")]
     MoveWorks {
         /// Source directory path
         #[arg(value_name = "Source directory")]
@@ -423,6 +504,8 @@ pub enum RootCommands {
         dry_run: bool,
     },
     /// Move out one level directory
+    #[lang_chinese(name = "上移一层目录", desc = "将作品目录上移一层")]
+    #[lang_english(name = "MoveOutWorks", desc = "Move out one level directory")]
     MoveOutWorks {
         /// Target root directory path
         #[arg(value_name = "Target root directory")]
@@ -440,6 +523,8 @@ pub enum RootCommands {
         dry_run: bool,
     },
     /// Move works with same name
+    #[lang_chinese(name = "移动同名作品", desc = "移动同名的作品目录")]
+    #[lang_english(name = "MoveSameName", desc = "Move works with same name")]
     MoveSameName {
         /// Source directory path
         #[arg(value_name = "Source directory")]
@@ -460,6 +545,8 @@ pub enum RootCommands {
         dry_run: bool,
     },
     /// Remove unnecessary media files
+    #[lang_chinese(name = "移除不必要媒体", desc = "移除不必要的媒体文件")]
+    #[lang_english(name = "RemoveUnneedMedia", desc = "Remove unnecessary media files")]
     RemoveUnneedMedia {
         /// Root directory path
         #[arg(value_name = "Root directory")]
@@ -469,6 +556,8 @@ pub enum RootCommands {
         rule: RemoveMediaPreset,
     },
     /// Scan similar folders
+    #[lang_chinese(name = "扫描相似文件夹", desc = "扫描相似的文件夹")]
+    #[lang_english(name = "ScanSimilarFolders", desc = "Scan similar folders")]
     ScanSimilarFolders {
         /// Root directory path
         #[arg(value_name = "Root directory")]
@@ -479,15 +568,22 @@ pub enum RootCommands {
     },
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Localized)]
 pub enum BmsEventCommands {
     /// Open BMS event list page
+    #[lang_chinese(name = "打开活动列表页", desc = "打开BMS活动列表页面")]
+    #[lang_english(name = "OpenList", desc = "Open BMS event list page")]
     OpenList {
         /// BMS event type
         #[arg(value_name = "Event type")]
         event: BMSEvent,
     },
     /// Open multiple BMS event work details pages
+    #[lang_chinese(name = "打开作品详情页", desc = "打开多个作品详情页面")]
+    #[lang_english(
+        name = "OpenWorks",
+        desc = "Open multiple BMS event work details pages"
+    )]
     OpenWorks {
         /// BMS event type
         #[arg(value_name = "Event type")]
@@ -498,21 +594,30 @@ pub enum BmsEventCommands {
     },
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Localized)]
 pub enum PackCommands {
     /// Raw pack -> HQ pack
+    #[lang_chinese(name = "原始包转HQ", desc = "原始包 -> HQ 包")]
+    #[lang_english(name = "RawToHq", desc = "Raw pack -> HQ pack")]
     RawToHq {
         /// Root directory path
         #[arg(value_name = "Root directory")]
         dir: PathBuf,
     },
     /// HQ pack -> LQ pack
+    #[lang_chinese(name = "HQ转LQ", desc = "HQ 包 -> LQ 包")]
+    #[lang_english(name = "HqToLq", desc = "HQ pack -> LQ pack")]
     HqToLq {
         /// Root directory path
         #[arg(value_name = "Root directory")]
         dir: PathBuf,
     },
     /// Pack generation script: Raw pack -> HQ pack
+    #[lang_chinese(name = "生成脚本：原始->HQ", desc = "打包生成脚本：原始包 -> HQ 包")]
+    #[lang_english(
+        name = "SetupRawpackToHq",
+        desc = "Pack generation script: Raw pack -> HQ pack"
+    )]
     SetupRawpackToHq {
         /// Pack directory path
         #[arg(value_name = "Pack directory")]
@@ -522,6 +627,11 @@ pub enum PackCommands {
         root_dir: PathBuf,
     },
     /// Pack update script: Raw pack -> HQ pack
+    #[lang_chinese(name = "更新脚本：原始->HQ", desc = "打包更新脚本：原始包 -> HQ 包")]
+    #[lang_english(
+        name = "UpdateRawpackToHq",
+        desc = "Pack update script: Raw pack -> HQ pack"
+    )]
     UpdateRawpackToHq {
         /// Pack directory path
         #[arg(value_name = "Pack directory")]

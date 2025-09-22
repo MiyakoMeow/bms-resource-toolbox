@@ -30,6 +30,8 @@ blocking = { workspace = true }
 syn = { workspace = true }
 log = { workspace = true }
 env_logger = { workspace = true }
+lang-derive = { path = "../lang-derive" }
+lang-core = { path = "../lang-core" }
 
 [dev-dependencies]
 tempfile = { workspace = true }
