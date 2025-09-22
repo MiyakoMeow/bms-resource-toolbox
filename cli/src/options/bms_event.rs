@@ -2,7 +2,7 @@ use std::fmt;
 use std::io;
 use std::str::FromStr;
 
-use lang_core::{LangText, Language, Localized as _};
+// No direct imports from lang_core needed here
 use lang_derive::Localized;
 use smol::process::Command;
 

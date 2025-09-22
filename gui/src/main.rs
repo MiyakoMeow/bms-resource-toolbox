@@ -13,9 +13,7 @@ use std::{
 use clap::Parser;
 use futures::future::{AbortHandle, AbortRegistration, Abortable};
 use iced::{
-    Alignment, Command, Element, Font, Length, Settings, Subscription, Theme, executor,
-    multi_window::Application as MwApplication,
-    time,
+    Alignment, Element, Length, Subscription, Task, Theme, time,
     widget::{
         button, checkbox, column, pick_list, row, scrollable, text, text_input,
         tooltip::{self, Position},
@@ -49,6 +47,8 @@ enum Msg {
     UpdateMaxLines(window::Id, usize),
     ToggleAutoScroll(window::Id, bool),
     ToggleLanguage,
+    WindowOpened(window::Id),
+    WindowClosed(window::Id),
 }
 
 struct App {
@@ -61,6 +61,7 @@ struct App {
     windows: BTreeMap<window::Id, TaskWindow>,
     path_history: Vec<String>,
     lang: Language,
+    main_id: Option<window::Id>,
 }
 
 struct TaskWindow {
@@ -206,33 +207,9 @@ impl App {
     }
 }
 
-impl MwApplication for App {
-    type Executor = executor::Default;
-    type Flags = ();
-    type Message = Msg;
-    type Theme = Theme;
-
-    fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
-        // Initialize GUI logger
-        init_gui_logger();
-        let path_history = load_path_history();
-        let mut app = App {
-            tree: build_ui_tree(),
-            top_idx: 0,
-            sub_idx: 0,
-            inputs: BTreeMap::new(),
-            bools: BTreeMap::new(),
-            status: String::new(),
-            windows: BTreeMap::new(),
-            path_history,
-            lang: Language::Chinese,
-        };
-        app.ensure_defaults();
-        (app, Command::none())
-    }
-
-    fn title(&self, id: window::Id) -> String {
-        if id == window::Id::MAIN {
+impl App {
+    pub fn title(&self, id: window::Id) -> String {
+        if Some(id) == self.main_id {
             "Be-Music Cabinet GUI".to_string()
         } else if let Some(w) = self.windows.get(&id) {
             let args_text = w.args.join(" ");
@@ -242,37 +219,38 @@ impl MwApplication for App {
         }
     }
 
-    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
+    fn update(&mut self, message: Msg) -> Task<Msg> {
         match message {
+            Msg::WindowOpened(_id) => Task::none(),
             Msg::TopChanged(i) => {
                 self.top_idx = i;
                 self.sub_idx = 0;
                 self.inputs.clear();
                 self.bools.clear();
                 self.ensure_defaults();
-                Command::none()
+                Task::none()
             }
             Msg::ToggleLanguage => {
                 self.lang = match self.lang {
                     Language::Chinese => Language::English,
                     Language::English => Language::Chinese,
                 };
-                Command::none()
+                Task::none()
             }
             Msg::SubChanged(i) => {
                 self.sub_idx = i;
                 self.inputs.clear();
                 self.bools.clear();
                 self.ensure_defaults();
-                Command::none()
+                Task::none()
             }
             Msg::FieldTextChanged(key, value) => {
                 self.inputs.insert(key, value);
-                Command::none()
+                Task::none()
             }
             Msg::FieldBoolChanged(key, value) => {
                 self.bools.insert(key, value);
-                Command::none()
+                Task::none()
             }
             Msg::PickDir(key) => {
                 let pick = async move {
@@ -281,7 +259,7 @@ impl MwApplication for App {
                         .map(|p| p.to_string_lossy().to_string())
                         .unwrap_or_default()
                 };
-                Command::perform(pick, move |path| Msg::FieldTextChanged(key.clone(), path))
+                Task::perform(pick, move |path| Msg::FieldTextChanged(key.clone(), path))
             }
             Msg::Run => {
                 let args = self.build_cli_args();
@@ -289,10 +267,7 @@ impl MwApplication for App {
                 self.status = format!("Started: {}", args_for_view);
                 // Record the filled paths to history
                 self.capture_and_save_paths();
-                let (win_id, open_cmd) = window::spawn(window::Settings {
-                    size: [800u16, 400u16].into(),
-                    ..window::Settings::default()
-                });
+                let (win_id, open_task) = window::open(window::Settings::default());
                 let (abort_handle, abort_reg) = AbortHandle::new_pair();
                 let task_id = NEXT_TASK_ID.fetch_add(1, Ordering::Relaxed);
                 self.windows.insert(
@@ -308,9 +283,16 @@ impl MwApplication for App {
                     },
                 );
                 start_task_for_window(task_id, abort_reg, args);
-                open_cmd
+                open_task.map(Msg::WindowOpened)
             }
             Msg::TickAll => {
+                // Ensure there is a main window
+                if self.main_id.is_none() {
+                    let (id, open_task) = window::open(window::Settings::default());
+                    self.main_id = Some(id);
+                    return open_task.map(Msg::WindowOpened);
+                }
+
                 let ids: Vec<window::Id> = self.windows.keys().cloned().collect();
                 for wid in ids {
                     if let Some(w) = self.windows.get_mut(&wid) {
@@ -343,7 +325,7 @@ impl MwApplication for App {
                 // 清理已关闭的窗口
                 self.cleanup_closed_windows();
 
-                Command::none()
+                Task::none()
             }
             Msg::LogTerminate(wid) => {
                 if let Some(w) = self.windows.get_mut(&wid) {
@@ -352,7 +334,7 @@ impl MwApplication for App {
                     }
                     w.running = false;
                 }
-                Command::none()
+                Task::none()
             }
 
             Msg::UpdateMaxLines(wid, max_lines) => {
@@ -370,19 +352,27 @@ impl MwApplication for App {
                         }
                     }
                 }
-                Command::none()
+                Task::none()
             }
             Msg::ToggleAutoScroll(wid, auto_scroll) => {
                 if let Some(w) = self.windows.get_mut(&wid) {
                     w.auto_scroll = auto_scroll;
                 }
-                Command::none()
+                Task::none()
+            }
+            Msg::WindowClosed(id) => {
+                if let Some(mut w) = self.windows.remove(&id) {
+                    if let Some(h) = w.abort_handle.take() {
+                        h.abort();
+                    }
+                }
+                Task::none()
             }
         }
     }
 
-    fn view(&self, id: window::Id) -> Element<'_, Self::Message> {
-        if id != window::Id::MAIN
+    fn view(&self, id: window::Id) -> Element<'_, Msg> {
+        if Some(id) != self.main_id
             && let Some(w) = self.windows.get(&id)
         {
             let content = column![
@@ -416,7 +406,7 @@ impl MwApplication for App {
             ]
             .padding(12)
             .spacing(12)
-            .align_items(Alignment::Start);
+            .align_x(Alignment::Start);
             return content.into();
         }
 
@@ -622,37 +612,29 @@ impl MwApplication for App {
         ]
         .padding(12)
         .spacing(12)
-        .align_items(Alignment::Start);
+        .align_x(Alignment::Start);
 
         content.into()
     }
 
-    fn subscription(&self) -> Subscription<Self::Message> {
-        // 处理定时器
-        time::every(std::time::Duration::from_millis(200)).map(|_| Msg::TickAll)
+    fn subscription(&self) -> Subscription<Msg> {
+        // Timer and window close events
+        Subscription::batch(vec![
+            time::every(std::time::Duration::from_millis(200)).map(|_| Msg::TickAll),
+            window::close_events().map(Msg::WindowClosed),
+        ])
+    }
+
+    fn theme(&self, _window: window::Id) -> Theme {
+        Theme::Dark
+    }
+
+    fn scale_factor(&self, _window: window::Id) -> f64 {
+        1.0
     }
 }
 
-fn pick_chinese_font() -> Font {
-    // Prioritize trying common Chinese font names in the system; if failed, use fontdb scanning
-    if let Some(fam) = [
-        "Microsoft YaHei",
-        "Microsoft JhengHei",
-        "SimSun",
-        "SimHei",
-        "Noto Sans CJK SC",
-        "Noto Sans CJK TC",
-        "WenQuanYi Micro Hei",
-    ]
-    .into_iter()
-    .next()
-    {
-        // Only depend on name, if system exists it will be resolved by backend
-        return Font::with_name(fam);
-    }
-    // Fallback: still return a named font, leave it to system to choose
-    Font::with_name("Microsoft YaHei")
-}
+// Removed font picker for iced 0.13 daemon integration
 
 fn main() -> iced::Result {
     // Simple test to verify enum type recognition
@@ -660,7 +642,6 @@ fn main() -> iced::Result {
 
     let tree = build_ui_tree();
 
-    // Find RootCommands::SetName
     if let Some(root_cmd) = tree.top_commands.iter().find(|t| t.variant_ident == "Root")
         && let Some(sub_enum) = tree.sub_enums.get(&root_cmd.sub_enum_ident)
         && let Some(set_name_variant) = sub_enum.variants.iter().find(|v| v.name == "SetName")
@@ -688,16 +669,35 @@ fn main() -> iced::Result {
     );
     info!("Available options: replace_title_artist, append_title_artist, append_artist");
 
-    let mut settings: Settings<()> = Settings {
-        id: None,
-        ..Settings::default()
-    };
-    settings.default_font = pick_chinese_font();
-    settings.default_text_size = 16.into();
-    settings.antialiasing = true;
-    // Set main window default size 800x400
-    settings.window.size = [800u16, 400u16].into();
-    <App as MwApplication>::run(settings)
+    // Use daemon-based multi-window API with title/update/view
+    iced::daemon(App::title, App::update, App::view)
+        .subscription(App::subscription)
+        .theme(App::theme)
+        .scale_factor(App::scale_factor)
+        .run()
+}
+
+impl Default for App {
+    fn default() -> Self {
+        // Initialize GUI logger
+        init_gui_logger();
+
+        let path_history = load_path_history();
+        let mut app = App {
+            tree: build_ui_tree(),
+            top_idx: 0,
+            sub_idx: 0,
+            inputs: BTreeMap::new(),
+            bools: BTreeMap::new(),
+            status: String::new(),
+            windows: BTreeMap::new(),
+            path_history,
+            lang: Language::Chinese,
+            main_id: None,
+        };
+        app.ensure_defaults();
+        app
+    }
 }
 
 // ========================= Multi-task Logging: Global Logger and Log Window =========================

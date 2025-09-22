@@ -1,4 +1,3 @@
-use lang_core::Language;
 use quote::ToTokens;
 use std::collections::HashMap;
 use syn::{Attribute, Fields, Item, ItemEnum, Type, parse_file};
