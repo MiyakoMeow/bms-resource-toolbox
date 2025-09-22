@@ -1,0 +1,16 @@
+---
+description: "Nix integration for Rust development"
+globs: ["*.rs", "*.toml", "flake.nix", "flake.lock"]
+---
+
+When working on this Rust project, always prefer using Nix with rust-overlay for development.
+
+**Usage:**
+```bash
+nix develop --command cargo build
+```
+
+**Key commands:**
+- `nix develop --command cargo test`
+- `nix develop --command cargo check`
+- `nix develop --command cargo clippy`

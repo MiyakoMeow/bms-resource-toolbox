@@ -1,0 +1,21 @@
+---
+description: "BMS Resource Toolbox project structure and workflows"
+globs: ["*.rs", "*.toml", "*.md"]
+---
+
+BMS Resource Toolbox - Tool for managing BMS (Beatmania Simulator) resources.
+
+**Common commands:**
+```bash
+# Analyze BMS collection
+cargo run --bin bms-resource-toolbox-cli -- root generate-table /path/to/collection
+
+# Pack BMS resources
+cargo run --bin bms-resource-toolbox-cli -- pack /path/to/work /path/to/output.zip
+
+# Unpack archives
+cargo run --bin bms-resource-toolbox-cli -- unpack /path/to/archive.zip /path/to/output/dir
+
+# Run tests
+cargo test
+```

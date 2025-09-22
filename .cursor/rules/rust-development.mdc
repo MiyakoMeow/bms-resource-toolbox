@@ -1,0 +1,110 @@
+---
+description: "Rust development workflows and cargo commands"
+globs: ["*.rs", "*.toml"]
+---
+
+# Rust Development Workflows
+
+## Building and Running
+
+### Build the project:
+```bash
+cargo build
+```
+
+### Build with optimizations:
+```bash
+cargo build --release
+```
+
+### Run the GUI application:
+```bash
+cargo run --bin bms-resource-toolbox-gui
+```
+
+### Run the CLI:
+```bash
+cargo run --bin bms-resource-toolbox-cli -- --help
+```
+
+## Testing
+
+### Run all tests:
+```bash
+cargo test
+```
+
+### Run specific test:
+```bash
+cargo test test_name
+```
+
+### Run tests with output:
+```bash
+cargo test -- --nocapture
+```
+
+## Code Quality
+
+### Check for compilation errors:
+```bash
+cargo check
+```
+
+### Run linter (clippy):
+```bash
+cargo clippy
+```
+
+### Format code:
+```bash
+cargo fmt
+```
+
+### Check formatting:
+```bash
+cargo fmt --check
+```
+
+## Dependencies
+
+### Update dependencies:
+```bash
+cargo update
+```
+
+### Add a new dependency:
+```bash
+cargo add package_name
+```
+
+### Remove a dependency:
+```bash
+cargo remove package_name
+```
+
+## Documentation
+
+### Build documentation:
+```bash
+cargo doc --open
+```
+
+### Document private items too:
+```bash
+cargo doc --document-private-items --open
+```
+
+## Common Issues
+
+### Bindgen/Clang issues:
+If you see libclang errors, ensure LIBCLANG_PATH is set:
+```bash
+export LIBCLANG_PATH=/path/to/llvm/lib
+```
+
+### GUI doesn't start:
+Make sure you have the required display server (X11/Wayland) running.
+
+### Permission issues with archives:
+The application needs access to read/write files in the target directories.
