@@ -34,6 +34,54 @@ use parser::{
     UiFieldType, UiSubEnumSpec, UiTopSpec, UiTree, UiVariantSpec, build_ui_tree, to_kebab_case,
 };
 
+fn main() -> iced::Result {
+    // Simple test to verify enum type recognition
+    info!("Testing enum type detection...");
+
+    let tree = build_ui_tree();
+
+    if let Some(root_cmd) = tree.top_commands.iter().find(|t| t.variant_ident == "Root")
+        && let Some(sub_enum) = tree.sub_enums.get(&root_cmd.sub_enum_ident)
+        && let Some(set_name_variant) = sub_enum.variants.iter().find(|v| v.name == "SetName")
+    {
+        for field in &set_name_variant.fields {
+            if field.name == "set_type" {
+                match &field.ty {
+                    UiFieldType::Enum(variants) => {
+                        info!(
+                            "✓ Found enum field 'set_type' with variants: {:?}",
+                            variants
+                        );
+                    }
+                    other => {
+                        info!("✗ Expected enum type, got: {:?}", other);
+                    }
+                }
+            }
+        }
+    }
+
+    info!("Test completed. Starting GUI...");
+    info!(
+        "Note: The GUI should now show a dropdown menu for the 'set_type' field in Root > SetName command"
+    );
+    info!("Available options: replace_title_artist, append_title_artist, append_artist");
+
+    // 配置默认设置
+    let mut settings = iced::Settings::default();
+    settings.default_font = iced::font::Font::with_name("Source Han Sans HW SC");
+    settings.fonts = vec![include_bytes!("../font/SourceHanSansHWSC-Regular.otf").into()];
+
+    // Use daemon-based multi-window API with title/update/view
+    let daemon = iced::daemon(App::title, App::update, App::view)
+        .subscription(App::subscription)
+        .theme(App::theme)
+        .scale_factor(App::scale_factor)
+        .settings(settings);
+
+    daemon.run()
+}
+
 #[derive(Debug, Clone)]
 enum Msg {
     TopChanged(usize),
@@ -632,54 +680,6 @@ impl App {
     fn scale_factor(&self, _window: window::Id) -> f64 {
         1.0
     }
-}
-
-fn main() -> iced::Result {
-    // Simple test to verify enum type recognition
-    info!("Testing enum type detection...");
-
-    let tree = build_ui_tree();
-
-    if let Some(root_cmd) = tree.top_commands.iter().find(|t| t.variant_ident == "Root")
-        && let Some(sub_enum) = tree.sub_enums.get(&root_cmd.sub_enum_ident)
-        && let Some(set_name_variant) = sub_enum.variants.iter().find(|v| v.name == "SetName")
-    {
-        for field in &set_name_variant.fields {
-            if field.name == "set_type" {
-                match &field.ty {
-                    UiFieldType::Enum(variants) => {
-                        info!(
-                            "✓ Found enum field 'set_type' with variants: {:?}",
-                            variants
-                        );
-                    }
-                    other => {
-                        info!("✗ Expected enum type, got: {:?}", other);
-                    }
-                }
-            }
-        }
-    }
-
-    info!("Test completed. Starting GUI...");
-    info!(
-        "Note: The GUI should now show a dropdown menu for the 'set_type' field in Root > SetName command"
-    );
-    info!("Available options: replace_title_artist, append_title_artist, append_artist");
-
-    // 配置默认设置
-    let mut settings = iced::Settings::default();
-    settings.default_font = iced::font::Font::with_name("Source Han Sans HW SC");
-    settings.fonts = vec![include_bytes!("../font/SourceHanSansHWSC-Regular.otf").into()];
-
-    // Use daemon-based multi-window API with title/update/view
-    let daemon = iced::daemon(App::title, App::update, App::view)
-        .subscription(App::subscription)
-        .theme(App::theme)
-        .scale_factor(App::scale_factor)
-        .settings(settings);
-
-    daemon.run()
 }
 
 impl Default for App {
