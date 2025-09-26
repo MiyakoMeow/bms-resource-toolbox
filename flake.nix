@@ -65,22 +65,10 @@
           sqlite
           libiconv
 
-          # Font libraries
-          fontconfig
-          freetype
+          # GUI libraries
           libGL
           libglvnd
           mesa
-
-          # CJK-capable fonts so GUI can render Chinese by default
-          noto-fonts
-          noto-fonts-cjk-sans
-          noto-fonts-cjk-serif
-          noto-fonts-emoji
-          source-han-sans
-          source-han-serif
-          wqy_zenhei
-          wqy_microhei
         ];
 
         # Native build inputs for linking
@@ -93,18 +81,6 @@
         ];
 
         # Environment variables
-        # Prepare a Fontconfig configuration that includes fonts from Nix store
-        fontsDirs = builtins.map (f: "${f}/share/fonts") [
-          pkgs.noto-fonts
-          pkgs.noto-fonts-cjk-sans
-          pkgs.noto-fonts-cjk-serif
-          pkgs.noto-fonts-emoji
-          pkgs.source-han-sans
-          pkgs.source-han-serif
-          pkgs.wqy_zenhei
-          pkgs.wqy_microhei
-        ];
-        fontsConf = pkgs.makeFontsConf { fontDirectories = fontsDirs; };
 
         shellHook = ''
           echo "🚀 BMS Resource Toolbox Development Environment"
@@ -116,11 +92,9 @@
           export LD_LIBRARY_PATH="${pkgs.llvmPackages.libclang.lib}/lib:$LD_LIBRARY_PATH"
 
           # Essential GUI library paths including Wayland
-          export LD_LIBRARY_PATH="${pkgs.wayland}/lib:${pkgs.libxkbcommon}/lib:${pkgs.libGL}/lib:${pkgs.fontconfig}/lib:${pkgs.freetype}/lib:$LD_LIBRARY_PATH"
+          export LD_LIBRARY_PATH="${pkgs.wayland}/lib:${pkgs.libxkbcommon}/lib:${pkgs.libGL}/lib:$LD_LIBRARY_PATH"
           export XKB_CONFIG_ROOT="${pkgs.xkeyboard_config}/share/X11/xkb"
 
-          # Ensure fontconfig sees Nix-provided fonts
-          export FONTCONFIG_FILE="${fontsConf}"
 
           echo "Ready to run GUI application."
           echo "Run: cargo run"

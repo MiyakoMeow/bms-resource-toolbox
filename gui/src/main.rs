@@ -24,7 +24,6 @@ use lang_core::Language;
 use log::info;
 use log::{LevelFilter, Log, Metadata, Record};
 use once_cell::sync::OnceCell;
-use std::process::Command as SysCommand;
 
 // Call library side CLI and command execution
 use bms_resource_toolbox_cli::{Cli, run_command};
@@ -635,8 +634,6 @@ impl App {
     }
 }
 
-// Removed font picker for iced 0.13 daemon integration
-
 fn main() -> iced::Result {
     // Simple test to verify enum type recognition
     info!("Testing enum type detection...");
@@ -671,20 +668,10 @@ fn main() -> iced::Result {
     info!("Available options: replace_title_artist, append_title_artist, append_artist");
 
     // Use daemon-based multi-window API with title/update/view
-    let mut daemon = iced::daemon(App::title, App::update, App::view)
+    let daemon = iced::daemon(App::title, App::update, App::view)
         .subscription(App::subscription)
         .theme(App::theme)
         .scale_factor(App::scale_factor);
-
-    if let Some((font_bytes, source)) = pick_chinese_font_bytes() {
-        // Log both to stderr (visible before GUI logger) and to log::info (visible later)
-        eprintln!("[GUI] Using Chinese font from: {source}");
-        info!("Using Chinese font from: {source}");
-        daemon = daemon.font(font_bytes);
-    } else {
-        eprintln!("[GUI] No Chinese font detected; using renderer default font");
-        info!("No Chinese font detected; using renderer default font");
-    }
 
     daemon.run()
 }
@@ -775,149 +762,6 @@ fn init_gui_logger() {
     // Register global logger (only once)
     let _ = log::set_boxed_logger(Box::new(GuiLogger));
     log::set_max_level(LevelFilter::Info);
-}
-
-/// Try to pick a Chinese-capable system font and return its bytes with 'static lifetime.
-/// Linux: uses `fc-list :lang=zh file` to find a font path and loads it.
-/// Other OS: tries a small set of well-known font paths.
-fn pick_chinese_font_bytes() -> Option<(&'static [u8], String)> {
-    // Prefer Linux fontconfig
-    #[cfg(target_os = "linux")]
-    {
-        use std::path::PathBuf;
-
-        // 1) Environment override (optional)
-        if let Ok(custom) = std::env::var("BRT_ZH_FONT") {
-            let p = PathBuf::from(custom);
-            if let Ok(bytes) = fs::read(&p) {
-                let leaked: &'static [u8] = Box::leak(bytes.into_boxed_slice());
-                return Some((leaked, format!("env:BRT_ZH_FONT={}", p.display())));
-            }
-        }
-
-        // Helper to leak bytes
-        fn leak(bytes: Vec<u8>) -> &'static [u8] {
-            Box::leak(bytes.into_boxed_slice())
-        }
-
-        // Blacklist fonts that commonly match but are not desirable for Chinese
-        fn is_blacklisted_font_path(path: &str) -> bool {
-            let lp = path.to_lowercase();
-            // DejaVu frequently matches but lacks good CJK coverage
-            lp.contains("dejavu") || lp.contains("noto")
-        }
-
-        // 2) Try fc-match for a single best font file matching zh language
-        if let Ok(out) = SysCommand::new("fc-match")
-            .args(["-f", "%{file}\n", ":lang=zh"]) // best matching font file path for zh
-            .output()
-        {
-            if out.status.success() {
-                let path = String::from_utf8_lossy(&out.stdout).trim().to_string();
-                if !path.is_empty() {
-                    if is_blacklisted_font_path(&path) {
-                        eprintln!("[GUI] fc-match returned blacklisted font, ignoring: {}", path);
-                        info!("fc-match returned blacklisted font, ignoring: {}", path);
-                    } else {
-                        match fs::read(&path) {
-                            Ok(bytes) => return Some((leak(bytes), format!("fc-match:{}", path))),
-                            Err(e) => {
-                                eprintln!("[GUI] Failed to read fc-match font {}: {}", path, e);
-                                info!("Failed to read fc-match font {}: {}", path, e);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // 3) Fallback to fc-list (formatted) and pick the first candidate
-        if let Ok(out) = SysCommand::new("fc-list")
-            .args(["-f", "%{file}\n", ":lang=zh"]) // clean file paths
-            .output()
-        {
-            if out.status.success() {
-                let stdout = String::from_utf8_lossy(&out.stdout);
-                let candidates: Vec<String> = stdout
-                    .lines()
-                    .map(|l| l.trim().trim_end_matches(':').to_string())
-                    .filter(|p| !p.is_empty())
-                    .collect();
-
-                for path in candidates {
-                    if is_blacklisted_font_path(&path) {
-                        eprintln!("[GUI] fc-list candidate blacklisted, skipping: {}", path);
-                        info!("fc-list candidate blacklisted, skipping: {}", path);
-                        continue;
-                    }
-                    // Accept file returned by fontconfig for zh
-                    match fs::read(&path) {
-                        Ok(bytes) => {
-                            return Some((leak(bytes), format!("fc-list:{}", path)));
-                        }
-                        Err(e) => {
-                            eprintln!("[GUI] Failed to read font candidate {}: {}", path, e);
-                            info!("Failed to read font candidate {}: {}", path, e);
-                        }
-                    }
-                }
-            }
-        }
-
-        // 4) As a last resort, probe a few common paths
-        let try_paths = [
-            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-            "/usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf",
-            "/usr/share/fonts/opentype/noto/NotoSansSC-Regular.otf",
-            "/usr/share/fonts/truetype/noto/NotoSansSC-Regular.ttf",
-            "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
-            "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
-            "/usr/share/fonts/TTF/SourceHanSansCN-Regular.otf",
-        ];
-        for p in try_paths {
-            if let Ok(bytes) = fs::read(p) {
-                return Some((leak(bytes), format!("fallback:{}", p)));
-            }
-        }
-        None
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        use std::path::PathBuf;
-        let system_root = std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".to_string());
-        let mut try_paths = vec![
-            "Fonts\\msyh.ttc",      // Microsoft YaHei
-            "Fonts\\msyh.ttf",
-            "Fonts\\simhei.ttf",    // SimHei
-            "Fonts\\simsun.ttc",    // SimSun
-        ];
-        for rel in try_paths.drain(..) {
-            let p = PathBuf::from(&system_root).join(rel);
-            if let Ok(bytes) = fs::read(&p) {
-                let leaked: &'static [u8] = Box::leak(bytes.into_boxed_slice());
-                return Some((leaked, format!("win:{}", p.display())));
-            }
-        }
-        None
-    }
-
-    #[cfg(target_os = "macos")]
-    {
-        use std::path::PathBuf;
-        let try_paths = [
-            "/System/Library/Fonts/STHeiti Light.ttc",
-            "/System/Library/Fonts/PingFang.ttc",
-            "/System/Library/Fonts/PingFang.ttf",
-        ];
-        for p in try_paths {
-            if let Ok(bytes) = fs::read(PathBuf::from(p)) {
-                let leaked: &'static [u8] = Box::leak(bytes.into_boxed_slice());
-                return Some((leaked, format!("mac:{}", p)));
-            }
-        }
-        None
-    }
 }
 
 // Removed independent log window implementation, unified task log display in main window

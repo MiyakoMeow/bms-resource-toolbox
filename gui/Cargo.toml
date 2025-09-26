@@ -24,8 +24,6 @@ blocking = { workspace = true }
 syn = { workspace = true }
 quote = { workspace = true }
 proc-macro2 = { workspace = true }
-fontdb = { workspace = true }
-ttf-parser = { workspace = true }
 unicode-segmentation = { workspace = true }
 unicode-width = { workspace = true }
 log = { workspace = true }
