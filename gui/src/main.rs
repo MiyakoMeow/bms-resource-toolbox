@@ -84,6 +84,7 @@ fn main() -> iced::Result {
 
 #[derive(Debug, Clone)]
 enum Msg {
+    Initialize,
     TopChanged(usize),
     SubChanged(usize),
     FieldTextChanged(String, String),
@@ -110,6 +111,7 @@ struct App {
     path_history: Vec<String>,
     lang: Language,
     main_id: Option<window::Id>,
+    initialized: bool,
 }
 
 struct TaskWindow {
@@ -269,6 +271,17 @@ impl App {
 
     fn update(&mut self, message: Msg) -> Task<Msg> {
         match message {
+            Msg::Initialize => {
+                // 确保主窗口存在
+                if self.main_id.is_none() {
+                    let (id, open_task) = window::open(window::Settings::default());
+                    self.main_id = Some(id);
+                    self.initialized = true;
+                    open_task.map(Msg::WindowOpened)
+                } else {
+                    Task::none()
+                }
+            }
             Msg::WindowOpened(_id) => Task::none(),
             Msg::TopChanged(i) => {
                 self.top_idx = i;
@@ -334,44 +347,42 @@ impl App {
                 open_task.map(Msg::WindowOpened)
             }
             Msg::TickAll => {
-                // Ensure there is a main window
-                if self.main_id.is_none() {
-                    let (id, open_task) = window::open(window::Settings::default());
-                    self.main_id = Some(id);
-                    return open_task.map(Msg::WindowOpened);
-                }
-
-                let ids: Vec<window::Id> = self.windows.keys().cloned().collect();
-                for wid in ids {
-                    if let Some(w) = self.windows.get_mut(&wid) {
+                // Only process task windows if they exist and main window exists
+                if self.main_id.is_some() && !self.windows.is_empty() {
+                    let ids: Vec<window::Id> = self.windows.keys().cloned().collect();
+                    for wid in ids {
+                        let Some(w) = self.windows.get_mut(&wid) else {
+                            continue;
+                        };
                         let lines = drain_lines(w.task_id);
-                        if !lines.is_empty() {
-                            for l in lines {
-                                w.logs.push_str(&l);
-                                if !w.logs.ends_with('\n') {
-                                    w.logs.push('\n');
-                                }
-                            }
-
-                            // 限制日志行数
-                            let log_lines: Vec<&str> = w.logs.lines().collect();
-                            if log_lines.len() > w.max_lines {
-                                w.logs = log_lines[log_lines.len() - w.max_lines..].join("\n");
-                                if !w.logs.ends_with('\n') {
-                                    w.logs.push('\n');
-                                }
-                            }
-
-                            // 如果启用了自动滚动，确保能看到最新内容
-                            if w.auto_scroll {
-                                // 这里不需要额外处理，因为iced会自动滚动到最新内容
+                        if lines.is_empty() {
+                            continue;
+                        }
+                        for l in lines {
+                            w.logs.push_str(&l);
+                            if !w.logs.ends_with('\n') {
+                                w.logs.push('\n');
                             }
                         }
-                    }
-                }
 
-                // 清理已关闭的窗口
-                self.cleanup_closed_windows();
+                        // 限制日志行数
+                        let log_lines: Vec<&str> = w.logs.lines().collect();
+                        if log_lines.len() > w.max_lines {
+                            w.logs = log_lines[log_lines.len() - w.max_lines..].join("\n");
+                            if !w.logs.ends_with('\n') {
+                                w.logs.push('\n');
+                            }
+                        }
+
+                        // 如果启用了自动滚动，确保能看到最新内容
+                        if w.auto_scroll {
+                            // 这里不需要额外处理，因为iced会自动滚动到最新内容
+                        }
+                    }
+
+                    // 清理已关闭的窗口
+                    self.cleanup_closed_windows();
+                }
 
                 Task::none()
             }
@@ -409,12 +420,22 @@ impl App {
                 Task::none()
             }
             Msg::WindowClosed(id) => {
-                if let Some(mut w) = self.windows.remove(&id) {
+                if Some(id) == self.main_id {
+                    // Main window is being closed - close all windows to ensure app exits
+                    self.main_id = None;
+                    // Exit the app
+                    // Return a task that closes a unique window ID to trigger app exit
+                    iced::exit()
+                } else if let Some(mut w) = self.windows.remove(&id) {
+                    // Task window is being closed
                     if let Some(h) = w.abort_handle.take() {
                         h.abort();
                     }
+                    Task::none()
+                } else {
+                    // Unknown window closed, do nothing
+                    Task::none()
                 }
-                Task::none()
             }
         }
     }
@@ -666,11 +687,31 @@ impl App {
     }
 
     fn subscription(&self) -> Subscription<Msg> {
-        // Timer and window close events
-        Subscription::batch(vec![
-            time::every(std::time::Duration::from_millis(200)).map(|_| Msg::TickAll),
-            window::close_events().map(Msg::WindowClosed),
-        ])
+        // Initialize main window if needed (only when app starts, not when main window is closed)
+        if !INITIALIZED.load(std::sync::atomic::Ordering::Relaxed)
+            && self.main_id.is_none()
+            && self.windows.is_empty()
+        {
+            INITIALIZED.store(true, std::sync::atomic::Ordering::Relaxed);
+            // Create a subscription that immediately sends Initialize message
+            return Subscription::run(|| futures::stream::once(async { Msg::Initialize }));
+        }
+
+        // If main window doesn't exist (has been closed), don't subscribe to any events to allow app to exit
+        // This ensures the app exits when main window is closed
+        if self.main_id.is_none() {
+            Subscription::none()
+        } else {
+            Subscription::batch(vec![
+                // Only tick if we have task windows to monitor
+                if !self.windows.is_empty() {
+                    time::every(std::time::Duration::from_millis(200)).map(|_| Msg::TickAll)
+                } else {
+                    Subscription::none()
+                },
+                window::close_events().map(Msg::WindowClosed),
+            ])
+        }
     }
 
     fn theme(&self, _window: window::Id) -> Theme {
@@ -699,8 +740,10 @@ impl Default for App {
             path_history,
             lang: Language::Chinese,
             main_id: None,
+            initialized: false,
         };
         app.ensure_defaults();
+
         app
     }
 }
@@ -709,6 +752,9 @@ impl Default for App {
 
 // Task ID allocator
 static NEXT_TASK_ID: AtomicU64 = AtomicU64::new(1);
+
+// Initialization flag
+static INITIALIZED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 // Thread local: mark which task current thread belongs to, used for log routing
 thread_local! {
