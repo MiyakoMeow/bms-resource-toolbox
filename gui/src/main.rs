@@ -98,6 +98,7 @@ enum Msg {
     ToggleLanguage,
     WindowOpened(window::Id),
     WindowClosed(window::Id),
+    CloseTaskWindow(window::Id),
 }
 
 struct App {
@@ -122,6 +123,7 @@ struct TaskWindow {
     abort_handle: Option<AbortHandle>,
     max_lines: usize,
     auto_scroll: bool,
+    terminated_by_user: bool,
 }
 
 impl App {
@@ -174,7 +176,11 @@ impl App {
                 if !guard.contains_key(&w.task_id)
                     || guard.get(&w.task_id).map(|v| v.is_empty()).unwrap_or(true)
                 {
-                    to_remove.push(*wid);
+                    // 只有当任务真正完成（非用户终止）时才移除窗口
+                    // 如果任务是被用户终止的，不应该移除窗口，让用户继续查看日志
+                    if !w.terminated_by_user {
+                        to_remove.push(*wid);
+                    }
                 }
             }
         }
@@ -341,6 +347,7 @@ impl App {
                         abort_handle: Some(abort_handle),
                         max_lines: 1000,
                         auto_scroll: true,
+                        terminated_by_user: false,
                     },
                 );
                 start_task_for_window(task_id, abort_reg, args);
@@ -392,6 +399,7 @@ impl App {
                         h.abort();
                     }
                     w.running = false;
+                    w.terminated_by_user = true;
                 }
                 Task::none()
             }
@@ -418,6 +426,10 @@ impl App {
                     w.auto_scroll = auto_scroll;
                 }
                 Task::none()
+            }
+            Msg::CloseTaskWindow(id) => {
+                // 关闭任务窗口
+                window::close(id)
             }
             Msg::WindowClosed(id) => {
                 if Some(id) == self.main_id {
@@ -463,11 +475,11 @@ impl App {
                         .width(Length::Fixed(80.0)),
                     checkbox("Auto Scroll", w.auto_scroll)
                         .on_toggle(move |checked| Msg::ToggleAutoScroll(id, checked)),
-                    button(text(if w.running { "Terminate" } else { "Stopped" })).on_press(
+                    button(text(if w.running { "终止" } else { "关闭窗口" })).on_press(
                         if w.running {
                             Msg::LogTerminate(id)
                         } else {
-                            Msg::TickAll
+                            Msg::CloseTaskWindow(id)
                         }
                     )
                 ]
