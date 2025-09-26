@@ -667,11 +667,17 @@ fn main() -> iced::Result {
     );
     info!("Available options: replace_title_artist, append_title_artist, append_artist");
 
+    // 配置默认设置
+    let mut settings = iced::Settings::default();
+    settings.default_font = iced::font::Font::with_name("Source Han Sans HW SC");
+    settings.fonts = vec![include_bytes!("../font/SourceHanSansHWSC-Regular.otf").into()];
+
     // Use daemon-based multi-window API with title/update/view
     let daemon = iced::daemon(App::title, App::update, App::view)
         .subscription(App::subscription)
         .theme(App::theme)
-        .scale_factor(App::scale_factor);
+        .scale_factor(App::scale_factor)
+        .settings(settings);
 
     daemon.run()
 }
