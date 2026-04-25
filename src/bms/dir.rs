@@ -12,13 +12,14 @@ use crate::bms::parse::{parse_bms_content, parse_bms_file, parse_bmson_file};
 use crate::bms::types::{BMSInfo, BMS_FILE_EXTS, BMSON_FILE_EXTS};
 use crate::bms::work::extract_work_name;
 
-/// Get list of BMSInfo from all BMS files in a directory
+/// Get list of `BMSInfo` from all BMS files in a directory
 ///
 /// This replicates Python's `get_dir_bms_list(dir_path)`:
 /// - Scans first-level files in the directory
 /// - For BOFTT packs, uses ID-specific encoding from directory name
 /// - Parses BMS/BME/BML/PMS and BMSON files
 #[allow(dead_code)]
+#[must_use] 
 pub fn get_dir_bms_list(dir_path: &Path) -> Vec<BMSInfo> {
     let mut info_list: Vec<BMSInfo> = Vec::new();
 
@@ -29,7 +30,7 @@ pub fn get_dir_bms_list(dir_path: &Path) -> Vec<BMSInfo> {
     } else {
         Some(dir_name)
     };
-    let boftt_encoding = id.and_then(|s| get_boftt_encoding(s));
+    let boftt_encoding = id.and_then(get_boftt_encoding);
 
     // Scan directory
     if let Ok(entries) = std::fs::read_dir(dir_path) {
@@ -51,19 +52,17 @@ pub fn get_dir_bms_list(dir_path: &Path) -> Vec<BMSInfo> {
                 let info = parse_bms_file_with_encoding(&file_path, boftt_encoding);
                 if info.title.is_empty() && info.artist.is_empty() && info.genre.is_empty() {
                     // Try without encoding override if empty
-                    if let Ok(fallback_info) = parse_bms_file(&file_path) {
-                        if !fallback_info.title.is_empty() || !fallback_info.artist.is_empty() {
+                    if let Ok(fallback_info) = parse_bms_file(&file_path)
+                        && (!fallback_info.title.is_empty() || !fallback_info.artist.is_empty()) {
                             info_list.push(fallback_info);
                         }
-                    }
                 } else {
                     info_list.push(info);
                 }
-            } else if is_bmson_file {
-                if let Ok(info) = parse_bmson_file(&file_path) {
+            } else if is_bmson_file
+                && let Ok(info) = parse_bmson_file(&file_path) {
                     info_list.push(info);
                 }
-            }
         }
     }
 
@@ -85,13 +84,14 @@ fn parse_bms_file_with_encoding(file_path: &Path, encoding: Option<&str>) -> BMS
     parse_bms_content(&content)
 }
 
-/// Get aggregated BMSInfo for a directory
+/// Get aggregated `BMSInfo` for a directory
 ///
 /// This replicates Python's `get_dir_bms_info(bms_dir_path)`:
 /// - Gets list of all BMS files in directory
 /// - Extracts common title/artist/genre using longest-common-prefix
-/// - Returns BMSInfo with aggregated metadata
+/// - Returns `BMSInfo` with aggregated metadata
 #[allow(dead_code)]
+#[must_use] 
 pub fn get_dir_bms_info(bms_dir_path: &Path) -> Option<BMSInfo> {
     let bms_list = get_dir_bms_list(bms_dir_path);
     if bms_list.is_empty() {
@@ -103,7 +103,7 @@ pub fn get_dir_bms_info(bms_dir_path: &Path) -> Option<BMSInfo> {
     let title = extract_work_name(&titles, true, &[]);
 
     // Post-process title: remove trailing "-" if odd number of dashes
-    let title = if title.ends_with('-') && title.matches('-').count() % 2 != 0 && title.len() > 1 {
+    let title = if title.ends_with('-') && !title.matches('-').count().is_multiple_of(2) && title.len() > 1 {
         title[..title.len() - 1].trim().to_string()
     } else {
         title

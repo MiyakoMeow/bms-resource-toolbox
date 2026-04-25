@@ -145,6 +145,7 @@ dependencies = [
  "anyhow",
  "clap",
  "encoding_rs",
+ "filetime",
  "indicatif",
  "regex",
  "serde",

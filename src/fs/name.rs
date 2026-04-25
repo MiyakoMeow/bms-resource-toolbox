@@ -91,7 +91,7 @@ pub fn bms_dir_similarity(dir_path_a: &Path, dir_path_b: &Path) -> f64 {
                 Some(e) => e.to_lowercase(),
                 None => continue,
             };
-            let with_dot = format!(".{}", ext);
+            let with_dot = format!(".{ext}");
 
             file_set.insert(name.clone());
             if MEDIA_EXTS.contains(&with_dot.as_str()) {

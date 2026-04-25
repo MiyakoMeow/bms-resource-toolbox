@@ -19,13 +19,18 @@ pub const CHART_FILE_EXTS: [&str; 5] = ["bms", "bme", "bml", "pms", "bmson"];
 
 /// Audio file extensions
 #[allow(dead_code)]
-pub const AUDIO_FILE_EXTS: [&str; 4] = ["flac", "ogg", "wav", "mp3"];
+pub const AUDIO_FILE_EXTS: [&str; 3] = ["flac", "ogg", "wav"];
 /// Video file extensions
 #[allow(dead_code)]
 pub const VIDEO_FILE_EXTS: [&str; 6] = ["mp4", "mkv", "avi", "wmv", "mpg", "mpeg"];
 /// Image file extensions
 #[allow(dead_code)]
-pub const IMAGE_FILE_EXTS: [&str; 4] = ["jpg", "png", "bmp", "gif"];
+pub const IMAGE_FILE_EXTS: [&str; 4] = ["jpg", "png", "bmp", "svg"];
+/// Media file extensions (audio + video + image)
+#[allow(dead_code)]
+pub const MEDIA_FILE_EXTS: [&str; 13] = [
+    "flac", "ogg", "wav", "mp4", "mkv", "avi", "wmv", "mpg", "mpeg", "jpg", "png", "bmp", "svg",
+];
 
 /// BMS difficulty levels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

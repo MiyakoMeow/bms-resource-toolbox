@@ -9,6 +9,7 @@
 //! - [`media`] - Audio and video conversion
 //! - [`options`] - CLI options and validation
 //! - [`scripts`] - Pack generation scripts
+//! - [`wasted`] - One-off/legacy utilities
 
 pub mod bms;
 pub mod error;
@@ -16,3 +17,4 @@ pub mod fs;
 pub mod media;
 pub mod options;
 pub mod scripts;
+pub mod wasted;

@@ -5,11 +5,94 @@
 
 #![allow(clippy::missing_errors_doc, clippy::missing_panics_doc, clippy::items_after_statements)]
 
-use std::path::Path;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 use tracing::info;
 
+/// Check if two files have the same content
+#[allow(dead_code)]
+#[must_use]
+pub fn is_same_content(file_a: &Path, file_b: &Path) -> bool {
+    if !file_a.is_file() || !file_b.is_file() {
+        return false;
+    }
+    match (std::fs::read(file_a), std::fs::read(file_b)) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => false,
+    }
+}
+
+/// Options for move operations
+#[derive(Debug, Clone)]
+#[derive(Default)]
+pub struct MoveOptions {
+    /// Whether to print move info
+    pub print_info: bool,
+}
+
+
+/// Action to take when a file conflict occurs
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
+pub enum ReplaceAction {
+    /// Skip the file
+    Skip = 0,
+    /// Replace the destination file
+    #[default]
+    Replace = 1,
+    /// Rename the source file
+    Rename = 2,
+    /// Check if content differs, then rename or replace
+    CheckReplace = 12,
+}
+
+
+/// Options for handling file conflicts
+#[derive(Debug, Clone)]
+pub struct ReplaceOptions {
+    /// Extension-specific replace actions
+    pub ext: HashMap<String, ReplaceAction>,
+    /// Default action for extensions not in `ext`
+    pub default: ReplaceAction,
+}
+
+impl Default for ReplaceOptions {
+    fn default() -> Self {
+        Self {
+            ext: HashMap::new(),
+            default: ReplaceAction::Replace,
+        }
+    }
+}
+
+/// Replace options for update pack operations
+#[allow(dead_code)]
+pub static REPLACE_OPTION_UPDATE_PACK: LazyLock<ReplaceOptions> = LazyLock::new(|| ReplaceOptions {
+    ext: HashMap::from([
+        (String::from("bms"), ReplaceAction::CheckReplace),
+        (String::from("bml"), ReplaceAction::CheckReplace),
+        (String::from("bme"), ReplaceAction::CheckReplace),
+        (String::from("pms"), ReplaceAction::CheckReplace),
+        (String::from("txt"), ReplaceAction::CheckReplace),
+        (String::from("bmson"), ReplaceAction::CheckReplace),
+    ]),
+    default: ReplaceAction::Replace,
+});
+
+/// Default move options
+#[allow(dead_code)]
+pub const DEFAULT_MOVE_OPTIONS: MoveOptions = MoveOptions { print_info: false };
+
+/// Default replace options
+#[allow(dead_code)]
+pub static DEFAULT_REPLACE_OPTIONS: LazyLock<ReplaceOptions> = LazyLock::new(|| ReplaceOptions {
+    ext: HashMap::new(),
+    default: ReplaceAction::Replace,
+});
+
 /// Check if a directory contains any files (non-recursive)
-#[must_use] 
+#[must_use]
 pub fn is_dir_having_file(dir: &Path) -> bool {
     if !dir.is_dir() {
         return false;
@@ -20,9 +103,14 @@ pub fn is_dir_having_file(dir: &Path) -> bool {
 }
 
 /// Move elements (files and directories) from source to destination
-/// If conflict exists, appends a suffix
+/// If conflict exists, handles it based on `ReplaceOptions`
 #[allow(dead_code)]
-pub fn move_elements_across_dir(src: &Path, dst: &Path) -> Result<(), std::io::Error> {
+pub fn move_elements_across_dir(
+    src: &Path,
+    dst: &Path,
+    options: MoveOptions,
+    replace_options: ReplaceOptions,
+) -> Result<(), std::io::Error> {
     if !src.is_dir() {
         return Err(std::io::Error::new(
             std::io::ErrorKind::NotADirectory,
@@ -30,50 +118,143 @@ pub fn move_elements_across_dir(src: &Path, dst: &Path) -> Result<(), std::io::E
         ));
     }
 
+    // If dst doesn't exist, just move src to dst
     if !dst.is_dir() {
         std::fs::create_dir_all(dst)?;
+        return move_dir_recursive(src, dst);
     }
+
+    // Collect operations
+    let mut next_folder_paths: Vec<(PathBuf, PathBuf)> = Vec::new();
+    let mut write_ops: Vec<(PathBuf, PathBuf)> = Vec::new();
 
     for entry in std::fs::read_dir(src)? {
         let entry = entry?;
         let src_path = entry.path();
         let filename = entry.file_name();
-        let mut final_dst_path = dst.join(&filename);
+        let dst_path = dst.join(&filename);
 
-        // Handle naming conflicts
-        if final_dst_path.exists() {
-            let stem = final_dst_path.file_stem().unwrap_or_default().to_string_lossy();
-            let ext = final_dst_path.extension().map(|e| e.to_string_lossy().to_string());
-            let mut counter = 1;
-            loop {
-                let new_name = match ext.as_ref() {
-                    Some(e) => format!("{} ({}).{}", stem, counter, &e),
-                    None => format!("{stem} ({counter})"),
-                };
-                let new_path = dst.join(&new_name);
-                if !new_path.exists() {
-                    final_dst_path = new_path;
-                    break;
-                }
-                counter += 1;
+        if src_path.is_file() {
+            if let Some((planned_src, planned_dst)) = plan_move_file(&src_path, &dst_path, &replace_options) {
+                write_ops.push((planned_src, planned_dst));
+            }
+        } else if src_path.is_dir() {
+            if dst_path.is_dir() {
+                next_folder_paths.push((src_path, dst_path));
+            } else {
+                next_folder_paths.push((src_path, dst_path));
             }
         }
-
-        // Move the file or directory
-        info!("Moving {:?} -> {:?}", src_path, final_dst_path);
-        std::fs::rename(&src_path, &final_dst_path).or_else(|_| {
-            // If rename fails (cross-device), try copy + delete
-            if src_path.is_dir() {
-                copy_dir_recursive(&src_path, &final_dst_path)?;
-                std::fs::remove_dir_all(&src_path)
-            } else {
-                std::fs::copy(&src_path, &final_dst_path)?;
-                std::fs::remove_file(&src_path)
-            }
-        })?;
     }
 
+    // Execute file moves
+    for (src_path, final_dst_path) in write_ops {
+        if options.print_info {
+            info!("Moving {:?} -> {:?}", src_path, final_dst_path);
+        }
+        move_file(&src_path, &final_dst_path)?;
+    }
+
+    // Recurse into subdirectories
+    for (src_path, dst_path) in next_folder_paths {
+        move_elements_across_dir(&src_path, &dst_path, options.clone(), replace_options.clone())?;
+    }
+
+    // Clean source directory if needed
+    let should_clean = replace_options.default != ReplaceAction::Skip || !is_dir_having_file(src);
+    if should_clean
+        && let Err(e) = std::fs::remove_dir_all(src) {
+            tracing::warn!("Failed to remove source directory {:?}: {}", src, e);
+        }
+
     Ok(())
+}
+
+/// Plan a file move operation based on `ReplaceOptions`
+fn plan_move_file(
+    ori_path: &Path,
+    dst_path: &Path,
+    replace_options: &ReplaceOptions,
+) -> Option<(PathBuf, PathBuf)> {
+    let file_ext = ori_path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+    let action = replace_options.ext.get(&file_ext).copied().unwrap_or(replace_options.default);
+
+    match action {
+        ReplaceAction::Skip => {
+            if dst_path.is_file() {
+                return None;
+            }
+            Some((ori_path.to_path_buf(), dst_path.to_path_buf()))
+        }
+        ReplaceAction::Replace => Some((ori_path.to_path_buf(), dst_path.to_path_buf())),
+        ReplaceAction::Rename => {
+            // Find a new name that doesn't conflict
+            for i in 0..100 {
+                let stem = dst_path.file_stem().unwrap_or_default().to_string_lossy();
+                let ext = dst_path.extension().map(|e| e.to_string_lossy()).unwrap_or_default();
+                let new_name = if ext.is_empty() {
+                    format!("{stem}.{i}")
+                } else {
+                    format!("{stem}.{i}.{ext}")
+                };
+                let new_dst_path = dst_path.with_file_name(new_name);
+                if !new_dst_path.exists() {
+                    return Some((ori_path.to_path_buf(), new_dst_path));
+                }
+            }
+            None
+        }
+        ReplaceAction::CheckReplace => {
+            if !dst_path.is_file() {
+                Some((ori_path.to_path_buf(), dst_path.to_path_buf()))
+            } else if is_same_content(ori_path, dst_path) {
+                // Same content, still move to unify location
+                Some((ori_path.to_path_buf(), dst_path.to_path_buf()))
+            } else {
+                // Different content, rename
+                for i in 0..100 {
+                    let stem = dst_path.file_stem().unwrap_or_default().to_string_lossy();
+                    let ext = dst_path.extension().map(|e| e.to_string_lossy()).unwrap_or_default();
+                    let new_name = if ext.is_empty() {
+                        format!("{stem}.{i}")
+                    } else {
+                        format!("{stem}.{i}.{ext}")
+                    };
+                    let new_dst_path = dst_path.with_file_name(new_name);
+                    if !new_dst_path.exists() {
+                        return Some((ori_path.to_path_buf(), new_dst_path));
+                    }
+                }
+                None
+            }
+        }
+    }
+}
+
+/// Move a file (handles cross-device moves)
+fn move_file(src: &Path, dst: &Path) -> Result<(), std::io::Error> {
+    std::fs::rename(src, dst).or_else(|_| {
+        if src.is_dir() {
+            copy_dir_recursive(src, dst)?;
+            std::fs::remove_dir_all(src)
+        } else {
+            std::fs::copy(src, dst)?;
+            std::fs::remove_file(src)
+        }
+    })
+}
+
+/// Move directory recursively
+fn move_dir_recursive(src: &Path, dst: &Path) -> Result<(), std::io::Error> {
+    std::fs::rename(src, dst).or_else(|_| {
+        std::fs::create_dir_all(dst)?;
+        copy_dir_recursive(src, dst)?;
+        std::fs::remove_dir_all(src)
+    })
 }
 
 /// Copy directory recursively

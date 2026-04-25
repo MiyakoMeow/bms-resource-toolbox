@@ -20,6 +20,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 indicatif = "0.17"
 encoding_rs = "0.8"
 regex = "1"
+filetime = "0.2"
 
 [lints.rust]
 missing_docs = "warn"

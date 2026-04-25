@@ -18,6 +18,7 @@ use crate::media::video::{
     transfer_video_by_format_in_dir,
     video_preset_avi_512x512, video_preset_mpeg1video_512x512, video_preset_wmv2_512x512
 };
+use crate::options::{append_name_by_bms, copy_numbered_workdir_names};
 
 /// Remove media files according to rule
 pub fn remove_unneed_media_files(root_dir: &Path, rule: &str) -> Result<(), std::io::Error> {
@@ -128,7 +129,7 @@ pub async fn pack_setup_rawpack_to_hq(
 
     // Step 2: Set dir names from BMS files
     info!("Setting dir names from BMS Files");
-    // TODO: Implement append_name_by_bms
+    append_name_by_bms(root_dir)?;
 
     // Step 3: Convert WAV -> FLAC
     info!("Parsing Audio... Phase 1: WAV -> FLAC");
@@ -167,7 +168,7 @@ pub async fn pack_update_rawpack_to_hq(
 
     // Step 2: Sync dir names from sync_dir
     info!("Syncing dir name from {:?} to {:?}", sync_dir, root_dir);
-    // TODO: Implement copy_numbered_workdir_names
+    copy_numbered_workdir_names(sync_dir, root_dir)?;
 
     // Step 3: Convert WAV -> FLAC
     info!("Parsing Audio... Phase 1: WAV -> FLAC");
@@ -187,7 +188,7 @@ pub async fn pack_update_rawpack_to_hq(
 
     // Step 5: Soft sync from sync_dir
     info!("Syncing dir files from {:?} to {:?}", sync_dir, root_dir);
-    sync_folder(root_dir, sync_dir, &SYNC_PRESET_FOR_APPEND).await?;
+    sync_folder(root_dir, sync_dir, &SYNC_PRESET_FOR_APPEND)?;
 
     // Step 6: Remove empty folders
     info!("Removing empty folder in {:?}", root_dir);

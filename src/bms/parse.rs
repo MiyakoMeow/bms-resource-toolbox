@@ -74,11 +74,23 @@ pub fn parse_bms_content(content: &str) -> BMSInfo {
     info.stage_file = header_map.get("STAGEFILE").cloned();
 
     // Collect BMP formats referenced
+    // Python parses all #BMP* lines and extracts suffix from the value
     let mut bmp_formats: Vec<String> = Vec::new();
+
+    // Handle #BMP line itself (no numeric suffix)
+    if let Some(value) = header_map.get("BMP")
+        && let Some(ext) = Path::new(value).extension() {
+            let ext_str = format!(".{}", ext.to_string_lossy());
+            if !ext_str.is_empty() && !bmp_formats.contains(&ext_str) {
+                bmp_formats.push(ext_str);
+            }
+        }
+
+    // Handle #BMP01, #BMP02, etc. (channel keys - skip if value looks like a number)
     for key in header_map.keys() {
         if key.starts_with("BMP") && key.len() > 3 {
             let num = &key[3..];
-            // Skip numeric keys that are likely channel data
+            // Skip numeric keys that are likely channel data (e.g., BMP01)
             if num.parse::<f64>().is_err()
                 && let Some(value) = header_map.get(&format!("BMP{num}"))
                     && !bmp_formats.contains(value) {
@@ -140,7 +152,7 @@ mod tests {
 
     #[test]
     fn test_parse_bms_content() {
-        let content = r#"
+        let content = r"
 #TITLE Test Song
 #ARTIST Test Artist
 #GENRE Test Genre
@@ -148,7 +160,7 @@ mod tests {
 #DIFFICULTY 3
 #TOTAL 180.5
 #STAGEFILE stage.png
-"#;
+";
         let info = parse_bms_content(content);
         assert_eq!(info.title, "Test Song");
         assert_eq!(info.artist, "Test Artist");

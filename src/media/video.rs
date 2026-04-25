@@ -11,6 +11,14 @@ use std::sync::LazyLock;
 use tokio::process::Command;
 use tracing::info;
 
+/// Video information
+#[derive(Debug, Clone)]
+pub struct VideoInfo {
+    pub width: u32,
+    pub height: u32,
+    pub bit_rate: u64,
+}
+
 /// Video conversion preset.
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
@@ -31,7 +39,7 @@ pub struct VideoPreset {
 
 impl VideoPreset {
     /// Create a new video preset.
-    #[must_use] 
+    #[must_use]
     pub fn new(
         name: &str,
         exec: &str,
@@ -50,15 +58,50 @@ impl VideoPreset {
         }
     }
 
-    /// Get ffmpeg filter complex for resizing
-    #[must_use] 
+    /// Get output file path by replacing extension
+    #[must_use]
+    pub fn get_output_file_path(&self, input_file_path: &Path) -> PathBuf {
+        let stem = input_file_path.file_stem().unwrap_or_default();
+        input_file_path.parent().unwrap_or(Path::new(".")).join(format!(
+            "{}.{}",
+            stem.to_string_lossy(),
+            self.output_format
+        ))
+    }
+
+    /// Get ffmpeg filter complex for resizing (Python-style with boxblur overlay)
+    #[must_use]
     pub fn filter_complex(&self) -> String {
+        if self.width == 512 && self.height == 512 {
+            FLITER_512X512.to_string()
+        } else {
+            FLITER_480P.to_string()
+        }
+    }
+
+    /// Get ffmpeg command string
+    #[must_use]
+    pub fn get_video_process_cmd(&self, input_file_path: &Path, output_file_path: &Path) -> String {
+        let input = input_file_path.to_string_lossy();
+        let output = output_file_path.to_string_lossy();
+        let filter = self.filter_complex();
+
         format!(
-            "scale={}:{}:force_original_aspect_ratio=decrease,pad={}:{}:x=(ow-iw)/2:y=(oh-ih)/2",
-            self.width, self.height, self.width, self.height
+            "ffmpeg -hide_banner -i \"{}\" {} -map_metadata 0 -c:v {} {} \"{}\"",
+            input,
+            filter,
+            self.codec_args.split_whitespace().next().unwrap_or("mpeg4"),
+            self.codec_args,
+            output
         )
     }
 }
+
+/// Filter complex for 512x512 with boxblur overlay
+pub const FLITER_512X512: &str = "-filter_complex \"[0:v]scale=512:512:force_original_aspect_ratio=increase,crop=512:512:(ow-iw)/2:(oh-ih)/2,boxblur=20[v1];[0:v]scale=512:512:force_original_aspect_ratio=decrease[v2];[v1][v2]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2[vid]\" -map [vid]";
+
+/// Filter complex for 480p with boxblur overlay
+pub const FLITER_480P: &str = "-filter_complex \"[0:v]scale=640:480:force_original_aspect_ratio=increase,crop=640:480:(ow-iw)/2:(oh-ih)/2,boxblur=20[v1];[0:v]scale=640:480:force_original_aspect_ratio=decrease[v2];[v1][v2]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2[vid]\" -map [vid]";
 
 /// Video preset for AVI encoding at 512x512.
 #[allow(dead_code)]
@@ -81,6 +124,27 @@ pub fn video_preset_wmv2_512x512() -> VideoPreset {
     VideoPreset::new("WMV2_512X512", "ffmpeg", "wmv", 512, 512, "-c:v wmv2 -b:v 2000k")
 }
 
+/// Video preset for AVI encoding at 480p.
+#[allow(dead_code)]
+#[must_use]
+pub fn video_preset_avi_480p() -> VideoPreset {
+    VideoPreset::new("AVI_480P", "ffmpeg", "avi", 640, 480, "-c:v mpeg4 -q:v 4")
+}
+
+/// Video preset for WMV2 encoding at 480p.
+#[allow(dead_code)]
+#[must_use]
+pub fn video_preset_wmv2_480p() -> VideoPreset {
+    VideoPreset::new("WMV2_480P", "ffmpeg", "wmv", 640, 480, "-c:v wmv2 -b:v 2000k")
+}
+
+/// Video preset for MPEG1 encoding at 480p.
+#[allow(dead_code)]
+#[must_use]
+pub fn video_preset_mpeg1video_480p() -> VideoPreset {
+    VideoPreset::new("MPEG1VIDEO_480P", "ffmpeg", "mpg", 640, 480, "-c:v mpeg1video -b:v 1500k")
+}
+
 /// Lazy static for AVI 512x512 video preset.
 #[allow(dead_code)]
 pub static VIDEO_PRESET_AVI_512X512: LazyLock<VideoPreset> = LazyLock::new(video_preset_avi_512x512);
@@ -90,6 +154,108 @@ pub static VIDEO_PRESET_MPEG1VIDEO_512X512: LazyLock<VideoPreset> = LazyLock::ne
 /// Lazy static for WMV2 512x512 video preset.
 #[allow(dead_code)]
 pub static VIDEO_PRESET_WMV2_512X512: LazyLock<VideoPreset> = LazyLock::new(video_preset_wmv2_512x512);
+/// Lazy static for AVI 480p video preset.
+#[allow(dead_code)]
+pub static VIDEO_PRESET_AVI_480P: LazyLock<VideoPreset> = LazyLock::new(video_preset_avi_480p);
+/// Lazy static for WMV2 480p video preset.
+#[allow(dead_code)]
+pub static VIDEO_PRESET_WMV2_480P: LazyLock<VideoPreset> = LazyLock::new(video_preset_wmv2_480p);
+/// Lazy static for MPEG1 480p video preset.
+#[allow(dead_code)]
+pub static VIDEO_PRESET_MPEG1VIDEO_480P: LazyLock<VideoPreset> = LazyLock::new(video_preset_mpeg1video_480p);
+
+/// Get video info from file using ffprobe
+#[allow(dead_code)]
+#[must_use]
+pub fn get_video_info(file_path: &Path) -> Option<VideoInfo> {
+    let output = std::process::Command::new("ffprobe")
+        .args([
+            "-show_format",
+            "-show_streams",
+            "-print_format", "json",
+            "-v", "quiet",
+            &file_path.to_string_lossy(),
+        ])
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let json_str = String::from_utf8_lossy(&output.stdout);
+    let json: serde_json::Value = serde_json::from_str(&json_str).ok()?;
+
+    for stream in json["streams"].as_array()? {
+        if stream["codec_type"] == "video" {
+            let width = u32::try_from(stream["width"].as_u64()?).ok()?;
+            let height = u32::try_from(stream["height"].as_u64()?).ok()?;
+            let bit_rate = stream["bit_rate"].as_str()?.parse().unwrap_or(0);
+            return Some(VideoInfo { width, height, bit_rate });
+        }
+    }
+
+    None
+}
+
+/// Get video size (width, height) from file using ffprobe
+#[allow(dead_code)]
+#[must_use]
+pub fn get_video_size(file_path: &Path) -> Option<(u32, u32)> {
+    let output = std::process::Command::new("ffprobe")
+        .args([
+            "-show_format",
+            "-show_streams",
+            "-print_format", "json",
+            "-v", "quiet",
+            &file_path.to_string_lossy(),
+        ])
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let json_str = String::from_utf8_lossy(&output.stdout);
+    let json: serde_json::Value = serde_json::from_str(&json_str).ok()?;
+
+    for stream in json["streams"].as_array()? {
+        if stream["codec_type"] == "video" {
+            let width = u32::try_from(stream["width"].as_u64()?).ok()?;
+            let height = u32::try_from(stream["height"].as_u64()?).ok()?;
+            return Some((width, height));
+        }
+    }
+
+    None
+}
+
+/// Get preferred preset list based on video aspect ratio
+#[allow(dead_code)]
+#[must_use]
+pub fn get_prefered_preset_list(file_path: &Path) -> Vec<VideoPreset> {
+    let size = match get_video_size(file_path) {
+        Some(s) => s,
+        None => return Vec::new(),
+    };
+    let (width, height) = size;
+
+    // If width/height > 640/480, use 480p presets
+    if f64::from(width) / f64::from(height) > 640.0 / 480.0 {
+        vec![
+            video_preset_mpeg1video_480p(),
+            video_preset_wmv2_480p(),
+            video_preset_avi_480p(),
+        ]
+    } else {
+        vec![
+            video_preset_mpeg1video_512x512(),
+            video_preset_wmv2_512x512(),
+            video_preset_avi_512x512(),
+        ]
+    }
+}
 
 /// Get video presets array.
 #[allow(dead_code)]
@@ -229,7 +395,6 @@ mod tests {
         let filter = preset.filter_complex();
         assert!(filter.contains("512"));
         assert!(filter.contains("scale"));
-        assert!(filter.contains("pad"));
     }
 
     #[test]

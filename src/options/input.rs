@@ -5,13 +5,159 @@
 
 #![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 
+use std::any::Any;
 #[allow(dead_code)]
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[allow(dead_code)]
 const HISTORY_FILE: &str = "input_history.log";
+
+/// Input type for interactive prompts
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
+pub enum InputType {
+    #[default]
+    Any,
+    Word,
+    Int,
+    Path,
+}
+
+
+/// Confirmation type for interactive prompts
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
+pub enum ConfirmType {
+    NoConfirm,
+    #[default]
+    DefaultYes,
+    DefaultNo,
+}
+
+
+/// Input specification for interactive prompts
+#[derive(Debug, Clone)]
+pub struct Input {
+    pub input_type: InputType,
+    pub description: String,
+}
+
+impl Input {
+    /// Execute the input prompt
+    #[allow(dead_code)]
+    #[must_use] 
+    pub fn exec_input(&self) -> Box<dyn Any> {
+        match self.input_type {
+            InputType::Any => {
+                let result = input_string("Input: ");
+                Box::new(result)
+            }
+            InputType::Word => {
+                let tips = "Input a word: ";
+                let mut w_str = input_string(tips);
+                while w_str.contains(' ') {
+                    println!("Requires a word. Re-input.");
+                    w_str = input_string(tips);
+                }
+                Box::new(w_str)
+            }
+            InputType::Int => {
+                let tips = "Input a number: ";
+                let mut w_str = input_string(tips);
+                while !w_str.chars().all(|c| c.is_ascii_digit()) {
+                    println!("Requires a number. Re-input.");
+                    w_str = input_string(tips);
+                }
+                Box::new(w_str.parse::<i32>().unwrap_or(0))
+            }
+            InputType::Path => {
+                let result = input_path("");
+                Box::new(result)
+            }
+        }
+    }
+}
+
+impl Default for Input {
+    fn default() -> Self {
+        Self {
+            input_type: InputType::Any,
+            description: String::new(),
+        }
+    }
+}
+
+/// Option for interactive menu
+#[derive(Debug, Clone)]
+pub struct Option<T: FnMut(Box<dyn Any>)> {
+    pub func: T,
+    pub name: String,
+    pub inputs: Vec<Input>,
+    pub confirm: ConfirmType,
+}
+
+use crate::bms::types::CHART_FILE_EXTS;
+
+/// Check if a directory has no BMS chart files (is a "root" directory)
+#[allow(dead_code)]
+#[must_use] 
+pub fn is_root_dir(root_dir: &Path) -> bool {
+    if !root_dir.is_dir() {
+        return false;
+    }
+
+    let entries = match std::fs::read_dir(root_dir) {
+        Ok(e) => e,
+        Err(_) => return false,
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_file()
+            && let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                let lower_name = name.to_lowercase();
+                if CHART_FILE_EXTS.iter().any(|ext| lower_name.ends_with(ext)) {
+                    return false;
+                }
+            }
+    }
+    true
+}
+
+/// Check if a directory has BMS chart files (is a "work" directory)
+#[allow(dead_code)]
+#[must_use] 
+pub fn is_work_dir(root_dir: &Path) -> bool {
+    if !root_dir.is_dir() {
+        return false;
+    }
+
+    let entries = match std::fs::read_dir(root_dir) {
+        Ok(e) => e,
+        Err(_) => return false,
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_file()
+            && let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                let lower_name = name.to_lowercase();
+                if CHART_FILE_EXTS.iter().any(|ext| lower_name.ends_with(ext)) {
+                    return true;
+                }
+            }
+    }
+    false
+}
+
+/// Check if a path is not a directory
+#[allow(dead_code)]
+#[must_use] 
+pub fn is_not_a_dir(dir: &Path) -> bool {
+    !dir.is_dir()
+}
 
 /// Read input with path history support
 #[must_use]

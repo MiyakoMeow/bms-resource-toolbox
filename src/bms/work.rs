@@ -102,13 +102,11 @@ fn post_process(
                     if c == *open {
                         stack.push((*open, i));
                     }
-                    if c == *close {
-                        if let Some((top_open, _)) = stack.last() {
-                            if *top_open == *open {
+                    if c == *close
+                        && let Some((top_open, _)) = stack.last()
+                            && *top_open == *open {
                                 stack.pop();
                             }
-                        }
-                    }
                 }
             }
 
@@ -186,11 +184,10 @@ pub fn extract_work_name_from_path(path: &str) -> String {
     // Find the first space followed by a digit sequence followed by space and content
     // e.g., "001 Artist - Title" or "001_Artist - Title"
     let re = Regex::new(r"^[\d_]+(?:\s+)(.+)$").unwrap();
-    if let Some(caps) = re.captures(filename) {
-        if let Some(matched) = caps.get(1) {
+    if let Some(caps) = re.captures(filename)
+        && let Some(matched) = caps.get(1) {
             return extract_work_name_single(matched.as_str());
         }
-    }
 
     extract_work_name_single(filename)
 }
