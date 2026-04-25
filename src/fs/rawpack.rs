@@ -5,9 +5,13 @@
 
 #![allow(clippy::missing_errors_doc, clippy::missing_panics_doc, clippy::items_after_statements)]
 
+use std::collections::HashMap;
 use std::path::Path;
 use tracing::info;
 use regex::Regex;
+
+use crate::bms::types::CHART_FILE_EXTS;
+use crate::fs::pack_move::move_elements_across_dir;
 
 /// Get numbered file names from a directory
 /// Matches patterns like "001 filename.zip", "`001_filename.7z`"
@@ -159,6 +163,185 @@ async fn extract_rar(archive_path: &Path, output_dir: &Path) -> Result<(), std::
         ));
     }
     Ok(())
+}
+
+/// Move out files from nested folders in cache directory
+///
+/// This replicates Python's `move_out_files_in_folder_in_cache_dir(cache_dir_path)`:
+/// - Iteratively unpacks nested folder structures
+/// - Removes __MACOSX directories
+/// - Handles single inner folder case (if >= 10 files, considered "done")
+/// - If multiple inner folders, checks for BMS files to determine if state is acceptable
+/// - Moves files out of inner directories to the cache root
+///
+/// Returns `true` on success, `false` on error or empty cache
+#[allow(dead_code)]
+pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
+    let mut error = false;
+
+    loop {
+        let mut file_ext_count: HashMap<String, Vec<String>> = HashMap::new();
+        let mut cache_folder_count: usize = 0;
+        let mut cache_file_count: usize = 0;
+        let mut inner_dir_name: Option<String> = None;
+
+        // Scan cache directory
+        let entries = match std::fs::read_dir(cache_dir_path) {
+            Ok(e) => e,
+            Err(_) => break,
+        };
+
+        for entry in entries.flatten() {
+            let cache_path = entry.path();
+            let cache_name = cache_path.file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("");
+
+            if cache_path.is_dir() {
+                // Remove __MACOSX directory
+                if cache_name == "__MACOSX" {
+                    info!("Removing __MACOSX directory: {:?}", cache_path);
+                    if let Err(e) = std::fs::remove_dir_all(&cache_path) {
+                        info!("Failed to remove __MACOSX: {}", e);
+                    }
+                    continue;
+                }
+                // Normal directory
+                cache_folder_count += 1;
+                inner_dir_name = Some(cache_name.to_string());
+            }
+
+            if cache_path.is_file() {
+                cache_file_count += 1;
+                // Count extensions
+                let ext = cache_path.extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or("")
+                    .to_lowercase();
+                file_ext_count.entry(ext).or_default().push(cache_name.to_string());
+            }
+        }
+
+        // Determine state
+        let done;
+        if cache_folder_count == 0 {
+            done = true;
+        } else if cache_folder_count == 1 && cache_file_count >= 10 {
+            done = true;
+        } else if cache_folder_count > 1 {
+            // Check if there are BMS files anywhere in cache_dir
+            let mut has_bms = false;
+            for entry in walkdir::WalkDir::new(cache_dir_path).into_iter().flatten() {
+                let path = entry.path();
+                if path.is_file() {
+                    if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                        let lower_name = name.to_lowercase();
+                        if CHART_FILE_EXTS.iter().any(|ext| lower_name.ends_with(ext)) {
+                            has_bms = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if has_bms {
+                done = true;
+            } else {
+                info!(" !_! {}: has more than 1 folders, please do it manually.", cache_dir_path.display());
+                error = true;
+                done = false;
+            }
+        } else {
+            done = false;
+        }
+
+        if done || error {
+            break;
+        }
+
+        // Move files out of inner directory
+        if let Some(ref inner_name) = inner_dir_name {
+            let inner_dir_path = cache_dir_path.join(inner_name);
+            // Avoid two floor same name: if inner_dir_path/inner_name exists, rename it
+            let inner_inner_dir_path = inner_dir_path.join(inner_name);
+            if inner_inner_dir_path.is_dir() {
+                info!(" - Renaming inner inner dir name: {:?}", inner_inner_dir_path);
+                let new_path = inner_dir_path.with_file_name(format!("{}-rep", inner_name));
+                if let Err(e) = std::fs::rename(&inner_inner_dir_path, &new_path) {
+                    info!("Failed to rename inner inner dir: {}", e);
+                }
+            }
+            // Move files
+            info!(" - Moving inner files in {:?} to {:?}", inner_dir_path, cache_dir_path);
+            if let Err(e) = move_elements_across_dir(&inner_dir_path, cache_dir_path) {
+                info!("Failed to move elements: {}", e);
+            }
+            // Try to remove the now-empty inner directory
+            let _ = std::fs::remove_dir(&inner_dir_path);
+        }
+    }
+
+    // Final checks
+    let (final_folder_count, final_file_count) = count_cache_contents(cache_dir_path);
+
+    if error {
+        return false;
+    }
+
+    if final_folder_count == 0 && final_file_count == 0 {
+        info!(" !_! {}: Cache is Empty!", cache_dir_path.display());
+        // Try to remove the empty cache directory
+        let _ = std::fs::remove_dir(cache_dir_path);
+        return false;
+    }
+
+    // Check for multiple mp4 files
+    let mp4_files: usize = file_ext_count_at_path(cache_dir_path)
+        .get("mp4")
+        .map(|v| v.len())
+        .unwrap_or(0);
+    if mp4_files > 1 {
+        info!(" - Tips: {} has more than 1 mp4 files!", cache_dir_path.display());
+    }
+
+    true
+}
+
+/// Count folders and files in a directory
+fn count_cache_contents(dir: &Path) -> (usize, usize) {
+    let mut folder_count = 0;
+    let mut file_count = 0;
+
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            if entry.path().is_dir() {
+                folder_count += 1;
+            } else if entry.path().is_file() {
+                file_count += 1;
+            }
+        }
+    }
+
+    (folder_count, file_count)
+}
+
+/// Get file extension counts in a directory
+fn file_ext_count_at_path(dir: &Path) -> HashMap<String, Vec<String>> {
+    let mut ext_count: HashMap<String, Vec<String>> = HashMap::new();
+
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            if entry.path().is_file() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                let ext = entry.path().extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or("")
+                    .to_lowercase();
+                ext_count.entry(ext).or_default().push(name);
+            }
+        }
+    }
+
+    ext_count
 }
 
 #[cfg(test)]
