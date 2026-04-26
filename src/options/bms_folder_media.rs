@@ -6,23 +6,22 @@
 use std::path::Path;
 use tracing::info;
 
-use crate::media::audio::AudioPreset;
-use crate::media::video::VideoPreset;
+use crate::media::audio::{AudioPreset, audio_preset_flac, audio_preset_flac_ffmpeg, audio_preset_ogg_q10, audio_preset_wav_from_flac, audio_preset_wav_ffmpeg};
+use crate::media::video::{transfer_video_by_format_in_dir, VideoPreset, VIDEO_PRESET_AVI_512X512, VIDEO_PRESET_AVI_480P, VIDEO_PRESET_MPEG1VIDEO_512X512, VIDEO_PRESET_MPEG1VIDEO_480P, VIDEO_PRESET_WMV2_512X512, VIDEO_PRESET_WMV2_480P};
+use crate::media::transfer_audio_by_format_in_dir;
 
 /// Transfer audio files in a BMS root directory
 /// This is an interactive function that prompts the user for settings
 #[allow(dead_code)]
-pub fn transfer_audio(root_dir: &Path) -> Result<(), std::io::Error> {
-    use crate::media::audio;
-
+pub async fn transfer_audio(root_dir: &Path) -> Result<(), std::io::Error> {
     info!("Audio Transfer for: {:?}", root_dir);
 
-    // Audio transfer modes
-    let modes = [
-        ("Convert: WAV to FLAC", vec!["wav"], vec![audio::audio_preset_flac(), audio::audio_preset_flac_ffmpeg()]),
-        ("Compress: FLAC to OGG Q10", vec!["flac"], vec![audio::audio_preset_ogg_q10()]),
-        ("Compress: WAV to OGG Q10", vec!["wav"], vec![audio::audio_preset_ogg_q10()]),
-        ("Reverse: FLAC to WAV", vec!["flac"], vec![audio::audio_preset_wav_from_flac(), audio::audio_preset_wav_ffmpeg()]),
+    // Audio transfer modes: (name, input_exts, presets)
+    let modes: [(&str, Vec<&str>, Vec<AudioPreset>); 4] = [
+        ("Convert: WAV to FLAC", vec!["wav"], vec![audio_preset_flac(), audio_preset_flac_ffmpeg()]),
+        ("Compress: FLAC to OGG Q10", vec!["flac"], vec![audio_preset_ogg_q10()]),
+        ("Compress: WAV to OGG Q10", vec!["wav"], vec![audio_preset_ogg_q10()]),
+        ("Reverse: FLAC to WAV", vec!["flac"], vec![audio_preset_wav_from_flac(), audio_preset_wav_ffmpeg()]),
     ];
 
     info!("Available audio modes:");
@@ -49,11 +48,13 @@ pub fn transfer_audio(root_dir: &Path) -> Result<(), std::io::Error> {
         return Ok(());
     }
 
-    // Build presets list
-    let mut all_presets: Vec<(&[&str], Vec<AudioPreset>)> = Vec::new();
+    // Build combined presets list from selections
+    let mut combined_exts: Vec<&str> = Vec::new();
+    let mut combined_presets: Vec<AudioPreset> = Vec::new();
     for &idx in &selections {
         let (_, exts, presets) = &modes[idx];
-        all_presets.push((exts.as_slice(), presets.clone()));
+        combined_exts.extend(exts.iter().copied());
+        combined_presets.extend(presets.iter().cloned());
     }
 
     // Process each work directory
@@ -73,13 +74,13 @@ pub fn transfer_audio(root_dir: &Path) -> Result<(), std::io::Error> {
 
         info!("Processing: {}", bms_dir_name);
 
-        // Note: This simplified version just processes each extension group
-        // A full implementation would call the async transfer functions
-        for (exts, presets) in &all_presets {
-            info!("  Converting {:?} with {} presets", exts, presets.len());
-            // In a full implementation, this would call:
-            // transfer_audio_by_format_in_dir(&bms_dir, exts, presets, true, true).await?;
-        }
+        transfer_audio_by_format_in_dir(
+            &bms_dir,
+            &combined_exts,
+            &combined_presets,
+            true,
+            true,
+        ).await?;
     }
 
     Ok(())
@@ -88,19 +89,17 @@ pub fn transfer_audio(root_dir: &Path) -> Result<(), std::io::Error> {
 /// Transfer video files in a BMS root directory
 /// This is an interactive function that prompts the user for settings
 #[allow(dead_code)]
-pub fn transfer_video(root_dir: &Path) -> Result<(), std::io::Error> {
-    use crate::media::video;
-
+pub async fn transfer_video(root_dir: &Path) -> Result<(), std::io::Error> {
     info!("Video Transfer for: {:?}", root_dir);
 
-    // Video presets
-    let presets = [
-        ("MP4 -> AVI 512x512", video_preset(video::VIDEO_PRESET_AVI_512X512.clone())),
-        ("MP4 -> AVI 480p", video_preset(video::VIDEO_PRESET_AVI_480P.clone())),
-        ("MP4 -> WMV2 512x512", video_preset(video::VIDEO_PRESET_WMV2_512X512.clone())),
-        ("MP4 -> WMV2 480p", video_preset(video::VIDEO_PRESET_WMV2_480P.clone())),
-        ("MP4 -> MPEG1VIDEO 512x512", video_preset(video::VIDEO_PRESET_MPEG1VIDEO_512X512.clone())),
-        ("MP4 -> MPEG1VIDEO 480p", video_preset(video::VIDEO_PRESET_MPEG1VIDEO_480P.clone())),
+    // Video presets: (name, preset)
+    let presets: [(&str, VideoPreset); 6] = [
+        ("MP4 -> AVI 512x512", VIDEO_PRESET_AVI_512X512.clone()),
+        ("MP4 -> AVI 480p", VIDEO_PRESET_AVI_480P.clone()),
+        ("MP4 -> WMV2 512x512", VIDEO_PRESET_WMV2_512X512.clone()),
+        ("MP4 -> WMV2 480p", VIDEO_PRESET_WMV2_480P.clone()),
+        ("MP4 -> MPEG1VIDEO 512x512", VIDEO_PRESET_MPEG1VIDEO_512X512.clone()),
+        ("MP4 -> MPEG1VIDEO 480p", VIDEO_PRESET_MPEG1VIDEO_480P.clone()),
     ];
 
     info!("Available video modes:");
@@ -127,6 +126,13 @@ pub fn transfer_video(root_dir: &Path) -> Result<(), std::io::Error> {
         return Ok(());
     }
 
+    // Build combined presets list
+    let mut combined_presets: Vec<VideoPreset> = Vec::new();
+    for &idx in &selections {
+        let (_, preset) = &presets[idx];
+        combined_presets.push(preset.clone());
+    }
+
     // Process each work directory
     let entries: Vec<_> = std::fs::read_dir(root_dir)?
         .filter_map(std::result::Result::ok)
@@ -144,17 +150,14 @@ pub fn transfer_video(root_dir: &Path) -> Result<(), std::io::Error> {
 
         info!("Processing: {}", bms_dir_name);
 
-        for &idx in &selections {
-            let (name, _) = &presets[idx];
-            info!("  Mode: {}", name);
-            // In a full implementation, this would call the async transfer functions
-        }
+        transfer_video_by_format_in_dir(
+            &bms_dir,
+            &["mp4"],
+            &combined_presets,
+            true,
+            true,
+        ).await?;
     }
 
     Ok(())
-}
-
-// Helper function to get video preset
-fn video_preset(preset: VideoPreset) -> VideoPreset {
-    preset
 }

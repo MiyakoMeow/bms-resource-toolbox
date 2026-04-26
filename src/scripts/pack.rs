@@ -8,7 +8,7 @@
 use std::path::Path;
 use tracing::info;
 use crate::fs::{
-    extract_numeric_to_bms_folder, is_dir_having_file, remove_empty_dirs, sync_folder, SYNC_PRESET_FOR_APPEND,
+    is_dir_having_file, remove_empty_dirs, sync_folder, SYNC_PRESET_FOR_APPEND,
 };
 use crate::media::{
     transfer_audio_by_format_in_dir,
@@ -18,7 +18,7 @@ use crate::media::video::{
     transfer_video_by_format_in_dir,
     video_preset_avi_512x512, video_preset_mpeg1video_512x512, video_preset_wmv2_512x512
 };
-use crate::options::{append_name_by_bms, copy_numbered_workdir_names};
+use crate::options::{append_name_by_bms, copy_numbered_workdir_names, unzip_numeric_to_bms_folder};
 
 /// Remove media files according to rule
 pub fn remove_unneed_media_files(root_dir: &Path, rule: &str) -> Result<(), std::io::Error> {
@@ -107,6 +107,97 @@ pub async fn pack_hq_to_lq(root_dir: &Path) -> Result<(), std::io::Error> {
     Ok(())
 }
 
+/// Validate inputs for pack_setup_rawpack_to_hq
+///
+/// This replicates Python's `_pack_setup_rawpack_to_hq_check`:
+/// - Checks pack_dir exists
+/// - Prints numbered pack files
+/// - Checks root_dir does NOT exist
+#[allow(dead_code)]
+pub fn pack_setup_rawpack_to_hq_check(pack_dir: &Path, root_dir: &Path) -> Result<(), std::io::Error> {
+    use crate::fs::rawpack::get_num_set_file_names;
+
+    println!(" - Input 1: Pack dir path");
+    if !pack_dir.is_dir() {
+        println!("Pack dir is not valid dir.");
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::NotADirectory,
+            "Pack dir is not a valid directory",
+        ));
+    }
+
+    // Print packs
+    let file_names = get_num_set_file_names(pack_dir);
+    println!(" -- There are packs in pack_dir:");
+    for file_name in &file_names {
+        println!(" > {file_name}");
+    }
+
+    println!(" - Input 2: BMS Cache Folder path. (Input a dir path that NOT exists)");
+    if root_dir.is_dir() {
+        println!("Root dir is an existing dir.");
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::AlreadyExists,
+            "Root dir already exists",
+        ));
+    }
+
+    Ok(())
+}
+
+/// Validate inputs for pack_update_rawpack_to_hq
+///
+/// This replicates Python's `_pack_update_rawpack_to_hq_check`:
+/// - Checks pack_dir exists
+/// - Prints numbered pack files
+/// - Checks root_dir does NOT exist
+/// - Checks sync_dir EXISTS
+#[allow(dead_code)]
+pub fn pack_update_rawpack_to_hq_check(
+    pack_dir: &Path,
+    root_dir: &Path,
+    sync_dir: &Path,
+) -> Result<(), std::io::Error> {
+    use crate::fs::rawpack::get_num_set_file_names;
+
+    println!(" - Input 1: Pack dir path");
+    if !pack_dir.is_dir() {
+        println!("Pack dir is not valid dir.");
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::NotADirectory,
+            "Pack dir is not a valid directory",
+        ));
+    }
+
+    // Print packs
+    let file_names = get_num_set_file_names(pack_dir);
+    println!(" -- There are packs in pack_dir:");
+    for file_name in &file_names {
+        println!(" > {file_name}");
+    }
+
+    println!(" - Input 2: BMS Cache Folder path. (Input a dir path that NOT exists)");
+    if root_dir.is_dir() {
+        println!("Root dir is an existing dir.");
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::AlreadyExists,
+            "Root dir already exists",
+        ));
+    }
+
+    println!(" - Input 3: Already exists BMS Folder path. (Input a dir path that ALREADY exists)");
+    println!("This script will use this dir, just for name syncing and file checking.");
+    if !sync_dir.is_dir() {
+        println!("Syncing dir is not valid dir.");
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::NotADirectory,
+            "Sync dir is not a valid directory",
+        ));
+    }
+
+    Ok(())
+}
+
 /// Setup raw pack to HQ: extract -> rename -> convert -> clean
 pub async fn pack_setup_rawpack_to_hq(
     pack_dir: &Path,
@@ -120,7 +211,7 @@ pub async fn pack_setup_rawpack_to_hq(
 
     // Step 1: Unzip packs
     info!("Unzipping packs from {:?} to {:?}", pack_dir, root_dir);
-    extract_numeric_to_bms_folder(pack_dir, &cache_dir, root_dir)?;
+    unzip_numeric_to_bms_folder(pack_dir, &cache_dir, root_dir)?;
 
     // Remove cache dir if empty
     if !is_dir_having_file(&cache_dir) {
@@ -164,7 +255,7 @@ pub async fn pack_update_rawpack_to_hq(
 
     // Step 1: Unzip packs
     info!("Unzipping packs from {:?} to {:?}", pack_dir, root_dir);
-    extract_numeric_to_bms_folder(pack_dir, &cache_dir, root_dir)?;
+    unzip_numeric_to_bms_folder(pack_dir, &cache_dir, root_dir)?;
 
     // Step 2: Sync dir names from sync_dir
     info!("Syncing dir name from {:?} to {:?}", sync_dir, root_dir);

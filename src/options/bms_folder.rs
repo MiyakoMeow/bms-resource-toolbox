@@ -134,4 +134,321 @@ pub fn copy_numbered_workdir_names(root_dir_from: &Path, root_dir_to: &Path) -> 
     Ok(())
 }
 
+/// Append artist name to folder names based on BMS files
+///
+/// This replicates Python's `append_artist_name_by_bms(root_dir)`:
+/// - Adds " [artist]" suffix to folders not already ending with "]"
+/// - Shows confirmation before renaming
+#[allow(dead_code)]
+pub fn append_artist_name_by_bms(root_dir: &Path) -> Result<(), std::io::Error> {
+    use std::io::{self, Write};
+
+    use crate::bms::dir::get_dir_bms_info;
+    use crate::fs::name::get_valid_fs_name;
+
+    if !root_dir.is_dir() {
+        return Ok(());
+    }
+
+    let entries: Vec<_> = std::fs::read_dir(root_dir)?
+        .filter_map(std::result::Result::ok)
+        .collect();
+
+    let mut pairs: Vec<(PathBuf, PathBuf)> = Vec::new();
+
+    for entry in entries {
+        let dir_path = entry.path();
+        if !dir_path.is_dir() {
+            continue;
+        }
+
+        let dir_name = dir_path.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("");
+
+        // Skip if already has artist suffix
+        if dir_name.ends_with(']') {
+            continue;
+        }
+
+        let info = get_dir_bms_info(&dir_path);
+        if info.is_none() {
+            println!("Dir {:?} has no bms files!", dir_path);
+            continue;
+        }
+
+        let info = info.unwrap();
+        let new_dir_name = format!("{dir_name} [{}]", get_valid_fs_name(&info.artist));
+        println!("- Ready to rename: {dir_name} -> {new_dir_name}");
+        pairs.push((dir_path, root_dir.join(&new_dir_name)));
+    }
+
+    if pairs.is_empty() {
+        println!("No folders to rename");
+        return Ok(());
+    }
+
+    print!("Do transferring? [y/N]: ");
+    io::stdout().flush().unwrap();
+    let mut input = String::new();
+    io::stdin().read_line(&mut input).unwrap();
+    if !input.trim().to_lowercase().starts_with('y') {
+        println!("Aborted.");
+        return Ok(());
+    }
+
+    for (from, to) in pairs {
+        std::fs::rename(&from, &to)?;
+    }
+
+    Ok(())
+}
+
+/// Set folder names based on BMS info (title [artist] format)
+///
+/// This replicates Python's `set_name_by_bms(root_dir)`:
+/// - Renames folders to "title [artist]" format
+/// - Handles merging if target already exists (with similarity check)
+#[allow(dead_code)]
+pub fn set_name_by_bms(root_dir: &Path) -> Result<(), std::io::Error> {
+    if !root_dir.is_dir() {
+        return Ok(());
+    }
+
+    let mut fail_list: Vec<String> = Vec::new();
+
+    let entries: Vec<_> = std::fs::read_dir(root_dir)?
+        .filter_map(std::result::Result::ok)
+        .collect();
+
+    for entry in entries {
+        let dir_path = entry.path();
+        if !dir_path.is_dir() {
+            continue;
+        }
+
+        let dir_name = dir_path.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_string();
+
+        if !set_single_folder_name_by_bms(&dir_path)? {
+            fail_list.push(dir_name);
+        }
+    }
+
+    if !fail_list.is_empty() {
+        println!("Fail Count: {}", fail_list.len());
+        for name in &fail_list {
+            println!("  {name}");
+        }
+    }
+
+    Ok(())
+}
+
+/// Set a single folder's name based on its BMS info
+/// Returns true if successful, false if skipped or failed
+fn set_single_folder_name_by_bms(work_dir: &Path) -> Result<bool, std::io::Error> {
+    use crate::bms::dir::get_dir_bms_info;
+    use crate::fs::name::{get_valid_fs_name, bms_dir_similarity};
+    use crate::fs::pack_move::{move_elements_across_dir, REPLACE_OPTION_UPDATE_PACK};
+
+    let mut info = get_dir_bms_info(work_dir);
+
+    // If no BMS info found, try to move out nested contents and retry
+    while info.is_none() {
+        println!("{:?} has no bms/bmson files! Trying to move out.", work_dir);
+
+        let elements: Vec<_> = std::fs::read_dir(work_dir)?
+            .filter_map(std::result::Result::ok)
+            .collect();
+
+        if elements.is_empty() {
+            println!(" - Empty dir! Deleting...");
+            std::fs::remove_dir(work_dir)?;
+            return Ok(false);
+        }
+
+        if elements.len() != 1 {
+            println!(" - Element count: {}", elements.len());
+            return Ok(false);
+        }
+
+        let inner_path = &elements[0].path();
+        if !inner_path.is_dir() {
+            println!(" - Folder has only a file: {:?}", inner_path.file_name());
+            return Ok(false);
+        }
+
+        println!(" - Moving out files...");
+        move_elements_across_dir(inner_path, work_dir, Default::default(), Default::default())?;
+        info = get_dir_bms_info(work_dir);
+    }
+
+    let info = info.unwrap();
+    let parent_dir = work_dir.parent().unwrap_or(work_dir);
+
+    if info.title.is_empty() && info.artist.is_empty() {
+        println!("{:?}: Info title and artist is EMPTY!", work_dir);
+        return Ok(false);
+    }
+
+    let new_dir_path = parent_dir.join(format!(
+        "{} [{}]",
+        get_valid_fs_name(&info.title),
+        get_valid_fs_name(&info.artist)
+    ));
+
+    // Same directory?
+    if work_dir == new_dir_path {
+        return Ok(true);
+    }
+
+    println!("{:?}: Rename! Title: {}; Artist: {}", work_dir, info.title, info.artist);
+
+    if !new_dir_path.is_dir() {
+        std::fs::rename(work_dir, &new_dir_path)?;
+        return Ok(true);
+    }
+
+    // Directory already exists - check similarity
+    let similarity = bms_dir_similarity(work_dir, &new_dir_path);
+    println!(" - Directory {:?} exists! Similarity: {}", new_dir_path, similarity);
+
+    if similarity < 0.8 {
+        println!(" - Merge canceled.");
+        return Ok(false);
+    }
+
+    println!(" - Merge start!");
+    move_elements_across_dir(work_dir, &new_dir_path, Default::default(), REPLACE_OPTION_UPDATE_PACK.clone())?;
+    Ok(true)
+}
+
+/// Scan for similar folder names
+///
+/// This replicates Python's `scan_folder_similar_folders(root_dir, similarity_trigger)`:
+/// - Uses difflib.SequenceMatcher to find similar folder names
+#[allow(dead_code)]
+pub fn scan_folder_similar_folders(root_dir: &Path, similarity_trigger: f64) -> Result<(), std::io::Error> {
+    if !root_dir.is_dir() {
+        return Ok(());
+    }
+
+    let dir_names: Vec<String> = std::fs::read_dir(root_dir)?
+        .filter_map(std::result::Result::ok)
+        .filter(|e| e.path().is_dir())
+        .filter_map(|e| e.file_name().to_str().map(String::from))
+        .collect();
+
+    println!("当前目录下有{}个文件夹。", dir_names.len());
+
+    let mut sorted_names = dir_names.clone();
+    sorted_names.sort();
+
+    for i in 1..sorted_names.len() {
+        let former = &sorted_names[i - 1];
+        let current = &sorted_names[i];
+
+        let similarity = similar_ratio(former, current);
+        if similarity < similarity_trigger {
+            continue;
+        }
+        println!("发现相似项：{former} <=> {current}");
+    }
+
+    Ok(())
+}
+
+/// Calculate similarity ratio between two strings using SequenceMatcher logic
+fn similar_ratio(a: &str, b: &str) -> f64 {
+    let mut matches = 0;
+    let max_len = a.len().max(b.len());
+    if max_len == 0 {
+        return 1.0;
+    }
+
+    // Simple character-based similarity
+    let a_chars: Vec<char> = a.chars().collect();
+    let b_chars: Vec<char> = b.chars().collect();
+
+    let mut i = 0;
+    let mut j = 0;
+    while i < a_chars.len() && j < b_chars.len() {
+        if a_chars[i] == b_chars[j] {
+            matches += 1;
+            i += 1;
+            j += 1;
+        } else {
+            // Try to find a match
+            let mut found = false;
+            for k in 0..a_chars.len() {
+                if a_chars[k] == b_chars[j] {
+                    matches += 1;
+                    i = k + 1;
+                    j += 1;
+                    found = true;
+                    break;
+                }
+            }
+            if !found {
+                i += 1;
+            }
+        }
+    }
+
+    matches as f64 / max_len as f64
+}
+
+/// Undo set_name by removing " [artist]" suffix
+///
+/// This replicates Python's `undo_set_name(root_dir)`:
+/// - Removes " [artist]" part from folder names
+/// - Restores the original numeric prefix
+#[allow(dead_code)]
+pub fn undo_set_name(root_dir: &Path) -> Result<(), std::io::Error> {
+    if !root_dir.is_dir() {
+        return Ok(());
+    }
+
+    let entries: Vec<_> = std::fs::read_dir(root_dir)?
+        .filter_map(std::result::Result::ok)
+        .collect();
+
+    for entry in entries {
+        let dir_path = entry.path();
+        if !dir_path.is_dir() {
+            continue;
+        }
+
+        let dir_name = dir_path.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("");
+
+        // Find first space and check if ends with "]"
+        if let Some(space_pos) = dir_name.find(' ') {
+            let suffix = &dir_name[space_pos..];
+            if suffix.ends_with(']') {
+                let new_dir_name = &dir_name[..space_pos];
+                let new_dir_path = root_dir.join(new_dir_name);
+
+                if dir_name == new_dir_name {
+                    continue;
+                }
+
+                if new_dir_path.is_dir() {
+                    println!("Warning: Target {:?} already exists! Skipping {}", new_dir_path, dir_name);
+                    continue;
+                }
+
+                println!("Rename {} to {}", dir_name, new_dir_name);
+                std::fs::rename(&dir_path, &new_dir_path)?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
 use std::path::PathBuf;

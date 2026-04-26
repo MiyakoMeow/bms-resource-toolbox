@@ -3,10 +3,11 @@
 //! This module provides utilities for extracting raw BMS packs
 //! and setting file numbers.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tracing::info;
 
-use crate::fs::rawpack::{extract_archive, move_out_files_in_folder_in_cache_dir};
+use crate::fs::rawpack::{extract_archive, get_num_set_file_names, move_out_files_in_folder_in_cache_dir};
+use crate::fs::pack_move::is_dir_having_file;
 
 /// Extract archives by original filename to BMS folder structure
 #[allow(dead_code)]
@@ -92,6 +93,141 @@ pub fn unzip_with_name_to_bms_folder(
 
         // Target directory
         let target_dir_path = root_dir.join(&file_stem);
+
+        // Move cache to BMS dir
+        info!("Moving files from {:?} to {:?}", cache_dir_path, target_dir_path);
+
+        // Get entries in cache dir
+        let entries: Vec<_> = std::fs::read_dir(&cache_dir_path)?
+            .filter_map(std::result::Result::ok)
+            .collect();
+
+        // Create target directory
+        std::fs::create_dir_all(&target_dir_path)?;
+
+        // Move each entry
+        for entry in entries {
+            let src_path = entry.path();
+            let dst_path = target_dir_path.join(src_path.file_name().unwrap_or_default());
+            std::fs::rename(&src_path, &dst_path).or_else(|_| {
+                if src_path.is_dir() {
+                    copy_dir_recursive(&src_path, &dst_path)?;
+                    std::fs::remove_dir_all(&src_path)
+                } else {
+                    std::fs::copy(&src_path, &dst_path)?;
+                    std::fs::remove_file(&src_path)
+                }
+            })?;
+        }
+
+        // Try to remove empty cache dir
+        let _ = std::fs::remove_dir(&cache_dir_path);
+
+        // Move original file to BOFTTPacks subdirectory
+        info!("Finished processing: {}", file_name);
+        let used_pack_dir = pack_dir.join("BOFTTPacks");
+        if !used_pack_dir.is_dir() {
+            std::fs::create_dir_all(&used_pack_dir)?;
+        }
+        let target_file_path = used_pack_dir.join(file_name);
+        std::fs::rename(&file_path, &target_file_path).ok();
+    }
+
+    Ok(())
+}
+
+/// Extract numeric-prefixed archives to BMS folder structure
+///
+/// This replicates Python's `unzip_numeric_to_bms_folder`:
+/// - Gets numbered file list (e.g., "001 filename.zip")
+/// - Extracts to cache_dir/{id} for each file
+/// - Finds or creates target directory in root_dir with exact numeric match
+/// - Moves extracted files to target directory
+/// - Moves original archive to BOFTTPacks/
+#[allow(dead_code)]
+pub fn unzip_numeric_to_bms_folder(
+    pack_dir: &Path,
+    cache_dir: &Path,
+    root_dir: &Path,
+) -> Result<(), std::io::Error> {
+    info!("Unzip numeric to BMS folder: {:?} -> {:?}", pack_dir, root_dir);
+
+    // Create directories
+    if !cache_dir.is_dir() {
+        std::fs::create_dir_all(cache_dir)?;
+    }
+    if !root_dir.is_dir() {
+        std::fs::create_dir_all(root_dir)?;
+    }
+
+    // Get numbered file names
+    let num_set_file_names = get_num_set_file_names(pack_dir);
+    info!("Found {} numbered pack files", num_set_file_names.len());
+
+    for file_name in &num_set_file_names {
+        let file_path = pack_dir.join(file_name);
+        if !file_path.is_file() {
+            continue;
+        }
+
+        // Parse id from filename (e.g., "001 filename.zip" -> "001")
+        let id_str = file_name.split_whitespace().next().unwrap_or("");
+        if id_str.is_empty() {
+            continue;
+        }
+
+        // Prepare cache directory
+        let cache_dir_path = cache_dir.join(id_str);
+
+        if cache_dir_path.is_dir() && is_dir_having_file(&cache_dir_path) {
+            std::fs::remove_dir_all(&cache_dir_path)?;
+        }
+        if !cache_dir_path.is_dir() {
+            std::fs::create_dir_all(&cache_dir_path)?;
+        }
+
+        // Extract archive
+        info!("Extracting {:?} to {:?}", file_path, cache_dir_path);
+        let rt = tokio::runtime::Runtime::new()?;
+        rt.block_on(extract_archive(&file_path, &cache_dir_path))?;
+
+        // Move files out of nested folders
+        if !move_out_files_in_folder_in_cache_dir(&cache_dir_path) {
+            info!("Failed to process cache dir: {:?}", cache_dir_path);
+            continue;
+        }
+
+        // Find existing target directory in root_dir with exact numeric match
+        // Avoid matching "1" to "10", "11", etc.
+        let mut target_dir_path: Option<PathBuf> = None;
+
+        if let Ok(entries) = std::fs::read_dir(root_dir) {
+            for entry in entries.flatten() {
+                let dir_path = entry.path();
+                if !dir_path.is_dir() {
+                    continue;
+                }
+                let dir_name = dir_path.file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("");
+
+                // Check if dir_name starts with id_str
+                if !dir_name.starts_with(id_str) {
+                    continue;
+                }
+                // Check remaining: must be empty or start with "." or " "
+                let remaining = &dir_name[id_str.len()..];
+                if !remaining.is_empty() && !remaining.starts_with('.') && !remaining.starts_with(' ') {
+                    continue;
+                }
+                // Found match
+                target_dir_path = Some(dir_path);
+                break;
+            }
+        }
+
+        // Create new target dir if not found
+        let target_dir_path = target_dir_path.unwrap_or_else(|| root_dir.join(id_str));
 
         // Move cache to BMS dir
         info!("Moving files from {:?} to {:?}", cache_dir_path, target_dir_path);
