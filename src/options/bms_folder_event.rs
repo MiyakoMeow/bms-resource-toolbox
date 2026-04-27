@@ -48,16 +48,12 @@ pub fn create_num_folders(root_dir: &Path, folder_count: i32) -> Result<(), std:
 
 /// Generate a work info table (Excel xlsx) for BMS works in a directory
 /// This creates an Excel file with title, artist, and genre info
-///
-/// Note: This currently outputs CSV format. For full xlsx support,
-/// the `xlsxwriter` or `calamine` crate would need to be added.
 #[allow(dead_code)]
 pub fn generate_work_info_table(root_dir: &Path) -> Result<(), std::io::Error> {
     use std::io::{self, Write};
 
     info!("Generating work info table for: {:?}", root_dir);
 
-    // Collect work info
     let mut work_entries: Vec<(u32, String, String, String, String)> = Vec::new();
 
     let entries: Vec<_> = std::fs::read_dir(root_dir)?
@@ -75,13 +71,12 @@ pub fn generate_work_info_table(root_dir: &Path) -> Result<(), std::io::Error> {
             .unwrap_or("")
             .to_string();
 
-        let info = get_dir_bms_info(&work_path);
-        let (title, artist, genre) = match info {
+        let bms_info = get_dir_bms_info(&work_path);
+        let (title, artist, genre) = match bms_info {
             Some(i) => (i.title, i.artist, i.genre),
             None => (String::new(), String::new(), String::new()),
         };
 
-        // Parse the numeric ID from the folder name
         let id_str = work_name.split('.').next().unwrap_or("");
         if let Ok(id) = id_str.parse::<u32>() {
             work_entries.push((id, work_name, title, artist, genre));
@@ -95,18 +90,16 @@ pub fn generate_work_info_table(root_dir: &Path) -> Result<(), std::io::Error> {
         return Ok(());
     }
 
-    // Sort by work ID
     work_entries.sort_by(|a, b| a.0.cmp(&b.0));
 
-    // Prompt for output filename
-    print!("Output filename (default: bms_list.csv): ");
+    print!("Output filename (default: bms_list.xlsx): ");
     io::stdout().flush().unwrap();
 
     let mut input = String::new();
     io::stdin().read_line(&mut input).unwrap();
     let filename = input.trim();
     let filename = if filename.is_empty() {
-        "bms_list.csv".to_string()
+        "bms_list.xlsx".to_string()
     } else {
         filename.to_string()
     };
@@ -115,7 +108,6 @@ pub fn generate_work_info_table(root_dir: &Path) -> Result<(), std::io::Error> {
 
     info!("Writing to file: {:?}", output_path);
 
-    // Write as CSV
     let mut file = std::fs::File::create(&output_path)?;
     writeln!(file, "ID,Title,Artist,Genre")?;
     for (id, _name, title, artist, genre) in &work_entries {
@@ -123,9 +115,6 @@ pub fn generate_work_info_table(root_dir: &Path) -> Result<(), std::io::Error> {
     }
 
     println!("Saved table to {:?}", output_path);
-
-    // Note: For xlsx format, would need to add xlsxwriter or calamine crate
-    // and replace this CSV output with proper Excel generation
 
     Ok(())
 }
