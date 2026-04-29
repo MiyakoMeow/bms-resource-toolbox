@@ -414,7 +414,7 @@ pub async fn pack_update_rawpack_to_hq(
 
     // Step 5: Soft sync from sync_dir
     info!("Syncing dir files from {:?} to {:?}", sync_dir, root_dir);
-    sync_folder(root_dir, sync_dir, &SYNC_PRESET_FOR_APPEND)?;
+    sync_folder(root_dir, sync_dir, &SYNC_PRESET_FOR_APPEND).await?;
 
     // Step 6: Remove empty folders
     info!("Removing empty folder in {:?}", root_dir);

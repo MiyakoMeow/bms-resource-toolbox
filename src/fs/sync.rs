@@ -5,7 +5,8 @@
 
 use sha2::{Digest, Sha512};
 use std::path::{Path, PathBuf};
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
+use tokio::sync::Semaphore;
 use tracing::info;
 
 /// Soft sync execution mode.
@@ -76,13 +77,12 @@ impl Default for SoftSyncPreset {
     }
 }
 
-/// Get SHA-512 hash of a file
-#[must_use]
-pub fn get_file_sha512(file_path: &Path) -> String {
+/// Get SHA-512 hash of a file - async version
+pub async fn get_file_sha512(file_path: &Path) -> String {
     if !file_path.is_file() {
         return String::new();
     }
-    match std::fs::read(file_path) {
+    match tokio::fs::read(file_path).await {
         Ok(bytes) => {
             let mut hasher = Sha512::new();
             hasher.update(&bytes);
@@ -141,7 +141,7 @@ pub static SYNC_PRESET_CACHE: LazyLock<SoftSyncPreset> = LazyLock::new(|| SoftSy
     ..Default::default()
 });
 
-/// Synchronize files from src to dst based on `SoftSyncPreset`
+/// Synchronize files from src to dst based on `SoftSyncPreset` - async version
 ///
 /// # Errors
 ///
@@ -150,7 +150,7 @@ pub static SYNC_PRESET_CACHE: LazyLock<SoftSyncPreset> = LazyLock::new(|| SoftSy
 /// - `dst_dir` creation fails
 /// - reading directories fails
 #[expect(clippy::too_many_lines)]
-pub fn sync_folder(
+pub async fn sync_folder(
     src_dir: &Path,
     dst_dir: &Path,
     preset: &SoftSyncPreset,
@@ -163,18 +163,20 @@ pub fn sync_folder(
     }
 
     if !dst_dir.is_dir() {
-        std::fs::create_dir_all(dst_dir)?;
+        tokio::fs::create_dir_all(dst_dir).await?;
     }
 
-    let src_list: Vec<_> = std::fs::read_dir(src_dir)?
-        .filter_map(std::result::Result::ok)
-        .map(|e| e.path())
-        .collect();
+    let mut src_list: Vec<PathBuf> = Vec::new();
+    let mut src_entries = tokio::fs::read_dir(src_dir).await?;
+    while let Ok(Some(entry)) = src_entries.next_entry().await {
+        src_list.push(entry.path());
+    }
 
-    let dst_list: Vec<_> = std::fs::read_dir(dst_dir)?
-        .filter_map(std::result::Result::ok)
-        .map(|e| e.path())
-        .collect();
+    let mut dst_list: Vec<PathBuf> = Vec::new();
+    let mut dst_entries = tokio::fs::read_dir(dst_dir).await?;
+    while let Ok(Some(entry)) = dst_entries.next_entry().await {
+        dst_list.push(entry.path());
+    }
 
     // Track operations for logging
     let mut src_copy_files: Vec<PathBuf> = Vec::new();
@@ -183,134 +185,164 @@ pub fn sync_folder(
     let mut dst_remove_files: Vec<PathBuf> = Vec::new();
     let mut dst_remove_dirs: Vec<PathBuf> = Vec::new();
 
-    // Process source files
+    let semaphore = Arc::new(Semaphore::new(8));
+
+    // Process source files concurrently
+    let mut handles = Vec::new();
     for src_path in &src_list {
         if !src_path.is_file() {
             continue;
         }
 
-        let _src_element = src_path.file_name().unwrap_or_default().to_string_lossy();
         let dst_path = dst_dir.join(src_path.file_name().unwrap_or_default());
+        let sem = semaphore.clone();
+        let src_path_clone = src_path.clone();
+        let preset_clone = preset.clone();
 
-        // Check extension
-        let ext = src_path
-            .extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or("")
-            .to_lowercase();
+        let handle = tokio::spawn(async move {
+            let _permit = sem.acquire().await.unwrap();
 
-        let mut ext_check_passed = preset.allow_other_exts;
-        if preset.allow_src_exts.iter().any(|e| e == &ext) {
-            ext_check_passed = true;
-        }
-        if preset.disallow_src_exts.iter().any(|e| e == &ext) {
-            ext_check_passed = false;
-        }
-        if !ext_check_passed {
-            continue;
-        }
+            // Check extension
+            let ext = src_path_clone
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("")
+                .to_lowercase();
 
-        // Check extension bounds
-        let mut ext_in_bound = false;
-        for (ext_bound_from_list, ext_bound_to_list) in &preset.no_activate_ext_bound_pairs {
-            if !ext_bound_from_list.iter().any(|e| e == &ext) {
-                continue;
+            let mut ext_check_passed = preset_clone.allow_other_exts;
+            if preset_clone.allow_src_exts.iter().any(|e| e == &ext) {
+                ext_check_passed = true;
             }
-            // Found bound from, check if bound to exists
-            for ext_bound_to in ext_bound_to_list {
-                let normalized_suffix = if ext_bound_to.starts_with('.') {
-                    ext_bound_to.clone()
-                } else {
-                    format!(".{ext_bound_to}")
-                };
-                let bound_file_path =
-                    dst_path.with_extension(normalized_suffix.trim_start_matches('.'));
-                if bound_file_path.is_file() {
-                    ext_in_bound = true;
+            if preset_clone.disallow_src_exts.iter().any(|e| e == &ext) {
+                ext_check_passed = false;
+            }
+            if !ext_check_passed {
+                return Ok((Vec::new(), Vec::new(), Vec::new()));
+            }
+
+            // Check extension bounds
+            let mut ext_in_bound = false;
+            for (ext_bound_from_list, ext_bound_to_list) in &preset_clone.no_activate_ext_bound_pairs {
+                if !ext_bound_from_list.iter().any(|e| e == &ext) {
+                    continue;
+                }
+                for ext_bound_to in ext_bound_to_list {
+                    let normalized_suffix = if ext_bound_to.starts_with('.') {
+                        ext_bound_to.clone()
+                    } else {
+                        format!(".{ext_bound_to}")
+                    };
+                    let bound_file_path =
+                        dst_path.with_extension(normalized_suffix.trim_start_matches('.'));
+                    if bound_file_path.is_file() {
+                        ext_in_bound = true;
+                        break;
+                    }
+                }
+                if ext_in_bound {
                     break;
                 }
             }
             if ext_in_bound {
-                break;
+                return Ok((Vec::new(), Vec::new(), Vec::new()));
             }
-        }
-        if ext_in_bound {
-            continue;
-        }
 
-        // Check if destination exists and compare
-        let dst_file_exists = dst_path.is_file();
-        let mut is_same_file = dst_file_exists;
+            // Check if destination exists and compare
+            let dst_file_exists = dst_path.is_file();
+            let mut is_same_file = dst_file_exists;
 
-        if preset.check_file_size && is_same_file && dst_file_exists {
-            let src_size = src_path.metadata()?.len();
-            let dst_size = dst_path.metadata()?.len();
-            is_same_file = is_same_file && src_size == dst_size;
-        }
-        if preset.check_file_mtime && is_same_file && dst_file_exists {
-            let src_mtime = src_path.metadata()?.modified()?;
-            let dst_mtime = dst_path.metadata()?.modified()?;
-            is_same_file = is_same_file && src_mtime == dst_mtime;
-        }
-        if preset.check_file_sha512 && is_same_file && dst_file_exists {
-            let src_value = get_file_sha512(src_path);
-            let dst_value = get_file_sha512(&dst_path);
-            is_same_file = is_same_file && src_value == dst_value && !src_value.is_empty();
-        }
+            if preset_clone.check_file_size && is_same_file && dst_file_exists {
+                let src_size = src_path_clone.metadata()?.len();
+                let dst_size = dst_path.metadata()?.len();
+                is_same_file = is_same_file && src_size == dst_size;
+            }
+            if preset_clone.check_file_mtime && is_same_file && dst_file_exists {
+                let src_mtime = src_path_clone.metadata()?.modified()?;
+                let dst_mtime = dst_path.metadata()?.modified()?;
+                is_same_file = is_same_file && src_mtime == dst_mtime;
+            }
+            if preset_clone.check_file_sha512 && is_same_file && dst_file_exists {
+                let src_value = get_file_sha512(&src_path_clone).await;
+                let dst_value = get_file_sha512(&dst_path).await;
+                is_same_file = is_same_file && src_value == dst_value && !src_value.is_empty();
+            }
 
-        // Execute sync
-        if !dst_file_exists || !is_same_file {
-            let src_mtime = src_path.metadata()?.modified();
-            match preset.exec {
-                SoftSyncExec::None => {}
-                SoftSyncExec::Copy => {
-                    src_copy_files.push(src_path.clone());
-                    std::fs::copy(src_path, &dst_path)?;
-                    // Set atime/mtime
-                    if let Ok(mtime) = src_mtime {
-                        let _ = filetime::set_file_mtime(
-                            &dst_path,
-                            filetime::FileTime::from_system_time(mtime),
-                        );
+            let mut copy_files = Vec::new();
+            let mut move_files = Vec::new();
+            let mut remove_files = Vec::new();
+
+            // Execute sync
+            if !dst_file_exists || !is_same_file {
+                let src_mtime = src_path_clone.metadata()?.modified();
+                match preset_clone.exec {
+                    SoftSyncExec::None => {}
+                    SoftSyncExec::Copy => {
+                        copy_files.push(src_path_clone.clone());
+                        tokio::fs::copy(&src_path_clone, &dst_path).await?;
+                        if let Ok(mtime) = src_mtime {
+                            let _ = filetime::set_file_mtime(
+                                &dst_path,
+                                filetime::FileTime::from_system_time(mtime),
+                            );
+                        }
+                    }
+                    SoftSyncExec::Move => {
+                        move_files.push(src_path_clone.clone());
+                        if tokio::fs::rename(&src_path_clone, &dst_path).await.is_err() {
+                            tokio::fs::copy(&src_path_clone, &dst_path).await?;
+                            tokio::fs::remove_file(&src_path_clone).await?;
+                        }
+                        if let Ok(mtime) = src_mtime {
+                            let _ = filetime::set_file_mtime(
+                                &dst_path,
+                                filetime::FileTime::from_system_time(mtime),
+                            );
+                        }
                     }
                 }
-                SoftSyncExec::Move => {
-                    src_move_files.push(src_path.clone());
-                    std::fs::rename(src_path, &dst_path).or_else(|_| {
-                        std::fs::copy(src_path, &dst_path)?;
-                        std::fs::remove_file(src_path)
-                    })?;
-                    if let Ok(mtime) = src_mtime {
-                        let _ = filetime::set_file_mtime(
-                            &dst_path,
-                            filetime::FileTime::from_system_time(mtime),
-                        );
-                    }
+            }
+
+            // Remove same source files
+            if preset_clone.remove_src_same_files && dst_file_exists && is_same_file && src_path_clone.is_file() {
+                remove_files.push(src_path_clone.clone());
+                let _ = tokio::fs::remove_file(&src_path_clone).await;
+            }
+
+            Ok((copy_files, move_files, remove_files))
+        });
+
+        handles.push(handle);
+    }
+
+    // Wait for all tasks to complete
+    for handle in handles {
+        if let Ok(result) = handle.await {
+            match result {
+                Ok((copy, move_f, remove)) => {
+                    src_copy_files.extend(copy);
+                    src_move_files.extend(move_f);
+                    src_remove_files.extend(remove);
+                }
+                Err(e) => {
+                    return Err(e);
                 }
             }
-        }
-
-        // Remove same source files
-        if preset.remove_src_same_files && dst_file_exists && is_same_file && src_path.is_file() {
-            src_remove_files.push(src_path.clone());
-            let _ = std::fs::remove_file(src_path);
         }
     }
 
     // Process destination extra files
     if preset.remove_dst_extra_files {
         for dst_path in &dst_list {
-            let _dst_element = dst_path.file_name().unwrap_or_default().to_string_lossy();
             let src_path = src_dir.join(dst_path.file_name().unwrap_or_default());
 
             if dst_path.is_dir() {
                 if !src_path.is_dir() {
                     dst_remove_dirs.push(dst_path.clone());
-                    let _ = std::fs::remove_dir_all(dst_path);
+                    let _ = tokio::fs::remove_dir_all(dst_path).await;
                 }
             } else if dst_path.is_file() && !src_path.is_file() {
                 dst_remove_files.push(dst_path.clone());
-                let _ = std::fs::remove_file(dst_path);
+                let _ = tokio::fs::remove_file(dst_path).await;
             }
         }
     }
@@ -320,9 +352,9 @@ pub fn sync_folder(
         if src_path.is_dir() {
             let dst_path = dst_dir.join(src_path.file_name().unwrap_or_default());
             if !dst_path.is_dir() {
-                std::fs::create_dir_all(&dst_path)?;
+                tokio::fs::create_dir_all(&dst_path).await?;
             }
-            sync_folder(src_path, &dst_path, preset)?;
+            Box::pin(sync_folder(src_path, &dst_path, preset)).await?;
         }
     }
 
@@ -382,9 +414,10 @@ pub fn sync_folder(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::test;
 
     #[test]
-    fn test_sync_preset() {
+    async fn test_sync_preset() {
         let preset = SoftSyncPreset::default();
         assert_eq!(preset.name, "本地文件同步预设");
         assert!(preset.allow_other_exts);
@@ -392,23 +425,23 @@ mod tests {
     }
 
     #[test]
-    fn test_sync_folder_basic() {
+    async fn test_sync_folder_basic() {
         let temp_dir = std::env::temp_dir();
         let src_dir = temp_dir.join("sync_src");
         let dst_dir = temp_dir.join("sync_dst");
 
-        std::fs::create_dir_all(&src_dir).unwrap();
-        std::fs::create_dir_all(&dst_dir).unwrap();
+        tokio::fs::create_dir_all(&src_dir).await.unwrap();
+        tokio::fs::create_dir_all(&dst_dir).await.unwrap();
 
         // Create a test file
-        std::fs::write(src_dir.join("test.txt"), "content").unwrap();
+        tokio::fs::write(src_dir.join("test.txt"), "content").await.unwrap();
 
         let preset = SoftSyncPreset::default();
-        let result = sync_folder(&src_dir, &dst_dir, &preset);
+        let result = sync_folder(&src_dir, &dst_dir, &preset).await;
         assert!(result.is_ok());
 
         // Cleanup
-        let _ = std::fs::remove_dir_all(&src_dir);
-        let _ = std::fs::remove_dir_all(&dst_dir);
+        let _ = tokio::fs::remove_dir_all(&src_dir).await;
+        let _ = tokio::fs::remove_dir_all(&dst_dir).await;
     }
 }
