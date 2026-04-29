@@ -12,12 +12,57 @@
 use regex::Regex;
 use std::collections::HashMap;
 use std::path::Path;
+#[cfg(test)]
+use std::path::PathBuf;
 use tracing::info;
 
 use crate::bms::types::CHART_FILE_EXTS;
 use crate::fs::pack_move::{
     DEFAULT_MOVE_OPTIONS, DEFAULT_REPLACE_OPTIONS, move_elements_across_dir,
 };
+
+/// Safely join a path component to a base directory, preventing path traversal attacks.
+/// Returns `None` if the joined path would escape the base directory.
+#[cfg(test)]
+fn safe_join(base: &Path, component: &str) -> Option<PathBuf> {
+    let decoded = component.replace('\\', "/");
+    let path = PathBuf::from(&decoded);
+
+    if path.is_absolute() {
+        return None;
+    }
+
+    let mut current = base.to_path_buf();
+    for component in path.components() {
+        match component {
+            std::path::Component::ParentDir => {
+                current.pop();
+                if !current.starts_with(base) {
+                    return None;
+                }
+            }
+            std::path::Component::Normal(name) => {
+                current.push(name);
+            }
+            _ => return None,
+        }
+    }
+
+    if current.starts_with(base) {
+        Some(current)
+    } else {
+        None
+    }
+}
+
+/// Set the modification time of a file.
+#[expect(dead_code)]
+async fn set_mtime(path: &Path, mtime: u32) -> anyhow::Result<()> {
+    let _file = tokio::fs::File::open(path).await?;
+    let times = filetime::FileTime::from_unix_time(mtime as i64, 0);
+    filetime::set_file_mtime(path, times)?;
+    Ok(())
+}
 
 /// Get numbered file names from a directory
 /// Matches patterns like "001 filename.zip", "`001_filename.7z`"
@@ -612,10 +657,32 @@ fn file_ext_count_at_path(dir: &Path) -> HashMap<String, Vec<String>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     #[test]
     fn test_get_num_set_file_names() {
         let temp_dir = std::env::temp_dir();
         let _names = get_num_set_file_names(&temp_dir);
+    }
+
+    #[test]
+    fn test_safe_join_normal() {
+        let base = PathBuf::from("/tmp/test");
+        let result = safe_join(&base, "file.txt").unwrap();
+        assert_eq!(result, PathBuf::from("/tmp/test/file.txt"));
+    }
+
+    #[test]
+    fn test_safe_join_traversal() {
+        let base = PathBuf::from("/tmp/test");
+        let result = safe_join(&base, "../etc/passwd");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_safe_join_absolute() {
+        let base = PathBuf::from("/tmp/test");
+        let result = safe_join(&base, "/etc/passwd");
+        assert!(result.is_none());
     }
 }
