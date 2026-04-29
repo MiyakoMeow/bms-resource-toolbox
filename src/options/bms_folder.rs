@@ -413,49 +413,10 @@ pub fn scan_folder_similar_folders(
     Ok(())
 }
 
-/// Calculate similarity ratio between two strings using `SequenceMatcher` logic
-#[expect(
-    clippy::needless_range_loop,
-    clippy::cast_lossless,
-    clippy::cast_precision_loss
-)]
+/// Calculate similarity ratio between two strings.
+/// Returns a value between 0.0 and 1.0.
 fn similar_ratio(a: &str, b: &str) -> f64 {
-    let mut matches = 0;
-    let max_len = a.len().max(b.len());
-    if max_len == 0 {
-        return 1.0;
-    }
-
-    // Simple character-based similarity
-    let a_chars: Vec<char> = a.chars().collect();
-    let b_chars: Vec<char> = b.chars().collect();
-
-    let mut i = 0;
-    let mut j = 0;
-    while i < a_chars.len() && j < b_chars.len() {
-        if a_chars[i] == b_chars[j] {
-            matches += 1;
-            i += 1;
-            j += 1;
-        } else {
-            // Try to find a match
-            let mut found = false;
-            for k in 0..a_chars.len() {
-                if a_chars[k] == b_chars[j] {
-                    matches += 1;
-                    i = k + 1;
-                    j += 1;
-                    found = true;
-                    break;
-                }
-            }
-            if !found {
-                i += 1;
-            }
-        }
-    }
-
-    matches as f64 / max_len as f64
+    strsim::normalized_levenshtein(a, b)
 }
 
 /// Undo `set_name` by removing " [artist]" suffix
