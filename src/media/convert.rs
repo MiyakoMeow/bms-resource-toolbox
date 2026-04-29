@@ -118,7 +118,8 @@ async fn collect_tasks(dir: &Path, input_exts: &[&str]) -> Vec<(PathBuf, usize)>
 }
 
 async fn remove_existing_target(output: &Path, remove: bool) {
-    if remove && output.is_file()
+    if remove
+        && output.is_file()
         && let Err(e) = tokio::fs::remove_file(output).await
     {
         info!("Failed to remove existing target file {:?}: {}", output, e);

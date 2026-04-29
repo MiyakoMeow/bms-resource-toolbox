@@ -216,12 +216,17 @@ pub async fn pack_hq_to_lq(root_dir: &Path) -> Result<(), std::io::Error> {
     // Phase 1: Convert FLAC to OGG
     info!("Parsing Audio... Phase 1: FLAC -> OGG");
     let ogg_preset = audio_preset_ogg_q10();
-    transfer_audio_by_format_in_dir(root_dir, &["flac"], &[ogg_preset], &TransferOptions {
-        remove_origin_on_success: true,
-        remove_origin_on_failed: false,
-        remove_existing_target_file: true,
-        stop_on_error: false,
-    })
+    transfer_audio_by_format_in_dir(
+        root_dir,
+        &["flac"],
+        &[ogg_preset],
+        &TransferOptions {
+            remove_origin_on_success: true,
+            remove_origin_on_failed: false,
+            remove_existing_target_file: true,
+            stop_on_error: false,
+        },
+    )
     .await?;
 
     // Phase 2: Convert video

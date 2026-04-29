@@ -10,12 +10,12 @@ use crate::media::audio::{
     AudioPreset, audio_preset_flac, audio_preset_flac_ffmpeg, audio_preset_ogg_q10,
     audio_preset_wav_ffmpeg, audio_preset_wav_from_flac,
 };
-use crate::media::{TransferOptions, transfer_audio_by_format_in_dir};
 use crate::media::video::{
     VIDEO_PRESET_AVI_480P, VIDEO_PRESET_AVI_512X512, VIDEO_PRESET_MPEG1VIDEO_480P,
     VIDEO_PRESET_MPEG1VIDEO_512X512, VIDEO_PRESET_WMV2_480P, VIDEO_PRESET_WMV2_512X512,
     VideoPreset, transfer_video_by_format_in_dir,
 };
+use crate::media::{TransferOptions, transfer_audio_by_format_in_dir};
 
 /// Transfer audio files in a BMS root directory
 ///
@@ -104,13 +104,18 @@ pub async fn transfer_audio(root_dir: &Path) -> Result<(), std::io::Error> {
 
         info!("Processing: {}", bms_dir_name);
 
-        transfer_audio_by_format_in_dir(&bms_dir, &combined_exts, &combined_presets, &TransferOptions {
-            remove_origin_on_success: true,
-            remove_origin_on_failed: true,
-            remove_existing_target_file: true,
-            stop_on_error: false,
-        })
-            .await?;
+        transfer_audio_by_format_in_dir(
+            &bms_dir,
+            &combined_exts,
+            &combined_presets,
+            &TransferOptions {
+                remove_origin_on_success: true,
+                remove_origin_on_failed: true,
+                remove_existing_target_file: true,
+                stop_on_error: false,
+            },
+        )
+        .await?;
     }
 
     Ok(())

@@ -76,7 +76,10 @@ pub(crate) fn validate_file(path: &Path) -> Result<(), String> {
 /// Check if path is a BMS work directory (contains BMS files).
 #[expect(dead_code)]
 pub(crate) fn is_work_dir(args: &[Box<dyn Any>]) -> bool {
-    let path = args.first().and_then(|p| p.downcast_ref::<PathBuf>()).unwrap();
+    let path = args
+        .first()
+        .and_then(|p| p.downcast_ref::<PathBuf>())
+        .unwrap();
     if !path.is_dir() {
         return false;
     }
@@ -101,6 +104,9 @@ pub(crate) fn is_work_dir(args: &[Box<dyn Any>]) -> bool {
 /// Check if path is not a directory.
 #[expect(dead_code)]
 pub(crate) fn is_not_a_dir(args: &[Box<dyn Any>]) -> bool {
-    let path = args.first().and_then(|p| p.downcast_ref::<PathBuf>()).unwrap();
+    let path = args
+        .first()
+        .and_then(|p| p.downcast_ref::<PathBuf>())
+        .unwrap();
     !path.is_dir()
 }

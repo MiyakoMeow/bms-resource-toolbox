@@ -730,5 +730,3 @@ async fn main() {
         options[module_idx].1[*opt_idx].exec();
     }
 }
-
-

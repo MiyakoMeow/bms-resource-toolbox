@@ -105,7 +105,7 @@ pub const IMAGE_FILE_EXTS: &[&str] = &[".bmp", ".png", ".jpg", ".jpeg", ".gif"];
 
 /// All media file extensions (audio + video + image)
 pub const MEDIA_FILE_EXTS: &[&str] = &[
-    ".wav", ".flac", ".ogg",  // audio
-    ".mp4", ".mkv", ".avi", ".wmv", ".mpg", ".mpeg",  // video
-    ".bmp", ".png", ".jpg", ".jpeg", ".gif",  // image
+    ".wav", ".flac", ".ogg", // audio
+    ".mp4", ".mkv", ".avi", ".wmv", ".mpg", ".mpeg", // video
+    ".bmp", ".png", ".jpg", ".jpeg", ".gif", // image
 ];
