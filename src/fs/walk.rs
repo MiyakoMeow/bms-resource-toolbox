@@ -52,7 +52,7 @@ pub(crate) async fn walk_bms_dirs(root: &Path) -> Vec<PathBuf> {
 
 /// Check if a directory contains a BMS chart file - 异步版本
 #[must_use]
-pub(crate) async fn has_chart_file(dir: &Path) -> bool {
+pub async fn has_chart_file(dir: &Path) -> bool {
     if !dir.is_dir() {
         return false;
     }
