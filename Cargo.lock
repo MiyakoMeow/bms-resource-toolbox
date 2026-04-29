@@ -85,12 +85,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "anyhow"
-version = "1.0.102"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
-
-[[package]]
 name = "arbitrary"
 version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -148,14 +142,12 @@ dependencies = [
 name = "bms-resource-toolbox"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "clap",
  "criterion",
  "encoding_rs",
  "filetime",
  "futures",
  "indicatif",
- "rayon",
  "regex",
  "serde",
  "serde_json",
@@ -163,7 +155,6 @@ dependencies = [
  "sha2 0.10.9",
  "thiserror",
  "tokio",
- "tokio-util",
  "tracing",
  "tracing-subscriber",
  "walkdir",
@@ -1447,19 +1438,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "tokio-util"
-version = "0.7.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ae9cec805b01e8fc3fd2fe289f89149a9b66dd16786abd8b19cfa7b48cb0098"
-dependencies = [
- "bytes",
- "futures-core",
- "futures-sink",
- "pin-project-lite",
- "tokio",
 ]
 
 [[package]]

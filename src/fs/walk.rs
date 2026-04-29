@@ -13,14 +13,14 @@ use tokio::sync::Semaphore;
 /// Walk through BMS directories (directories containing BMS files) - 异步版本
 #[must_use]
 #[expect(dead_code)]
-pub(crate) async fn walk_bms_dirs(root: &Path) -> Vec<PathBuf> {
+pub(crate) async fn walk_bms_dirs(root: &Path, max_concurrent: usize) -> Vec<PathBuf> {
     let mut dirs: Vec<PathBuf> = Vec::new();
 
     if !root.is_dir() {
         return dirs;
     }
 
-    let semaphore = Arc::new(Semaphore::new(8));
+    let semaphore = Arc::new(Semaphore::new(max_concurrent));
     let mut handles = Vec::new();
 
     if let Ok(mut entries) = tokio::fs::read_dir(root).await {

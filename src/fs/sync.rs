@@ -143,6 +143,13 @@ pub static SYNC_PRESET_CACHE: LazyLock<SoftSyncPreset> = LazyLock::new(|| SoftSy
 
 /// Synchronize files from src to dst based on `SoftSyncPreset` - async version
 ///
+/// # Arguments
+///
+/// * `src_dir` - Source directory path
+/// * `dst_dir` - Destination directory path
+/// * `preset` - Sync configuration preset
+/// * `max_concurrent` - Maximum number of concurrent file operations
+///
 /// # Errors
 ///
 /// Returns [`std::io::Error`] if:
@@ -158,6 +165,7 @@ pub async fn sync_folder(
     src_dir: &Path,
     dst_dir: &Path,
     preset: &SoftSyncPreset,
+    max_concurrent: usize,
 ) -> Result<(), std::io::Error> {
     if !src_dir.is_dir() {
         return Err(std::io::Error::new(
@@ -189,7 +197,7 @@ pub async fn sync_folder(
     let mut dst_remove_files: Vec<PathBuf> = Vec::new();
     let mut dst_remove_dirs: Vec<PathBuf> = Vec::new();
 
-    let semaphore = Arc::new(Semaphore::new(8));
+    let semaphore = Arc::new(Semaphore::new(max_concurrent));
 
     // Process source files concurrently
     let mut handles = Vec::new();
@@ -240,7 +248,10 @@ pub async fn sync_folder(
                     };
                     let bound_file_path =
                         dst_path.with_extension(normalized_suffix.trim_start_matches('.'));
-                    if bound_file_path.is_file() {
+                    if tokio::fs::metadata(&bound_file_path)
+                        .await
+                        .is_ok_and(|m| m.is_file())
+                    {
                         ext_in_bound = true;
                         break;
                     }
@@ -254,17 +265,18 @@ pub async fn sync_folder(
             }
 
             // Check if destination exists and compare
-            let dst_file_exists = dst_path.is_file();
+            let dst_metadata = tokio::fs::metadata(&dst_path).await;
+            let dst_file_exists = dst_metadata.is_ok();
             let mut is_same_file = dst_file_exists;
 
             if preset_clone.check_file_size && is_same_file && dst_file_exists {
-                let src_size = src_path_clone.metadata()?.len();
-                let dst_size = dst_path.metadata()?.len();
+                let src_size = tokio::fs::metadata(&src_path_clone).await?.len();
+                let dst_size = dst_metadata.as_ref().unwrap().len();
                 is_same_file = is_same_file && src_size == dst_size;
             }
             if preset_clone.check_file_mtime && is_same_file && dst_file_exists {
-                let src_mtime = src_path_clone.metadata()?.modified()?;
-                let dst_mtime = dst_path.metadata()?.modified()?;
+                let src_mtime = tokio::fs::metadata(&src_path_clone).await?.modified()?;
+                let dst_mtime = dst_metadata.as_ref().unwrap().modified()?;
                 is_same_file = is_same_file && src_mtime == dst_mtime;
             }
             if preset_clone.check_file_sha512 && is_same_file && dst_file_exists {
@@ -279,7 +291,7 @@ pub async fn sync_folder(
 
             // Execute sync
             if !dst_file_exists || !is_same_file {
-                let src_mtime = src_path_clone.metadata()?.modified();
+                let src_mtime = tokio::fs::metadata(&src_path_clone).await?.modified();
                 match preset_clone.exec {
                     SoftSyncExec::None => {}
                     SoftSyncExec::Copy => {
@@ -312,7 +324,9 @@ pub async fn sync_folder(
             if preset_clone.remove_src_same_files
                 && dst_file_exists
                 && is_same_file
-                && src_path_clone.is_file()
+                && tokio::fs::metadata(&src_path_clone)
+                    .await
+                    .is_ok_and(|m| m.is_file())
             {
                 remove_files.push(src_path_clone.clone());
                 let _ = tokio::fs::remove_file(&src_path_clone).await;
@@ -364,7 +378,7 @@ pub async fn sync_folder(
             if !dst_path.is_dir() {
                 tokio::fs::create_dir_all(&dst_path).await?;
             }
-            Box::pin(sync_folder(src_path, &dst_path, preset)).await?;
+            Box::pin(sync_folder(src_path, &dst_path, preset, max_concurrent)).await?;
         }
     }
 
@@ -449,7 +463,7 @@ mod tests {
             .unwrap();
 
         let preset = SoftSyncPreset::default();
-        let result = sync_folder(&src_dir, &dst_dir, &preset).await;
+        let result = sync_folder(&src_dir, &dst_dir, &preset, 8).await;
         assert!(result.is_ok());
 
         // Cleanup
