@@ -418,7 +418,7 @@ pub async fn pack_update_rawpack_to_hq(
 
     // Step 6: Remove empty folders
     info!("Removing empty folder in {:?}", root_dir);
-    remove_empty_dirs(root_dir)?;
+    remove_empty_dirs(root_dir).await?;
 
     Ok(())
 }
