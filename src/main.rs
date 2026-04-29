@@ -6,8 +6,11 @@
 #![expect(clippy::too_many_lines)]
 
 use std::any::Any;
-use std::io::{self, BufRead, Write};
+use std::io::{self, Write};
 use std::path::PathBuf;
+
+use tokio::io::AsyncWriteExt;
+use tokio::runtime::Handle;
 
 mod bms;
 mod error;
@@ -27,7 +30,7 @@ fn input_string(prompt: &str) -> String {
 }
 
 fn input_path(_prompt: &str) -> PathBuf {
-    let history = load_path_history();
+    let history = Handle::current().block_on(load_path_history());
     let mut paths = history;
 
     if !paths.is_empty() {
@@ -75,35 +78,33 @@ fn input_path(_prompt: &str) -> PathBuf {
         p
     };
 
-    save_path_history(&paths);
+    Handle::current().block_on(save_path_history(&paths));
     selected
 }
 
-fn load_path_history() -> Vec<PathBuf> {
+async fn load_path_history() -> Vec<PathBuf> {
     let history_path = PathBuf::from(HISTORY_FILE);
     if !history_path.exists() {
         return Vec::new();
     }
 
-    let file = std::fs::File::open(&history_path).ok();
-    match file {
-        Some(f) => {
-            let reader = io::BufReader::new(f);
-            reader
+    match tokio::fs::read_to_string(&history_path).await {
+        Ok(content) => {
+            let lines: Vec<PathBuf> = content
                 .lines()
-                .map_while(std::result::Result::ok)
                 .map(|s| PathBuf::from(s.trim()))
                 .filter(|p| !p.as_os_str().is_empty())
-                .collect()
+                .collect();
+            lines
         }
-        None => Vec::new(),
+        Err(_) => Vec::new(),
     }
 }
 
-fn save_path_history(paths: &[PathBuf]) {
-    if let Ok(mut file) = std::fs::File::create(HISTORY_FILE) {
+async fn save_path_history(paths: &[PathBuf]) {
+    if let Ok(mut file) = tokio::fs::File::create(HISTORY_FILE).await {
         for path in paths {
-            let _ = writeln!(file, "{}", path.display());
+            let _ = file.write_all(format!("{}\n", path.display()).as_bytes()).await;
         }
     }
 }
@@ -305,7 +306,8 @@ fn check_oggenc(_paths: &[Box<dyn Any>]) -> bool {
         .is_ok()
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let mut options: Vec<(String, Vec<MenuOption>)> = Vec::new();
 
     options.push((
@@ -613,8 +615,7 @@ fn main() {
             name: "BMS根目录：音频文件转换".to_string(),
             exec_func: |_args| {
                 let path = input_path("");
-                let rt = tokio::runtime::Runtime::new().unwrap();
-                rt.block_on(transfer_audio(&path)).ok();
+                Handle::current().block_on(transfer_audio(&path)).ok();
             },
             inputs: vec![Input {
                 input_type: InputType::Path,
@@ -630,8 +631,7 @@ fn main() {
             name: "BMS根目录：视频文件转换".to_string(),
             exec_func: |_args| {
                 let path = input_path("");
-                let rt = tokio::runtime::Runtime::new().unwrap();
-                rt.block_on(transfer_video(&path)).ok();
+                Handle::current().block_on(transfer_video(&path)).ok();
             },
             inputs: vec![Input {
                 input_type: InputType::Path,
@@ -714,8 +714,7 @@ fn main() {
             exec_func: |args| {
                 let pack = args[0].downcast_ref::<PathBuf>().unwrap();
                 let root = args[1].downcast_ref::<PathBuf>().unwrap();
-                let rt = tokio::runtime::Runtime::new().unwrap();
-                rt.block_on(pack_setup_rawpack_to_hq(pack, root)).ok();
+                Handle::current().block_on(pack_setup_rawpack_to_hq(pack, root)).ok();
             },
             inputs: vec![
                 Input {
@@ -737,8 +736,7 @@ fn main() {
                 let pack = args[0].downcast_ref::<PathBuf>().unwrap();
                 let root = args[1].downcast_ref::<PathBuf>().unwrap();
                 let sync = args[2].downcast_ref::<PathBuf>().unwrap();
-                let rt = tokio::runtime::Runtime::new().unwrap();
-                rt.block_on(pack_update_rawpack_to_hq(pack, root, sync))
+                Handle::current().block_on(pack_update_rawpack_to_hq(pack, root, sync))
                     .ok();
             },
             inputs: vec![
@@ -763,8 +761,7 @@ fn main() {
             name: "BMS大包脚本：原包 -> HQ版大包".to_string(),
             exec_func: |args| {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
-                let rt = tokio::runtime::Runtime::new().unwrap();
-                rt.block_on(pack_raw_to_hq(path)).ok();
+                Handle::current().block_on(pack_raw_to_hq(path)).ok();
             },
             inputs: vec![Input {
                 input_type: InputType::Path,
@@ -778,8 +775,7 @@ fn main() {
             name: "BMS大包脚本：HQ版大包 -> LQ版大包".to_string(),
             exec_func: |args| {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
-                let rt = tokio::runtime::Runtime::new().unwrap();
-                rt.block_on(pack_hq_to_lq(path)).ok();
+                Handle::current().block_on(pack_hq_to_lq(path)).ok();
             },
             inputs: vec![Input {
                 input_type: InputType::Path,
