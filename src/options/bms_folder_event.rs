@@ -126,26 +126,25 @@ pub async fn generate_work_info_table(root_dir: &Path) -> anyhow::Result<()> {
 
     info!("Writing to file: {:?}", output_path);
 
-    let output_str = output_path.to_string_lossy().to_string();
-    let mut workbook = Workbook::new(&output_str);
+    let mut workbook = Workbook::new();
     let worksheet = workbook.add_worksheet();
 
     let header_format = Format::new().set_bold();
-    worksheet.write_string(0, 0, "ID", &header_format)?;
-    worksheet.write_string(0, 1, "Title", &header_format)?;
-    worksheet.write_string(0, 2, "Artist", &header_format)?;
-    worksheet.write_string(0, 3, "Genre", &header_format)?;
+    worksheet.write_string_with_format(0, 0, "ID", &header_format)?;
+    worksheet.write_string_with_format(0, 1, "Title", &header_format)?;
+    worksheet.write_string_with_format(0, 2, "Artist", &header_format)?;
+    worksheet.write_string_with_format(0, 3, "Genre", &header_format)?;
 
     for (row_idx, (id, _name, title, artist, genre)) in work_entries.iter().enumerate() {
         #[allow(clippy::cast_possible_truncation)]
         let row = (row_idx + 1) as u32;
-        worksheet.write_number_only(row, 0, f64::from(*id))?;
-        worksheet.write_string_only(row, 1, title)?;
-        worksheet.write_string_only(row, 2, artist)?;
-        worksheet.write_string_only(row, 3, genre)?;
+        worksheet.write_number(row, 0, f64::from(*id))?;
+        worksheet.write_string(row, 1, title)?;
+        worksheet.write_string(row, 2, artist)?;
+        worksheet.write_string(row, 3, genre)?;
     }
 
-    workbook.close()?;
+    workbook.save(&output_path)?;
 
     println!("Saved table to {}", output_path.display());
 
