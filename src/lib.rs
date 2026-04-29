@@ -11,6 +11,7 @@
 //! - [`scripts`] - Pack generation scripts
 //! - [`wasted`] - One-off/legacy utilities
 
+pub mod async_utils;
 pub mod bms;
 pub mod error;
 pub mod fs;
