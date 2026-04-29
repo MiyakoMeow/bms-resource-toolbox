@@ -86,7 +86,13 @@ pub async fn get_file_sha512(file_path: &Path) -> String {
         Ok(bytes) => {
             let mut hasher = Sha512::new();
             hasher.update(&bytes);
-            format!("{:x}", hasher.finalize())
+            let result = hasher.finalize();
+            let mut hex_string = String::with_capacity(result.len() * 2);
+            for byte in result {
+                use std::fmt::Write;
+                let _ = write!(hex_string, "{byte:02x}");
+            }
+            hex_string
         }
         Err(_) => String::new(),
     }
