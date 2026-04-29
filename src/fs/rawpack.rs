@@ -59,7 +59,7 @@ fn safe_join(base: &Path, component: &str) -> Option<PathBuf> {
 #[expect(dead_code)]
 async fn set_mtime(path: &Path, mtime: u32) -> anyhow::Result<()> {
     let _file = tokio::fs::File::open(path).await?;
-    let times = filetime::FileTime::from_unix_time(mtime as i64, 0);
+    let times = filetime::FileTime::from_unix_time(i64::from(mtime), 0);
     filetime::set_file_mtime(path, times)?;
     Ok(())
 }

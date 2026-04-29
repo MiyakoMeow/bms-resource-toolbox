@@ -9,6 +9,7 @@ use crate::media::video::{
     video_preset_wmv2_512x512,
 };
 use crate::media::{
+    TransferOptions,
     audio::{audio_preset_flac, audio_preset_flac_ffmpeg, audio_preset_ogg_q10},
     transfer_audio_by_format_in_dir,
 };
@@ -185,10 +186,12 @@ pub async fn pack_raw_to_hq(root_dir: &Path) -> Result<(), std::io::Error> {
         root_dir,
         &["wav"],
         &[flac_preset, flac_ffmpeg_preset],
-        true,
-        true,
-        true,
-        false,
+        &TransferOptions {
+            remove_origin_on_success: true,
+            remove_origin_on_failed: true,
+            remove_existing_target_file: true,
+            stop_on_error: false,
+        },
     )
     .await?;
 
@@ -213,7 +216,13 @@ pub async fn pack_hq_to_lq(root_dir: &Path) -> Result<(), std::io::Error> {
     // Phase 1: Convert FLAC to OGG
     info!("Parsing Audio... Phase 1: FLAC -> OGG");
     let ogg_preset = audio_preset_ogg_q10();
-    transfer_audio_by_format_in_dir(root_dir, &["flac"], &[ogg_preset], true, false, true, false).await?;
+    transfer_audio_by_format_in_dir(root_dir, &["flac"], &[ogg_preset], &TransferOptions {
+        remove_origin_on_success: true,
+        remove_origin_on_failed: false,
+        remove_existing_target_file: true,
+        stop_on_error: false,
+    })
+    .await?;
 
     // Phase 2: Convert video
     info!("Parsing Video...");
@@ -365,10 +374,12 @@ pub async fn pack_setup_rawpack_to_hq(
         root_dir,
         &["wav"],
         &[flac_preset, flac_ffmpeg_preset],
-        true,
-        false,
-        true,
-        false,
+        &TransferOptions {
+            remove_origin_on_success: true,
+            remove_origin_on_failed: false,
+            remove_existing_target_file: true,
+            stop_on_error: false,
+        },
     )
     .await?;
 
@@ -414,10 +425,12 @@ pub async fn pack_update_rawpack_to_hq(
         root_dir,
         &["wav"],
         &[flac_preset, flac_ffmpeg_preset],
-        true,
-        false,
-        true,
-        false,
+        &TransferOptions {
+            remove_origin_on_success: true,
+            remove_origin_on_failed: false,
+            remove_existing_target_file: true,
+            stop_on_error: false,
+        },
     )
     .await?;
 

@@ -74,44 +74,33 @@ pub async fn convert_video(
     }
 }
 
-/// Transfer audio files in directory using presets (with fallback)
-///
-/// This matches Python's `transfer_audio_by_format_in_dir` behavior:
-/// - Supports preset fallback: when first preset fails, tries next one
-/// - Handles `remove_origin_on_success` and `remove_origin_on_failed`
-/// - Uses bounded concurrency based on disk type
-pub async fn transfer_audio_by_format_in_dir(
-    dir: &Path,
-    input_exts: &[&str],
-    presets: &[AudioPreset],
-    remove_origin_on_success: bool,
-    remove_origin_on_failed: bool,
-    remove_existing_target_file: bool,
-    stop_on_error: bool,
-) -> Result<(), std::io::Error> {
-    if presets.is_empty() {
-        return Ok(());
+/// Options for controlling audio transfer behavior.
+#[allow(clippy::struct_excessive_bools)]
+pub struct TransferOptions {
+    /// Remove the original file after successful conversion.
+    pub remove_origin_on_success: bool,
+    /// Remove the original file when conversion fails.
+    pub remove_origin_on_failed: bool,
+    /// Remove existing target files before conversion.
+    pub remove_existing_target_file: bool,
+    /// Stop processing on the first error.
+    pub stop_on_error: bool,
+}
+
+fn detect_hdd(dir: &Path) -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        !dir.to_string_lossy().starts_with("C:")
     }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let path_str = dir.to_string_lossy();
+        !path_str.starts_with("/tmp") && !path_str.starts_with("/home")
+    }
+}
 
-    // Detect HDD vs SSD (simplified cross-platform check)
-    let hdd = {
-        #[cfg(target_os = "windows")]
-        {
-            !dir.to_string_lossy().starts_with("C:")
-        }
-        #[cfg(not(target_os = "windows"))]
-        {
-            // On Linux, assume HDD if not /tmp or /home
-            let path_str = dir.to_string_lossy();
-            !path_str.starts_with("/tmp") && !path_str.starts_with("/home")
-        }
-    };
-
-    let max_workers = if hdd { 4 } else { 8 };
-
-    // Find files matching input extensions
+async fn collect_tasks(dir: &Path, input_exts: &[&str]) -> Vec<(PathBuf, usize)> {
     let mut tasks: Vec<(PathBuf, usize)> = Vec::new();
-
     if let Ok(mut entries) = tokio::fs::read_dir(dir).await {
         while let Some(entry) = entries.next_entry().await.unwrap_or(None) {
             let path = entry.path();
@@ -125,19 +114,46 @@ pub async fn transfer_audio_by_format_in_dir(
             }
         }
     }
+    tasks
+}
 
+async fn remove_existing_target(output: &Path, remove: bool) {
+    if remove && output.is_file()
+        && let Err(e) = tokio::fs::remove_file(output).await
+    {
+        info!("Failed to remove existing target file {:?}: {}", output, e);
+    }
+}
+
+/// Transfer audio files in directory using presets (with fallback)
+///
+/// This matches Python's `transfer_audio_by_format_in_dir` behavior:
+/// - Supports preset fallback: when first preset fails, tries next one
+/// - Handles `remove_origin_on_success` and `remove_origin_on_failed`
+/// - Uses bounded concurrency based on disk type
+pub async fn transfer_audio_by_format_in_dir(
+    dir: &Path,
+    input_exts: &[&str],
+    presets: &[AudioPreset],
+    options: &TransferOptions,
+) -> Result<(), std::io::Error> {
+    if presets.is_empty() {
+        return Ok(());
+    }
+
+    let max_workers = if detect_hdd(dir) { 4 } else { 8 };
+
+    let tasks = collect_tasks(dir, input_exts).await;
     info!("Found {} files to convert in {:?}", tasks.len(), dir);
 
     if tasks.is_empty() {
         return Ok(());
     }
 
-    // Process with bounded concurrency and preset fallback
     let mut handles = Vec::new();
     let mut task_iter = tasks.into_iter();
 
     loop {
-        // Fill up to max_workers
         while handles.len() < max_workers {
             if let Some((input, preset_idx)) = task_iter.next() {
                 let preset = presets[preset_idx].clone();
@@ -147,11 +163,7 @@ pub async fn transfer_audio_by_format_in_dir(
                 let output = input.parent().unwrap().join(format!("{stem}.{output_ext}"));
                 let presets_vec = presets.to_vec();
 
-                if remove_existing_target_file && output.is_file() {
-                    if let Err(e) = tokio::fs::remove_file(&output).await {
-                        info!("Failed to remove existing target file {:?}: {}", output, e);
-                    }
-                }
+                remove_existing_target(&output, options.remove_existing_target_file).await;
 
                 let handle = tokio::spawn(async move {
                     let result = convert_audio(&input_clone, &output, &preset).await;
@@ -167,14 +179,13 @@ pub async fn transfer_audio_by_format_in_dir(
             break;
         }
 
-        // Wait for first completion
         let (result, _, remaining) = futures::future::select_all(handles).await;
         handles = remaining;
 
         if let Ok((input, preset_idx, result, presets_vec)) = result {
             match result {
                 Ok(()) => {
-                    if remove_origin_on_success
+                    if options.remove_origin_on_success
                         && input.is_file()
                         && let Err(e) = tokio::fs::remove_file(&input).await
                     {
@@ -183,7 +194,6 @@ pub async fn transfer_audio_by_format_in_dir(
                 }
                 Err(e) => {
                     info!("Conversion failed for {:?}: {}", input, e);
-                    // Try next preset (fallback)
                     let next_idx = preset_idx + 1;
                     if next_idx < presets_vec.len() {
                         info!("Falling back to preset {} for {:?}", next_idx, input);
@@ -193,30 +203,25 @@ pub async fn transfer_audio_by_format_in_dir(
                         let output_ext = &preset.output_format;
                         let output = input.parent().unwrap().join(format!("{stem}.{output_ext}"));
 
-                        if remove_existing_target_file && output.is_file() {
-                            if let Err(e) = tokio::fs::remove_file(&output).await {
-                                info!("Failed to remove existing target file {:?}: {}", output, e);
-                            }
-                        }
+                        remove_existing_target(&output, options.remove_existing_target_file).await;
 
                         let presets_clone = presets_vec.clone();
-
                         let handle = tokio::spawn(async move {
                             let result = convert_audio(&input_clone, &output, &preset).await;
                             (input_clone, next_idx, result, presets_clone)
                         });
                         handles.push(handle);
                     } else {
-                        if remove_origin_on_failed
+                        if options.remove_origin_on_failed
                             && input.is_file()
                             && let Err(e) = tokio::fs::remove_file(&input).await
                         {
                             info!("Failed to remove failed origin file {:?}: {}", input, e);
                         }
-                        if stop_on_error {
+                        if options.stop_on_error {
                             return Err(std::io::Error::other(format!(
-                                "Conversion failed for {:?}: {}",
-                                input, e
+                                "Conversion failed for {}: {e}",
+                                input.display(),
                             )));
                         }
                     }

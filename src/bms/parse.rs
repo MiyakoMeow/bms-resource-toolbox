@@ -198,12 +198,12 @@ mod tests {
 
     #[test]
     fn test_parse_bms_content() {
-        let content = r#"#TITLE Test Title
+        let content = r"#TITLE Test Title
 #ARTIST Test Artist
 #GENRE Test Genre
 #PLAYLEVEL 5
 #DIFFICULTY 3
-"#;
+";
         let info = parse_bms_content(content);
         assert_eq!(info.title, "Test Title");
         assert_eq!(info.artist, "Test Artist");
