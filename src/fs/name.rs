@@ -3,6 +3,7 @@
 //! This module provides functions for creating valid
 //! filesystem names by replacing invalid characters.
 
+use std::fmt::Write as _;
 use std::path::Path;
 
 /// Get a valid filesystem name by replacing invalid characters with full-width equivalents.
@@ -26,6 +27,17 @@ pub fn get_valid_fs_name(name: &str) -> String {
             _ => c,
         })
         .collect()
+}
+
+/// Get a valid folder name for a BMS work.
+/// Combines title and artist information.
+#[must_use]
+pub fn get_work_folder_name(title: &str, artist: &str) -> String {
+    let mut name = title.to_string();
+    if !artist.is_empty() {
+        let _ = write!(name, " [{artist}]");
+    }
+    get_valid_fs_name(&name)
 }
 
 /// Calculate media filename similarity between two directories
@@ -121,5 +133,15 @@ mod tests {
         assert_eq!(get_valid_fs_name("Test<File"), "Test＜File");
         assert_eq!(get_valid_fs_name("Test>File"), "Test＞File");
         assert_eq!(get_valid_fs_name("Test|File"), "Test｜File");
+    }
+
+    #[test]
+    fn test_get_work_folder_name() {
+        assert_eq!(get_work_folder_name("Title", "Artist"), "Title [Artist]");
+        assert_eq!(get_work_folder_name("Title", ""), "Title");
+        assert_eq!(
+            get_work_folder_name("Title: Part 1", "Artist"),
+            "Title： Part 1 [Artist]"
+        );
     }
 }
