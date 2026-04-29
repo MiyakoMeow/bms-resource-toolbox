@@ -86,6 +86,8 @@ pub async fn transfer_audio_by_format_in_dir(
     presets: &[AudioPreset],
     remove_origin_on_success: bool,
     remove_origin_on_failed: bool,
+    remove_existing_target_file: bool,
+    stop_on_error: bool,
 ) -> Result<(), std::io::Error> {
     if presets.is_empty() {
         return Ok(());
@@ -145,6 +147,12 @@ pub async fn transfer_audio_by_format_in_dir(
                 let output = input.parent().unwrap().join(format!("{stem}.{output_ext}"));
                 let presets_vec = presets.to_vec();
 
+                if remove_existing_target_file && output.is_file() {
+                    if let Err(e) = tokio::fs::remove_file(&output).await {
+                        info!("Failed to remove existing target file {:?}: {}", output, e);
+                    }
+                }
+
                 let handle = tokio::spawn(async move {
                     let result = convert_audio(&input_clone, &output, &preset).await;
                     (input_clone, preset_idx, result, presets_vec)
@@ -184,6 +192,13 @@ pub async fn transfer_audio_by_format_in_dir(
                         let stem = input.file_stem().unwrap_or_default().to_string_lossy();
                         let output_ext = &preset.output_format;
                         let output = input.parent().unwrap().join(format!("{stem}.{output_ext}"));
+
+                        if remove_existing_target_file && output.is_file() {
+                            if let Err(e) = tokio::fs::remove_file(&output).await {
+                                info!("Failed to remove existing target file {:?}: {}", output, e);
+                            }
+                        }
+
                         let presets_clone = presets_vec.clone();
 
                         let handle = tokio::spawn(async move {
@@ -191,11 +206,19 @@ pub async fn transfer_audio_by_format_in_dir(
                             (input_clone, next_idx, result, presets_clone)
                         });
                         handles.push(handle);
-                    } else if remove_origin_on_failed
-                        && input.is_file()
-                        && let Err(e) = tokio::fs::remove_file(&input).await
-                    {
-                        info!("Failed to remove failed origin file {:?}: {}", input, e);
+                    } else {
+                        if remove_origin_on_failed
+                            && input.is_file()
+                            && let Err(e) = tokio::fs::remove_file(&input).await
+                        {
+                            info!("Failed to remove failed origin file {:?}: {}", input, e);
+                        }
+                        if stop_on_error {
+                            return Err(std::io::Error::other(format!(
+                                "Conversion failed for {:?}: {}",
+                                input, e
+                            )));
+                        }
                     }
                 }
             }

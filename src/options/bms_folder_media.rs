@@ -104,7 +104,7 @@ pub async fn transfer_audio(root_dir: &Path) -> Result<(), std::io::Error> {
 
         info!("Processing: {}", bms_dir_name);
 
-        transfer_audio_by_format_in_dir(&bms_dir, &combined_exts, &combined_presets, true, true)
+        transfer_audio_by_format_in_dir(&bms_dir, &combined_exts, &combined_presets, true, true, true, false)
             .await?;
     }
 
