@@ -2,97 +2,70 @@
 //!
 //! This module provides utilities for BMS events like BOFTT.
 
-/// BMS event types
+use std::any::Any;
+
+use super::input::input_string;
+
+/// BMS event types for work information pages.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)]
 pub enum BMSEvent {
-    /// BOFTT event (BOF2020)
-    Boftt,
-    /// BOF21 event
-    Bo21,
-    /// Let's BMS Edit 3
-    LetsBmsEdit3,
+    /// BOF Team Festival.
+    BOFTT = 20,
+    /// BOF 2021.
+    BOF21 = 21,
+    /// `LetsBMS` Edit 3.
+    LetsBMSEdit3 = 103,
 }
 
 impl BMSEvent {
-    /// Get the list URL for this event
-    #[must_use]
-    #[allow(dead_code)]
-    pub(crate) fn list_url(self) -> &'static str {
-        match self {
-            BMSEvent::Boftt => "https://manbow.nothing.sh/event/event.cgi?action=sp&event=146",
-            BMSEvent::Bo21 => "https://manbow.nothing.sh/event/event.cgi?action=sp&event=149",
-            BMSEvent::LetsBmsEdit3 => "https://venue.bmssearch.net/letsbmsedit3",
+    fn from_value(val: i32) -> Self {
+        match val {
+            21 => BMSEvent::BOF21,
+            103 => BMSEvent::LetsBMSEdit3,
+            _ => BMSEvent::BOFTT,
         }
     }
 
-    /// Get the work info URL for a specific work number
-    #[must_use]
-    #[allow(dead_code)]
-    pub(crate) fn work_info_url(self, work_num: i32) -> String {
+    fn list_url(self) -> &'static str {
         match self {
-            BMSEvent::Boftt => {
-                format!(
-                    "https://manbow.nothing.sh/event/event.cgi?action=More_def&num={work_num}&event=146"
-                )
-            }
-            BMSEvent::Bo21 => {
-                format!(
-                    "https://manbow.nothing.sh/event/event.cgi?action=More_def&num={work_num}&event=149"
-                )
-            }
-            BMSEvent::LetsBmsEdit3 => {
+            BMSEvent::BOFTT => "https://manbow.nothing.sh/event/event.cgi?action=sp&event=146",
+            BMSEvent::BOF21 => "https://manbow.nothing.sh/event/event.cgi?action=sp&event=149",
+            BMSEvent::LetsBMSEdit3 => "https://venue.bmssearch.net/letsbmsedit3",
+        }
+    }
+
+    fn work_info_url(self, work_num: i32) -> String {
+        match self {
+            BMSEvent::BOFTT => format!(
+                "https://manbow.nothing.sh/event/event.cgi?action=More_def&num={work_num}&event=146"
+            ),
+            BMSEvent::BOF21 => format!(
+                "https://manbow.nothing.sh/event/event.cgi?action=More_def&num={work_num}&event=149"
+            ),
+            BMSEvent::LetsBMSEdit3 => {
                 format!("https://venue.bmssearch.net/letsbmsedit3/{work_num}")
             }
         }
     }
-
-    /// Create `BMSEvent` from value, defaulting to BOFTT
-    #[must_use]
-    #[allow(dead_code)]
-    pub(crate) fn from_value_or_default(val: i32) -> Self {
-        match val {
-            21 => BMSEvent::Bo21,
-            103 => BMSEvent::LetsBmsEdit3,
-            _ => BMSEvent::Boftt,
-        }
-    }
 }
 
-/// Jump to work info page for a BMS event
-///
-/// This replicates Python's `jump_to_work_info()`:
-/// - Displays available events with their values
-/// - Prompts for event value (default: BOFTT = 20)
-/// - Prompts for work ID(s) or range, or empty to open list page
-/// - Opens URLs in browser using xdg-open on Linux
-///
-/// # Panics
-///
-/// Panics if stdout flush or stdin read fails.
-#[allow(dead_code)]
-pub fn jump_to_work_info() {
-    use std::io::{self, Write};
-
+/// Jump to work info page for a BMS event.
+pub fn jump_to_work_info(_args: &[Box<dyn Any>]) {
     println!("Select BMS Event:");
-    for event in &[BMSEvent::Boftt, BMSEvent::Bo21, BMSEvent::LetsBmsEdit3] {
+    for event in &[BMSEvent::BOFTT, BMSEvent::BOF21, BMSEvent::LetsBMSEdit3] {
         println!(" {} -> {:?}", *event as i32, event);
     }
 
-    let default_event_val = BMSEvent::Boftt as i32;
-    print!("Input event value (Default: BOFTT): ");
-    io::stdout().flush().unwrap();
-
-    let mut input = String::new();
-    io::stdin().read_line(&mut input).unwrap();
-    let input = input.trim();
-
-    let event_val = if input.is_empty() {
-        default_event_val
+    let default_event = BMSEvent::BOFTT as i32;
+    let event_val_str = input_string(&format!(
+        "Input event value (Default: BOFTT {default_event}):"
+    ));
+    let event_val = if event_val_str.is_empty() {
+        default_event
     } else {
-        input.parse().unwrap_or(default_event_val)
+        event_val_str.parse::<i32>().unwrap_or(default_event)
     };
-    let event = BMSEvent::from_value_or_default(event_val);
+    let event = BMSEvent::from_value(event_val);
     println!(" -> Selected Event: {event:?}");
 
     println!(" !: Input \"1\": jump to work id 1. (Normal)");
@@ -102,12 +75,7 @@ pub fn jump_to_work_info() {
     let tips = "Input id (default: Jump to List):";
 
     loop {
-        print!("{tips} ");
-        io::stdout().flush().unwrap();
-
-        let mut num_str = String::new();
-        io::stdin().read_line(&mut num_str).unwrap();
-        let num_str = num_str.trim().replace(['[', ']'], "");
+        let num_str = input_string(tips).trim().replace(['[', ']'], "");
 
         let mut nums: Vec<i32> = Vec::new();
         for token in num_str.replace(',', " ").split_whitespace() {
@@ -145,9 +113,8 @@ pub fn jump_to_work_info() {
     }
 }
 
-/// Open URL in browser
-#[allow(dead_code)]
-fn open_url(url: &str) {
+/// Open URL in browser.
+pub fn open_url(url: &str) {
     #[cfg(target_os = "windows")]
     {
         std::process::Command::new("cmd")
