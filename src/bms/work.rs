@@ -267,4 +267,26 @@ mod tests {
         assert_eq!(num, None);
         assert_eq!(rest, "Artist - Title");
     }
+
+    #[test]
+    fn test_extract_work_name_bracket_suffix() {
+        let titles = vec![
+            "Test Song [Artist1]".to_string(),
+            "Test Song [Artist2]".to_string(),
+            "Test Song [Artist3]".to_string(),
+        ];
+        let result = extract_work_name_default(&titles);
+        assert_eq!(result, "Test Song");
+    }
+
+    #[test]
+    fn test_extract_work_name_with_different_prefix() {
+        let titles = vec![
+            "Song A [Artist1]".to_string(),
+            "Song B [Artist2]".to_string(),
+            "Song C [Artist3]".to_string(),
+        ];
+        let result = extract_work_name_default(&titles);
+        assert_eq!(result, "Song");
+    }
 }

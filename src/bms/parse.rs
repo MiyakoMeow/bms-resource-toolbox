@@ -175,10 +175,9 @@ pub fn parse_bmson_content(content: &str) -> Result<BMSInfo, serde_json::Error> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio::test;
 
     #[test]
-    async fn test_parse_bms_content() {
+    fn test_parse_bms_content_basic() {
         let content = r"
 #TITLE Test Song
 #ARTIST Test Artist
@@ -195,5 +194,38 @@ mod tests {
         assert_eq!(info.playlevel, 5);
         assert_eq!(info.difficulty, BMSDifficulty::Hyper);
         assert_eq!(info.total, Some(180.5));
+    }
+
+    #[test]
+    fn test_parse_bms_content() {
+        let content = r#"#TITLE Test Title
+#ARTIST Test Artist
+#GENRE Test Genre
+#PLAYLEVEL 5
+#DIFFICULTY 3
+"#;
+        let info = parse_bms_content(content);
+        assert_eq!(info.title, "Test Title");
+        assert_eq!(info.artist, "Test Artist");
+        assert_eq!(info.genre, "Test Genre");
+        assert_eq!(info.playlevel, 5);
+        assert_eq!(info.difficulty, BMSDifficulty::Hyper);
+    }
+
+    #[test]
+    fn test_parse_bmson_content() {
+        let content = r#"{
+            "info": {
+                "title": "Test Title",
+                "artist": "Test Artist",
+                "genre": "Test Genre",
+                "level": 5
+            }
+        }"#;
+        let info = parse_bmson_content(content).unwrap();
+        assert_eq!(info.title, "Test Title");
+        assert_eq!(info.artist, "Test Artist");
+        assert_eq!(info.genre, "Test Genre");
+        assert_eq!(info.playlevel, 5);
     }
 }
