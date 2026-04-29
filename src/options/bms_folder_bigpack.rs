@@ -3,6 +3,7 @@
 //! This module provides functions for managing large BMS packs
 //! including folder splitting, merging, and media file removal.
 
+use anyhow::Result;
 use regex::Regex;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -10,7 +11,7 @@ use std::sync::LazyLock;
 use tracing::info;
 
 use crate::fs::pack_move::{
-    MoveOptions, REPLACE_OPTION_UPDATE_PACK, ReplaceOptions, is_dir_having_file,
+    MoveOptions, REPLACE_OPTION_UPDATE_PACK, ReplaceAction, ReplaceOptions, is_dir_having_file,
     move_elements_across_dir,
 };
 
@@ -659,6 +660,59 @@ pub fn move_works_with_same_name_to_siblings(root_dir_from: &Path) -> Result<(),
             MoveOptions::default(),
             REPLACE_OPTION_UPDATE_PACK.clone(),
         )?;
+    }
+
+    Ok(())
+}
+
+/// Merge split folders back together.
+///
+/// This reverses the `split_folders_with_first_char` operation by moving
+/// contents from single-character-named subdirectories back to the parent.
+///
+/// # Errors
+///
+/// Returns [`anyhow::Error`] if directory operations fail.
+pub async fn merge_split_folders(path: &Path) -> Result<()> {
+    let mut entries = tokio::fs::read_dir(path).await?;
+    let mut folders = Vec::new();
+
+    while let Some(entry) = entries.next_entry().await? {
+        if entry.file_type().await?.is_dir() {
+            folders.push(entry.path());
+        }
+    }
+
+    for folder in folders {
+        let folder_name = folder.file_name().unwrap_or_default().to_string_lossy();
+
+        if folder_name.len() != 1 {
+            continue;
+        }
+
+        let mut sub_entries = tokio::fs::read_dir(&folder).await?;
+        while let Some(entry) = sub_entries.next_entry().await? {
+            let source = entry.path();
+            let target = path.join(entry.file_name());
+
+            if target.exists() {
+                if source.is_dir() {
+                    move_elements_across_dir(
+                        &source,
+                        &target,
+                        MoveOptions::default(),
+                        ReplaceOptions {
+                            default: ReplaceAction::CheckReplace,
+                            ..Default::default()
+                        },
+                    )?;
+                }
+            } else {
+                tokio::fs::rename(&source, &target).await?;
+            }
+        }
+
+        tokio::fs::remove_dir(&folder).await?;
     }
 
     Ok(())
