@@ -4,7 +4,6 @@
 //! including `BMSInfo`, `BMSDifficulty`, and related constants.
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// BMS file extensions
 pub const BMS_FILE_EXTS: [&str; 4] = ["bms", "bme", "bml", "pms"];
@@ -12,21 +11,6 @@ pub const BMS_FILE_EXTS: [&str; 4] = ["bms", "bme", "bml", "pms"];
 pub const BMSON_FILE_EXTS: [&str; 1] = ["bmson"];
 /// Chart file extensions (BMS + BMSON)
 pub const CHART_FILE_EXTS: [&str; 5] = ["bms", "bme", "bml", "pms", "bmson"];
-
-/// Audio file extensions
-#[allow(dead_code)]
-pub const AUDIO_FILE_EXTS: [&str; 3] = ["flac", "ogg", "wav"];
-/// Video file extensions
-#[allow(dead_code)]
-pub const VIDEO_FILE_EXTS: [&str; 6] = ["mp4", "mkv", "avi", "wmv", "mpg", "mpeg"];
-/// Image file extensions
-#[allow(dead_code)]
-pub const IMAGE_FILE_EXTS: [&str; 4] = ["jpg", "png", "bmp", "svg"];
-/// Media file extensions (audio + video + image)
-#[allow(dead_code)]
-pub const MEDIA_FILE_EXTS: [&str; 13] = [
-    "flac", "ogg", "wav", "mp4", "mkv", "avi", "wmv", "mpg", "mpeg", "jpg", "png", "bmp", "svg",
-];
 
 /// BMS difficulty levels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -47,7 +31,6 @@ pub enum BMSDifficulty {
     /// Insane difficulty (grade 5)
     Insane = 5,
 }
-
 
 impl From<i32> for BMSDifficulty {
     fn from(value: i32) -> Self {
@@ -109,16 +92,4 @@ impl BMSInfo {
             ..Default::default()
         }
     }
-}
-
-/// BOFTT-specific encoding table (ID -> encoding).
-#[allow(dead_code)]
-#[must_use]
-pub fn boftt_id_encoding() -> HashMap<&'static str, &'static str> {
-    HashMap::from_iter([
-        ("134", "utf-8"),
-        ("191", "gbk"),
-        ("435", "gbk"),
-        ("439", "gbk"),
-    ])
 }

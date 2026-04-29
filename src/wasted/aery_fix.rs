@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use tracing::info;
 
 use crate::fs::name::bms_dir_similarity;
-use crate::fs::pack_move::{move_elements_across_dir, MoveOptions, REPLACE_OPTION_UPDATE_PACK};
+use crate::fs::pack_move::{MoveOptions, REPLACE_OPTION_UPDATE_PACK, move_elements_across_dir};
 
 /// Fix Aery folders by merging similar directories
 ///
@@ -48,7 +48,8 @@ pub fn aery_fix(src_dir: &Path) -> Result<(), std::io::Error> {
         // Look for matching directories by prefix
         for i in 0..dir.len() {
             let prefix = &dir[..=i];
-            let matching_dirs: Vec<_> = dirs.iter()
+            let matching_dirs: Vec<_> = dirs
+                .iter()
                 .filter(|d| d.starts_with(prefix) && *d != dir)
                 .collect();
 
@@ -85,8 +86,16 @@ pub fn aery_fix(src_dir: &Path) -> Result<(), std::io::Error> {
         if similarity < similarity_border {
             continue;
         }
-        info!("Moving: {:?} => {:?}, similarity: {}", p_from, p_to, similarity);
-        move_elements_across_dir(&p_from, &p_to, MoveOptions::default(), REPLACE_OPTION_UPDATE_PACK.clone())?;
+        info!(
+            "Moving: {:?} => {:?}, similarity: {}",
+            p_from, p_to, similarity
+        );
+        move_elements_across_dir(
+            &p_from,
+            &p_to,
+            MoveOptions::default(),
+            REPLACE_OPTION_UPDATE_PACK.clone(),
+        )?;
     }
 
     Ok(())

@@ -43,7 +43,11 @@ pub fn extract_work_name(
     let max_count = *prefix_counts.values().max().unwrap_or(&0);
 
     // Find candidates with >= 67% of max count
-    #[expect(clippy::cast_precision_loss, clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    #[expect(
+        clippy::cast_precision_loss,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss
+    )]
     let threshold = (max_count as f64 * 0.67) as usize;
     let mut candidates: Vec<(String, usize)> = prefix_counts
         .iter()
@@ -64,7 +68,10 @@ pub fn extract_work_name(
         a.0.cmp(&b.0)
     });
 
-    let best_candidate = candidates.first().map(|(s, _)| s.clone()).unwrap_or_default();
+    let best_candidate = candidates
+        .first()
+        .map(|(s, _)| s.clone())
+        .unwrap_or_default();
 
     // Post-processing
     post_process(
@@ -76,11 +83,7 @@ pub fn extract_work_name(
 
 /// Post-process extracted work name
 /// Removes unclosed brackets and trailing signs
-fn post_process(
-    s: &str,
-    remove_unclosed_pair: bool,
-    remove_tailing_sign_list: &[&str],
-) -> String {
+fn post_process(s: &str, remove_unclosed_pair: bool, remove_tailing_sign_list: &[&str]) -> String {
     let mut result = s.trim().to_string();
 
     loop {
@@ -105,9 +108,10 @@ fn post_process(
                     }
                     if c == *close
                         && let Some((top_open, _)) = stack.last()
-                            && *top_open == *open {
-                                stack.pop();
-                            }
+                        && *top_open == *open
+                    {
+                        stack.pop();
+                    }
                 }
             }
 
@@ -134,19 +138,15 @@ fn post_process(
 }
 
 /// Extract work name from a single title string (legacy single-title version)
-///
-/// This is a convenience wrapper for when you have a single title.
-/// For the full algorithm that processes multiple titles, use `extract_work_name`.
-#[allow(dead_code)]
 #[must_use]
+#[allow(dead_code)]
 pub fn extract_work_name_single(title: &str) -> String {
     extract_work_name(&[title.to_string()], true, &[])
 }
 
 /// Extract work name from multiple titles (convenience wrapper)
-/// Uses default post-processing: remove unclosed brackets, no extra trailing signs
-#[allow(dead_code)]
 #[must_use]
+#[allow(dead_code)]
 pub fn extract_work_name_default(titles: &[String]) -> String {
     extract_work_name(titles, true, &[])
 }
@@ -158,21 +158,22 @@ pub fn extract_work_name_for_artist(titles: &[String]) -> String {
     extract_work_name(
         titles,
         true,
-        &["/", ":", "：", "-", "obj", "obj.", "Obj", "Obj.", "OBJ", "OBJ."],
+        &[
+            "/", ":", "：", "-", "obj", "obj.", "Obj", "Obj.", "OBJ", "OBJ.",
+        ],
     )
 }
 
 /// Count prefix occurrences of a character (deprecated - kept for compatibility)
-#[expect(dead_code)]
 #[deprecated(since = "0.1.0", note = "Use extract_work_name() instead")]
+#[expect(dead_code)]
 fn count_prefix(_s: &str, _c: char) -> usize {
     0 // Deprecated, kept for API compatibility
 }
 
 /// Extract work name from path using the original Python algorithm
-/// Looks for patterns like "001 Artist - Title" and counts prefixes
-#[allow(dead_code)]
 #[must_use]
+#[allow(dead_code)]
 pub fn extract_work_name_from_path(path: &str) -> String {
     use regex::Regex;
 
@@ -185,17 +186,17 @@ pub fn extract_work_name_from_path(path: &str) -> String {
     // e.g., "001 Artist - Title" or "001_Artist - Title"
     let re = Regex::new(r"^[\d_]+(?:\s+)(.+)$").unwrap();
     if let Some(caps) = re.captures(filename)
-        && let Some(matched) = caps.get(1) {
-            return extract_work_name_single(matched.as_str());
-        }
+        && let Some(matched) = caps.get(1)
+    {
+        return extract_work_name_single(matched.as_str());
+    }
 
     extract_work_name_single(filename)
 }
 
 /// Parse work directory name into components
-/// e.g., "001 Artist - Title" -> (Some("001"), "Artist - Title")
-#[allow(dead_code)]
 #[must_use]
+#[allow(dead_code)]
 pub fn parse_work_dir_name(name: &str) -> (Option<String>, String) {
     use regex::Regex;
 
@@ -243,20 +244,17 @@ mod tests {
             "Artist - Title [Unclosed".to_string(),
             "Artist - Title [Unclosed".to_string(),
         ];
-        assert_eq!(extract_work_name_default(&titles_unclosed), "Artist - Title");
+        assert_eq!(
+            extract_work_name_default(&titles_unclosed),
+            "Artist - Title"
+        );
     }
 
     #[test]
     fn test_extract_work_name_artist_extraction() {
         // Artist with trailing obj-like suffix
-        let titles_obj = vec![
-            "Artist obj".to_string(),
-            "Artist obj".to_string(),
-        ];
-        assert_eq!(
-            extract_work_name_for_artist(&titles_obj),
-            "Artist"
-        );
+        let titles_obj = vec!["Artist obj".to_string(), "Artist obj".to_string()];
+        assert_eq!(extract_work_name_for_artist(&titles_obj), "Artist");
     }
 
     #[test]

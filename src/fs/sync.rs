@@ -3,32 +3,30 @@
 //! This module provides functions for synchronizing files
 //! between directories with various comparison strategies.
 
-
+use sha2::{Digest, Sha512};
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
-use sha2::{Sha512, Digest};
 use tracing::info;
 
 /// Soft sync execution mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-#[allow(dead_code, clippy::upper_case_acronyms)]
 pub enum SoftSyncExec {
     /// No operation.
-    NONE = 0,
+    None = 0,
     /// Copy files from source to destination.
     #[default]
-    COPY = 1,
+    Copy = 1,
     /// Move files from source to destination.
-    MOVE = 2,
+    #[allow(dead_code)]
+    Move = 2,
 }
-
 
 /// Soft sync preset configuration
 #[expect(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct SoftSyncPreset {
     /// Name of the preset
+    #[allow(dead_code)]
     pub name: String,
     /// Allowed source extensions
     pub allow_src_exts: Vec<String>,
@@ -67,7 +65,7 @@ impl SoftSyncPreset {
             check_file_mtime: true,
             check_file_sha512: false,
             remove_src_same_files: false,
-            exec: SoftSyncExec::COPY,
+            exec: SoftSyncExec::Copy,
         }
     }
 }
@@ -99,7 +97,6 @@ pub fn get_file_sha512(file_path: &Path) -> String {
 pub static SYNC_PRESET_DEFAULT: LazyLock<SoftSyncPreset> = LazyLock::new(SoftSyncPreset::default);
 
 /// Sync preset for append mode (update packs)
-#[allow(dead_code)]
 pub static SYNC_PRESET_FOR_APPEND: LazyLock<SoftSyncPreset> = LazyLock::new(|| SoftSyncPreset {
     name: "同步预设（用于更新包）".to_string(),
     check_file_size: true,
@@ -107,7 +104,7 @@ pub static SYNC_PRESET_FOR_APPEND: LazyLock<SoftSyncPreset> = LazyLock::new(|| S
     check_file_sha512: true,
     remove_src_same_files: true,
     remove_dst_extra_files: false,
-    exec: SoftSyncExec::NONE,
+    exec: SoftSyncExec::None,
     ..Default::default()
 });
 
@@ -118,7 +115,7 @@ pub static SYNC_PRESET_FLAC: LazyLock<SoftSyncPreset> = LazyLock::new(|| SoftSyn
     allow_src_exts: vec!["flac".to_string()],
     allow_other_exts: false,
     remove_dst_extra_files: false,
-    exec: SoftSyncExec::COPY,
+    exec: SoftSyncExec::Copy,
     ..Default::default()
 });
 
@@ -129,7 +126,7 @@ pub static SYNC_PRESET_MP4_AVI: LazyLock<SoftSyncPreset> = LazyLock::new(|| Soft
     allow_src_exts: vec!["mp4".to_string(), "avi".to_string()],
     allow_other_exts: false,
     remove_dst_extra_files: false,
-    exec: SoftSyncExec::COPY,
+    exec: SoftSyncExec::Copy,
     ..Default::default()
 });
 
@@ -140,7 +137,7 @@ pub static SYNC_PRESET_CACHE: LazyLock<SoftSyncPreset> = LazyLock::new(|| SoftSy
     allow_src_exts: vec!["mp4".to_string(), "avi".to_string(), "flac".to_string()],
     allow_other_exts: false,
     remove_dst_extra_files: false,
-    exec: SoftSyncExec::NONE,
+    exec: SoftSyncExec::None,
     ..Default::default()
 });
 
@@ -153,7 +150,11 @@ pub static SYNC_PRESET_CACHE: LazyLock<SoftSyncPreset> = LazyLock::new(|| SoftSy
 /// - `dst_dir` creation fails
 /// - reading directories fails
 #[expect(clippy::too_many_lines)]
-pub fn sync_folder(src_dir: &Path, dst_dir: &Path, preset: &SoftSyncPreset) -> Result<(), std::io::Error> {
+pub fn sync_folder(
+    src_dir: &Path,
+    dst_dir: &Path,
+    preset: &SoftSyncPreset,
+) -> Result<(), std::io::Error> {
     if !src_dir.is_dir() {
         return Err(std::io::Error::new(
             std::io::ErrorKind::NotADirectory,
@@ -222,7 +223,8 @@ pub fn sync_folder(src_dir: &Path, dst_dir: &Path, preset: &SoftSyncPreset) -> R
                 } else {
                     format!(".{ext_bound_to}")
                 };
-                let bound_file_path = dst_path.with_extension(normalized_suffix.trim_start_matches('.'));
+                let bound_file_path =
+                    dst_path.with_extension(normalized_suffix.trim_start_matches('.'));
                 if bound_file_path.is_file() {
                     ext_in_bound = true;
                     break;
@@ -260,23 +262,29 @@ pub fn sync_folder(src_dir: &Path, dst_dir: &Path, preset: &SoftSyncPreset) -> R
         if !dst_file_exists || !is_same_file {
             let src_mtime = src_path.metadata()?.modified();
             match preset.exec {
-                SoftSyncExec::NONE => {}
-                SoftSyncExec::COPY => {
+                SoftSyncExec::None => {}
+                SoftSyncExec::Copy => {
                     src_copy_files.push(src_path.clone());
                     std::fs::copy(src_path, &dst_path)?;
                     // Set atime/mtime
                     if let Ok(mtime) = src_mtime {
-                        let _ = filetime::set_file_mtime(&dst_path, filetime::FileTime::from_system_time(mtime));
+                        let _ = filetime::set_file_mtime(
+                            &dst_path,
+                            filetime::FileTime::from_system_time(mtime),
+                        );
                     }
                 }
-                SoftSyncExec::MOVE => {
+                SoftSyncExec::Move => {
                     src_move_files.push(src_path.clone());
                     std::fs::rename(src_path, &dst_path).or_else(|_| {
                         std::fs::copy(src_path, &dst_path)?;
                         std::fs::remove_file(src_path)
                     })?;
                     if let Ok(mtime) = src_mtime {
-                        let _ = filetime::set_file_mtime(&dst_path, filetime::FileTime::from_system_time(mtime));
+                        let _ = filetime::set_file_mtime(
+                            &dst_path,
+                            filetime::FileTime::from_system_time(mtime),
+                        );
                     }
                 }
             }
@@ -300,11 +308,10 @@ pub fn sync_folder(src_dir: &Path, dst_dir: &Path, preset: &SoftSyncPreset) -> R
                     dst_remove_dirs.push(dst_path.clone());
                     let _ = std::fs::remove_dir_all(dst_path);
                 }
-            } else if dst_path.is_file()
-                && !src_path.is_file() {
-                    dst_remove_files.push(dst_path.clone());
-                    let _ = std::fs::remove_file(dst_path);
-                }
+            } else if dst_path.is_file() && !src_path.is_file() {
+                dst_remove_files.push(dst_path.clone());
+                let _ = std::fs::remove_file(dst_path);
+            }
         }
     }
 
@@ -320,39 +327,48 @@ pub fn sync_folder(src_dir: &Path, dst_dir: &Path, preset: &SoftSyncPreset) -> R
     }
 
     // Log operations
-    if !src_copy_files.is_empty() || !src_move_files.is_empty()
-        || !src_remove_files.is_empty() || !dst_remove_files.is_empty() || !dst_remove_dirs.is_empty() {
+    if !src_copy_files.is_empty()
+        || !src_move_files.is_empty()
+        || !src_remove_files.is_empty()
+        || !dst_remove_files.is_empty()
+        || !dst_remove_dirs.is_empty()
+    {
         info!("{} -> {}:", src_dir.display(), dst_dir.display());
         if !src_copy_files.is_empty() {
-            let names: Vec<_> = src_copy_files.iter()
+            let names: Vec<_> = src_copy_files
+                .iter()
                 .filter_map(|p| p.file_name())
                 .filter_map(|n| n.to_str())
                 .collect();
             info!("Src copy: {:?}", names);
         }
         if !src_move_files.is_empty() {
-            let names: Vec<_> = src_move_files.iter()
+            let names: Vec<_> = src_move_files
+                .iter()
                 .filter_map(|p| p.file_name())
                 .filter_map(|n| n.to_str())
                 .collect();
             info!("Src move: {:?}", names);
         }
         if !src_remove_files.is_empty() {
-            let names: Vec<_> = src_remove_files.iter()
+            let names: Vec<_> = src_remove_files
+                .iter()
                 .filter_map(|p| p.file_name())
                 .filter_map(|n| n.to_str())
                 .collect();
             info!("Src remove: {:?}", names);
         }
         if !dst_remove_files.is_empty() {
-            let names: Vec<_> = dst_remove_files.iter()
+            let names: Vec<_> = dst_remove_files
+                .iter()
                 .filter_map(|p| p.file_name())
                 .filter_map(|n| n.to_str())
                 .collect();
             info!("Dst remove: {:?}", names);
         }
         if !dst_remove_dirs.is_empty() {
-            let names: Vec<_> = dst_remove_dirs.iter()
+            let names: Vec<_> = dst_remove_dirs
+                .iter()
                 .filter_map(|p| p.file_name())
                 .filter_map(|n| n.to_str())
                 .collect();
@@ -362,8 +378,6 @@ pub fn sync_folder(src_dir: &Path, dst_dir: &Path, preset: &SoftSyncPreset) -> R
 
     Ok(())
 }
-
-
 
 #[cfg(test)]
 mod tests {

@@ -3,15 +3,21 @@
 //! This module handles extraction of compressed archives
 //! including zip, 7z, and rar formats.
 
-#![allow(clippy::missing_errors_doc, clippy::missing_panics_doc, clippy::items_after_statements)]
+#![allow(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::items_after_statements
+)]
 
+use regex::Regex;
 use std::collections::HashMap;
 use std::path::Path;
 use tracing::info;
-use regex::Regex;
 
 use crate::bms::types::CHART_FILE_EXTS;
-use crate::fs::pack_move::{move_elements_across_dir, DEFAULT_MOVE_OPTIONS, DEFAULT_REPLACE_OPTIONS};
+use crate::fs::pack_move::{
+    DEFAULT_MOVE_OPTIONS, DEFAULT_REPLACE_OPTIONS, move_elements_across_dir,
+};
 
 /// Get numbered file names from a directory
 /// Matches patterns like "001 filename.zip", "`001_filename.7z`"
@@ -34,8 +40,8 @@ pub fn get_num_set_file_names(dir: &Path) -> Vec<String> {
 }
 
 /// Extract numeric-prefixed archives to BMS folder structure
-#[allow(dead_code)]
-pub fn extract_numeric_to_bms_folder(
+#[expect(dead_code)]
+pub(crate) fn extract_numeric_to_bms_folder(
     pack_dir: &Path,
     cache_dir: &Path,
     root_dir: &Path,
@@ -76,16 +82,12 @@ pub fn extract_numeric_to_bms_folder(
             "7z" => {
                 let pack_path_buf = pack_path.clone();
                 let cache_dir_buf = cache_dir.to_path_buf();
-                rt.block_on(async {
-                    extract_7z(&pack_path_buf, &cache_dir_buf).await
-                })?;
+                rt.block_on(async { extract_7z(&pack_path_buf, &cache_dir_buf).await })?;
             }
             "rar" => {
                 let pack_path_buf = pack_path.clone();
                 let cache_dir_buf = cache_dir.to_path_buf();
-                rt.block_on(async {
-                    extract_rar(&pack_path_buf, &cache_dir_buf).await
-                })?;
+                rt.block_on(async { extract_rar(&pack_path_buf, &cache_dir_buf).await })?;
             }
             _ => {
                 info!("Skipping non-archive file: {}", file_name);
@@ -97,10 +99,7 @@ pub fn extract_numeric_to_bms_folder(
 }
 
 /// Extract archive files (zip, 7z, rar)
-pub async fn extract_archive(
-    archive_path: &Path,
-    output_dir: &Path,
-) -> Result<(), std::io::Error> {
+pub async fn extract_archive(archive_path: &Path, output_dir: &Path) -> Result<(), std::io::Error> {
     let ext = archive_path
         .extension()
         .and_then(|e| e.to_str())
@@ -149,7 +148,8 @@ async fn extract_7z(archive_path: &Path, output_dir: &Path) -> Result<(), std::i
     let output_dir = output_dir.to_path_buf();
     let result = tokio::task::spawn_blocking(move || {
         sevenz_rust::decompress_file(&archive_path, &output_dir)
-    }).await;
+    })
+    .await;
     match result {
         Ok(Ok(())) => Ok(()),
         Ok(Err(e)) => Err(std::io::Error::other(format!("7z error: {e}"))),
@@ -162,14 +162,17 @@ async fn extract_rar(archive_path: &Path, output_dir: &Path) -> Result<(), std::
     use tokio::process::Command;
 
     let output = Command::new("unrar")
-        .args(["x", "-o+", &archive_path.to_string_lossy(), &output_dir.to_string_lossy()])
+        .args([
+            "x",
+            "-o+",
+            &archive_path.to_string_lossy(),
+            &output_dir.to_string_lossy(),
+        ])
         .output()
         .await?;
 
     if !output.status.success() {
-        return Err(std::io::Error::other(
-            "Failed to extract rar archive",
-        ));
+        return Err(std::io::Error::other("Failed to extract rar archive"));
     }
     Ok(())
 }
@@ -194,11 +197,14 @@ pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
         let mut inner_dir_name: Option<String> = None;
 
         // Scan cache directory
-        let Ok(entries) = std::fs::read_dir(cache_dir_path) else { break };
+        let Ok(entries) = std::fs::read_dir(cache_dir_path) else {
+            break;
+        };
 
         for entry in entries.flatten() {
             let cache_path = entry.path();
-            let cache_name = cache_path.file_name()
+            let cache_name = cache_path
+                .file_name()
                 .and_then(|n| n.to_str())
                 .unwrap_or("");
 
@@ -219,11 +225,15 @@ pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
             if cache_path.is_file() {
                 cache_file_count += 1;
                 // Count extensions
-                let ext = cache_path.extension()
+                let ext = cache_path
+                    .extension()
                     .and_then(|e| e.to_str())
                     .unwrap_or("")
                     .to_lowercase();
-                file_ext_count.entry(ext).or_default().push(cache_name.to_string());
+                file_ext_count
+                    .entry(ext)
+                    .or_default()
+                    .push(cache_name.to_string());
             }
         }
 
@@ -237,18 +247,22 @@ pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
             for entry in walkdir::WalkDir::new(cache_dir_path).into_iter().flatten() {
                 let path = entry.path();
                 if path.is_file()
-                    && let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                        let lower_name = name.to_lowercase();
-                        if CHART_FILE_EXTS.iter().any(|ext| lower_name.ends_with(ext)) {
-                            has_bms = true;
-                            break;
-                        }
+                    && let Some(name) = path.file_name().and_then(|n| n.to_str())
+                {
+                    let lower_name = name.to_lowercase();
+                    if CHART_FILE_EXTS.iter().any(|ext| lower_name.ends_with(ext)) {
+                        has_bms = true;
+                        break;
                     }
+                }
             }
             if has_bms {
                 done = true;
             } else {
-                info!(" !_! {}: has more than 1 folders, please do it manually.", cache_dir_path.display());
+                info!(
+                    " !_! {}: has more than 1 folders, please do it manually.",
+                    cache_dir_path.display()
+                );
                 error = true;
                 done = false;
             }
@@ -266,15 +280,26 @@ pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
             // Avoid two floor same name: if inner_dir_path/inner_name exists, rename it
             let inner_inner_dir_path = inner_dir_path.join(inner_name);
             if inner_inner_dir_path.is_dir() {
-                info!(" - Renaming inner inner dir name: {:?}", inner_inner_dir_path);
+                info!(
+                    " - Renaming inner inner dir name: {:?}",
+                    inner_inner_dir_path
+                );
                 let new_path = inner_dir_path.with_file_name(format!("{inner_name}-rep"));
                 if let Err(e) = std::fs::rename(&inner_inner_dir_path, &new_path) {
                     info!("Failed to rename inner inner dir: {}", e);
                 }
             }
             // Move files
-            info!(" - Moving inner files in {:?} to {:?}", inner_dir_path, cache_dir_path);
-            if let Err(e) = move_elements_across_dir(&inner_dir_path, cache_dir_path, DEFAULT_MOVE_OPTIONS, DEFAULT_REPLACE_OPTIONS.clone()) {
+            info!(
+                " - Moving inner files in {:?} to {:?}",
+                inner_dir_path, cache_dir_path
+            );
+            if let Err(e) = move_elements_across_dir(
+                &inner_dir_path,
+                cache_dir_path,
+                DEFAULT_MOVE_OPTIONS,
+                DEFAULT_REPLACE_OPTIONS.clone(),
+            ) {
                 info!("Failed to move elements: {}", e);
             }
             // Try to remove the now-empty inner directory
@@ -301,7 +326,10 @@ pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
         .get("mp4")
         .map_or(0, std::vec::Vec::len);
     if mp4_files > 1 {
-        info!(" - Tips: {} has more than 1 mp4 files!", cache_dir_path.display());
+        info!(
+            " - Tips: {} has more than 1 mp4 files!",
+            cache_dir_path.display()
+        );
     }
 
     true
@@ -333,7 +361,9 @@ fn file_ext_count_at_path(dir: &Path) -> HashMap<String, Vec<String>> {
         for entry in entries.flatten() {
             if entry.path().is_file() {
                 let name = entry.file_name().to_string_lossy().to_string();
-                let ext = entry.path().extension()
+                let ext = entry
+                    .path()
+                    .extension()
                     .and_then(|e| e.to_str())
                     .unwrap_or("")
                     .to_lowercase();

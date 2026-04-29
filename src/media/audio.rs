@@ -5,7 +5,6 @@
 
 use std::path::Path;
 use std::process::Stdio;
-use std::sync::LazyLock;
 use tokio::process::Command;
 
 /// Audio conversion preset.
@@ -21,7 +20,7 @@ pub struct AudioPreset {
 
 impl AudioPreset {
     /// Create a new audio preset.
-    #[must_use] 
+    #[must_use]
     pub fn new(exec: &str, output_format: &str, arg: Option<&str>) -> Self {
         Self {
             exec: exec.to_string(),
@@ -38,9 +37,9 @@ pub fn audio_preset_ogg_q10() -> AudioPreset {
 }
 
 /// Audio preset for OGG encoding using `FFmpeg`.
-#[allow(dead_code)]
 #[must_use]
-pub fn audio_preset_ogg_ffmpeg() -> AudioPreset {
+#[expect(dead_code)]
+pub(crate) fn audio_preset_ogg_ffmpeg() -> AudioPreset {
     AudioPreset::new("ffmpeg", "ogg", None)
 }
 
@@ -53,13 +52,21 @@ pub fn audio_preset_wav_ffmpeg() -> AudioPreset {
 /// Audio preset for extracting WAV from FLAC.
 #[must_use]
 pub fn audio_preset_wav_from_flac() -> AudioPreset {
-    AudioPreset::new("flac", "wav", Some("-d --keep-foreign-metadata-if-present -f"))
+    AudioPreset::new(
+        "flac",
+        "wav",
+        Some("-d --keep-foreign-metadata-if-present -f"),
+    )
 }
 
 /// Audio preset for FLAC encoding.
 #[must_use]
 pub fn audio_preset_flac() -> AudioPreset {
-    AudioPreset::new("flac", "flac", Some("--keep-foreign-metadata-if-present --best -f"))
+    AudioPreset::new(
+        "flac",
+        "flac",
+        Some("--keep-foreign-metadata-if-present --best -f"),
+    )
 }
 
 /// Audio preset for FLAC encoding using `FFmpeg`.
@@ -68,46 +75,8 @@ pub fn audio_preset_flac_ffmpeg() -> AudioPreset {
     AudioPreset::new("ffmpeg", "flac", None)
 }
 
-/// Backward compatibility constant for OGG Q10 preset (deprecated)
-#[allow(dead_code)]
-pub const AUDIO_PRESET_OGG_Q10: () = ();
-/// Backward compatibility constant for OGG FFMPEG preset (deprecated)
-#[allow(dead_code)]
-pub const AUDIO_PRESET_OGG_FFMPEG: () = ();
-/// Backward compatibility constant for WAV FFMPEG preset (deprecated)
-#[allow(dead_code)]
-pub const AUDIO_PRESET_WAV_FFMPEG: () = ();
-/// Backward compatibility constant for WAV from FLAC preset (deprecated)
-#[allow(dead_code)]
-pub const AUDIO_PRESET_WAV_FROM_FLAC: () = ();
-/// Backward compatibility constant for FLAC preset (deprecated)
-#[allow(dead_code)]
-pub const AUDIO_PRESET_FLAC: () = ();
-/// Backward compatibility constant for FLAC FFMPEG preset (deprecated)
-#[allow(dead_code)]
-pub const AUDIO_PRESET_FLAC_FFMPEG: () = ();
-
-/// Lazy static for OGG Q10 audio preset.
-#[allow(dead_code)]
-pub static AUDIO_PRESET_OGG_Q10_VAL: LazyLock<AudioPreset> = LazyLock::new(audio_preset_ogg_q10);
-/// Lazy static for OGG `FFmpeg` audio preset.
-#[allow(dead_code)]
-pub static AUDIO_PRESET_OGG_FFMPEG_VAL: LazyLock<AudioPreset> = LazyLock::new(audio_preset_ogg_ffmpeg);
-/// Lazy static for WAV `FFmpeg` audio preset.
-#[allow(dead_code)]
-pub static AUDIO_PRESET_WAV_FFMPEG_VAL: LazyLock<AudioPreset> = LazyLock::new(audio_preset_wav_ffmpeg);
-/// Lazy static for WAV from FLAC audio preset.
-#[allow(dead_code)]
-pub static AUDIO_PRESET_WAV_FROM_FLAC_VAL: LazyLock<AudioPreset> = LazyLock::new(audio_preset_wav_from_flac);
-/// Lazy static for FLAC audio preset.
-#[allow(dead_code)]
-pub static AUDIO_PRESET_FLAC_VAL: LazyLock<AudioPreset> = LazyLock::new(audio_preset_flac);
-/// Lazy static for FLAC `FFmpeg` audio preset.
-#[allow(dead_code)]
-pub static AUDIO_PRESET_FLAC_FFMPEG_VAL: LazyLock<AudioPreset> = LazyLock::new(audio_preset_flac_ffmpeg);
-
 /// Get audio process command
-#[must_use] 
+#[must_use]
 pub fn get_audio_process_cmd(
     file_path: &Path,
     output_file_path: &Path,
@@ -134,8 +103,7 @@ pub fn get_audio_process_cmd(
 }
 
 /// Check if external audio tool is available
-#[allow(dead_code)]
-pub async fn check_audio_tool(exec: &str) -> bool {
+pub(crate) async fn check_audio_tool(exec: &str) -> bool {
     let output = Command::new(exec)
         .arg("--version")
         .stdout(Stdio::null())
@@ -146,20 +114,20 @@ pub async fn check_audio_tool(exec: &str) -> bool {
 }
 
 /// Check ffmpeg availability
-#[allow(dead_code)]
-pub async fn check_ffmpeg() -> bool {
+#[expect(dead_code)]
+pub(crate) async fn check_ffmpeg() -> bool {
     check_audio_tool("ffmpeg").await
 }
 
 /// Check flac availability
-#[allow(dead_code)]
-pub async fn check_flac() -> bool {
+#[expect(dead_code)]
+pub(crate) async fn check_flac() -> bool {
     check_audio_tool("flac").await
 }
 
 /// Check oggenc availability
-#[allow(dead_code)]
-pub async fn check_oggenc() -> bool {
+#[expect(dead_code)]
+pub(crate) async fn check_oggenc() -> bool {
     check_audio_tool("oggenc").await
 }
 

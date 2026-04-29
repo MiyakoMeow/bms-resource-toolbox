@@ -41,7 +41,8 @@ fn input_path(_prompt: &str) -> PathBuf {
         }
     }
 
-    let mut input_str = input_string("直接输入路径，或输入上面的数字（索引）进行选择，输入？查看所有选项：");
+    let mut input_str =
+        input_string("直接输入路径，或输入上面的数字（索引）进行选择，输入？查看所有选项：");
 
     if input_str == "?" || input_str == "？" {
         if paths.is_empty() {
@@ -250,7 +251,8 @@ impl MenuOption {
 }
 
 fn is_root_dir(paths: &[Box<dyn Any>]) -> bool {
-    let path = paths.first()
+    let path = paths
+        .first()
         .and_then(|p| p.downcast_ref::<PathBuf>())
         .unwrap();
 
@@ -264,12 +266,13 @@ fn is_root_dir(paths: &[Box<dyn Any>]) -> bool {
         for entry in entries.flatten() {
             let p = entry.path();
             if p.is_file()
-                && let Some(name) = p.file_name().and_then(|n| n.to_str()) {
-                    let lower = name.to_lowercase();
-                    if bms_exts.iter().any(|ext| lower.ends_with(ext)) {
-                        return false;
-                    }
+                && let Some(name) = p.file_name().and_then(|n| n.to_str())
+            {
+                let lower = name.to_lowercase();
+                if bms_exts.iter().any(|ext| lower.ends_with(ext)) {
+                    return false;
                 }
+            }
         }
     }
     true
@@ -305,18 +308,22 @@ fn check_oggenc(_paths: &[Box<dyn Any>]) -> bool {
 fn main() {
     let mut options: Vec<(String, Vec<MenuOption>)> = Vec::new();
 
-    options.push(("BMS活动".to_string(), vec![
-        MenuOption {
+    options.push((
+        "BMS活动".to_string(),
+        vec![MenuOption {
             name: "BMS活动：跳转至作品信息页".to_string(),
             exec_func: jump_to_work_info,
             inputs: vec![],
             check_func: None,
             confirm: ConfirmType::NoConfirm,
-        },
-    ]));
+        }],
+    ));
 
     {
-        use options::bms_folder::{set_name_by_bms, append_name_by_bms, append_artist_name_by_bms, copy_numbered_workdir_names, scan_folder_similar_folders, undo_set_name};
+        use options::bms_folder::{
+            append_artist_name_by_bms, append_name_by_bms, copy_numbered_workdir_names,
+            scan_folder_similar_folders, set_name_by_bms, undo_set_name,
+        };
 
         let mut bms_folder_opts: Vec<MenuOption> = Vec::new();
 
@@ -326,7 +333,10 @@ fn main() {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
                 let _ = set_name_by_bms(path);
             },
-            inputs: vec![Input { input_type: InputType::Path, description: "Root Dir".to_string() }],
+            inputs: vec![Input {
+                input_type: InputType::Path,
+                description: "Root Dir".to_string(),
+            }],
             check_func: Some(is_root_dir),
             confirm: ConfirmType::DefaultYes,
         });
@@ -337,7 +347,10 @@ fn main() {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
                 let _ = append_name_by_bms(path);
             },
-            inputs: vec![Input { input_type: InputType::Path, description: "Root Dir".to_string() }],
+            inputs: vec![Input {
+                input_type: InputType::Path,
+                description: "Root Dir".to_string(),
+            }],
             check_func: Some(is_root_dir),
             confirm: ConfirmType::DefaultYes,
         });
@@ -348,7 +361,10 @@ fn main() {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
                 let _ = append_artist_name_by_bms(path);
             },
-            inputs: vec![Input { input_type: InputType::Path, description: "Root Dir".to_string() }],
+            inputs: vec![Input {
+                input_type: InputType::Path,
+                description: "Root Dir".to_string(),
+            }],
             check_func: Some(is_root_dir),
             confirm: ConfirmType::DefaultYes,
         });
@@ -361,8 +377,14 @@ fn main() {
                 let _ = copy_numbered_workdir_names(from, to);
             },
             inputs: vec![
-                Input { input_type: InputType::Path, description: "Src Root Dir".to_string() },
-                Input { input_type: InputType::Path, description: "Dst Root Dir".to_string() },
+                Input {
+                    input_type: InputType::Path,
+                    description: "Src Root Dir".to_string(),
+                },
+                Input {
+                    input_type: InputType::Path,
+                    description: "Dst Root Dir".to_string(),
+                },
             ],
             check_func: Some(is_root_dir),
             confirm: ConfirmType::DefaultYes,
@@ -374,7 +396,10 @@ fn main() {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
                 let _ = scan_folder_similar_folders(path, 0.7);
             },
-            inputs: vec![Input { input_type: InputType::Path, description: "Root Dir".to_string() }],
+            inputs: vec![Input {
+                input_type: InputType::Path,
+                description: "Root Dir".to_string(),
+            }],
             check_func: Some(is_root_dir),
             confirm: ConfirmType::DefaultYes,
         });
@@ -385,7 +410,10 @@ fn main() {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
                 let _ = undo_set_name(path);
             },
-            inputs: vec![Input { input_type: InputType::Path, description: "Root Dir".to_string() }],
+            inputs: vec![Input {
+                input_type: InputType::Path,
+                description: "Root Dir".to_string(),
+            }],
             check_func: Some(is_root_dir),
             confirm: ConfirmType::DefaultYes,
         });
@@ -396,7 +424,10 @@ fn main() {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
                 let _ = options::bms_folder_bigpack::remove_zero_sized_media_files(path);
             },
-            inputs: vec![Input { input_type: InputType::Path, description: "Root Dir".to_string() }],
+            inputs: vec![Input {
+                input_type: InputType::Path,
+                description: "Root Dir".to_string(),
+            }],
             check_func: Some(is_root_dir),
             confirm: ConfirmType::DefaultYes,
         });
@@ -405,7 +436,10 @@ fn main() {
     }
 
     {
-        use options::bms_folder_bigpack::{split_folders_with_first_char, undo_split_pack, move_works_in_pack, move_out_works, move_works_with_same_name, move_works_with_same_name_to_siblings};
+        use options::bms_folder_bigpack::{
+            move_out_works, move_works_in_pack, move_works_with_same_name,
+            move_works_with_same_name_to_siblings, split_folders_with_first_char, undo_split_pack,
+        };
 
         let mut bigpack_opts: Vec<MenuOption> = Vec::new();
 
@@ -415,7 +449,10 @@ fn main() {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
                 let _ = split_folders_with_first_char(path);
             },
-            inputs: vec![Input { input_type: InputType::Path, description: "Root Dir".to_string() }],
+            inputs: vec![Input {
+                input_type: InputType::Path,
+                description: "Root Dir".to_string(),
+            }],
             check_func: Some(is_root_dir),
             confirm: ConfirmType::DefaultYes,
         });
@@ -426,7 +463,10 @@ fn main() {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
                 let _ = undo_split_pack(path);
             },
-            inputs: vec![Input { input_type: InputType::Path, description: "The target folder path.".to_string() }],
+            inputs: vec![Input {
+                input_type: InputType::Path,
+                description: "The target folder path.".to_string(),
+            }],
             check_func: Some(|args| !is_root_dir(args)),
             confirm: ConfirmType::DefaultYes,
         });
@@ -439,8 +479,14 @@ fn main() {
                 let _ = move_works_in_pack(from, to);
             },
             inputs: vec![
-                Input { input_type: InputType::Path, description: "From".to_string() },
-                Input { input_type: InputType::Path, description: "To".to_string() },
+                Input {
+                    input_type: InputType::Path,
+                    description: "From".to_string(),
+                },
+                Input {
+                    input_type: InputType::Path,
+                    description: "To".to_string(),
+                },
             ],
             check_func: Some(is_root_dir),
             confirm: ConfirmType::DefaultYes,
@@ -452,7 +498,10 @@ fn main() {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
                 let _ = move_out_works(path);
             },
-            inputs: vec![Input { input_type: InputType::Path, description: "Target Root Dir".to_string() }],
+            inputs: vec![Input {
+                input_type: InputType::Path,
+                description: "Target Root Dir".to_string(),
+            }],
             check_func: None,
             confirm: ConfirmType::DefaultYes,
         });
@@ -478,7 +527,10 @@ fn main() {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
                 let _ = move_works_with_same_name_to_siblings(path);
             },
-            inputs: vec![Input { input_type: InputType::Path, description: "Dir".to_string() }],
+            inputs: vec![Input {
+                input_type: InputType::Path,
+                description: "Dir".to_string(),
+            }],
             check_func: Some(is_root_dir),
             confirm: ConfirmType::DefaultYes,
         });
@@ -487,7 +539,9 @@ fn main() {
     }
 
     {
-        use options::bms_folder_event::{check_num_folder, create_num_folders, generate_work_info_table};
+        use options::bms_folder_event::{
+            check_num_folder, create_num_folders, generate_work_info_table,
+        };
 
         let mut event_opts: Vec<MenuOption> = Vec::new();
 
@@ -499,8 +553,14 @@ fn main() {
                 check_num_folder(path, count);
             },
             inputs: vec![
-                Input { input_type: InputType::Path, description: "Root Dir:".to_string() },
-                Input { input_type: InputType::Int, description: "Create Number:".to_string() },
+                Input {
+                    input_type: InputType::Path,
+                    description: "Root Dir:".to_string(),
+                },
+                Input {
+                    input_type: InputType::Int,
+                    description: "Create Number:".to_string(),
+                },
             ],
             check_func: Some(is_root_dir),
             confirm: ConfirmType::DefaultYes,
@@ -514,8 +574,14 @@ fn main() {
                 let _ = create_num_folders(path, count);
             },
             inputs: vec![
-                Input { input_type: InputType::Path, description: "Root Dir:".to_string() },
-                Input { input_type: InputType::Int, description: "Create Number:".to_string() },
+                Input {
+                    input_type: InputType::Path,
+                    description: "Root Dir:".to_string(),
+                },
+                Input {
+                    input_type: InputType::Int,
+                    description: "Create Number:".to_string(),
+                },
             ],
             check_func: Some(is_root_dir),
             confirm: ConfirmType::DefaultYes,
@@ -527,7 +593,10 @@ fn main() {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
                 let _ = generate_work_info_table(path);
             },
-            inputs: vec![Input { input_type: InputType::Path, description: "Root Dir:".to_string() }],
+            inputs: vec![Input {
+                input_type: InputType::Path,
+                description: "Root Dir:".to_string(),
+            }],
             check_func: Some(is_root_dir),
             confirm: ConfirmType::DefaultYes,
         });
@@ -547,7 +616,10 @@ fn main() {
                 let rt = tokio::runtime::Runtime::new().unwrap();
                 rt.block_on(transfer_audio(&path)).ok();
             },
-            inputs: vec![Input { input_type: InputType::Path, description: "Root Dir".to_string() }],
+            inputs: vec![Input {
+                input_type: InputType::Path,
+                description: "Root Dir".to_string(),
+            }],
             check_func: Some(|args| {
                 is_root_dir(args) && check_ffmpeg(args) && check_flac(args) && check_oggenc(args)
             }),
@@ -561,7 +633,10 @@ fn main() {
                 let rt = tokio::runtime::Runtime::new().unwrap();
                 rt.block_on(transfer_video(&path)).ok();
             },
-            inputs: vec![Input { input_type: InputType::Path, description: "Root Dir".to_string() }],
+            inputs: vec![Input {
+                input_type: InputType::Path,
+                description: "Root Dir".to_string(),
+            }],
             check_func: Some(|args| is_root_dir(args) && check_ffmpeg(args)),
             confirm: ConfirmType::DefaultYes,
         });
@@ -570,7 +645,9 @@ fn main() {
     }
 
     {
-        use options::rawpack::{unzip_numeric_to_bms_folder, unzip_with_name_to_bms_folder, set_file_num};
+        use options::rawpack::{
+            set_file_num, unzip_numeric_to_bms_folder, unzip_with_name_to_bms_folder,
+        };
 
         let mut rawpack_opts: Vec<MenuOption> = Vec::new();
 
@@ -614,7 +691,10 @@ fn main() {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
                 let _ = set_file_num(path);
             },
-            inputs: vec![Input { input_type: InputType::Path, description: "RawFile Dir".to_string() }],
+            inputs: vec![Input {
+                input_type: InputType::Path,
+                description: "RawFile Dir".to_string(),
+            }],
             check_func: None,
             confirm: ConfirmType::DefaultYes,
         });
@@ -623,7 +703,9 @@ fn main() {
     }
 
     {
-        use scripts::pack::{pack_setup_rawpack_to_hq, pack_update_rawpack_to_hq, pack_raw_to_hq, pack_hq_to_lq};
+        use scripts::pack::{
+            pack_hq_to_lq, pack_raw_to_hq, pack_setup_rawpack_to_hq, pack_update_rawpack_to_hq,
+        };
 
         let mut scripts_opts: Vec<MenuOption> = Vec::new();
 
@@ -636,8 +718,14 @@ fn main() {
                 rt.block_on(pack_setup_rawpack_to_hq(pack, root)).ok();
             },
             inputs: vec![
-                Input { input_type: InputType::Path, description: "Pack Dir".to_string() },
-                Input { input_type: InputType::Path, description: "Root Dir".to_string() },
+                Input {
+                    input_type: InputType::Path,
+                    description: "Pack Dir".to_string(),
+                },
+                Input {
+                    input_type: InputType::Path,
+                    description: "Root Dir".to_string(),
+                },
             ],
             check_func: Some(|args| check_flac(args) && check_ffmpeg(args)),
             confirm: ConfirmType::DefaultYes,
@@ -650,12 +738,22 @@ fn main() {
                 let root = args[1].downcast_ref::<PathBuf>().unwrap();
                 let sync = args[2].downcast_ref::<PathBuf>().unwrap();
                 let rt = tokio::runtime::Runtime::new().unwrap();
-                rt.block_on(pack_update_rawpack_to_hq(pack, root, sync)).ok();
+                rt.block_on(pack_update_rawpack_to_hq(pack, root, sync))
+                    .ok();
             },
             inputs: vec![
-                Input { input_type: InputType::Path, description: "Pack Dir".to_string() },
-                Input { input_type: InputType::Path, description: "Root Dir".to_string() },
-                Input { input_type: InputType::Path, description: "Sync Dir".to_string() },
+                Input {
+                    input_type: InputType::Path,
+                    description: "Pack Dir".to_string(),
+                },
+                Input {
+                    input_type: InputType::Path,
+                    description: "Root Dir".to_string(),
+                },
+                Input {
+                    input_type: InputType::Path,
+                    description: "Sync Dir".to_string(),
+                },
             ],
             check_func: Some(|args| check_flac(args) && check_ffmpeg(args)),
             confirm: ConfirmType::DefaultYes,
@@ -668,7 +766,10 @@ fn main() {
                 let rt = tokio::runtime::Runtime::new().unwrap();
                 rt.block_on(pack_raw_to_hq(path)).ok();
             },
-            inputs: vec![Input { input_type: InputType::Path, description: "Root Dir".to_string() }],
+            inputs: vec![Input {
+                input_type: InputType::Path,
+                description: "Root Dir".to_string(),
+            }],
             check_func: Some(|args| check_flac(args) && check_ffmpeg(args)),
             confirm: ConfirmType::DefaultYes,
         });
@@ -680,7 +781,10 @@ fn main() {
                 let rt = tokio::runtime::Runtime::new().unwrap();
                 rt.block_on(pack_hq_to_lq(path)).ok();
             },
-            inputs: vec![Input { input_type: InputType::Path, description: "Root Dir".to_string() }],
+            inputs: vec![Input {
+                input_type: InputType::Path,
+                description: "Root Dir".to_string(),
+            }],
             check_func: Some(|args| check_oggenc(args) && check_ffmpeg(args)),
             confirm: ConfirmType::DefaultYes,
         });
@@ -688,7 +792,8 @@ fn main() {
         options.push(("大包脚本".to_string(), scripts_opts));
     }
 
-    let mut option_map: std::collections::HashMap<usize, (&str, usize)> = std::collections::HashMap::new();
+    let mut option_map: std::collections::HashMap<usize, (&str, usize)> =
+        std::collections::HashMap::new();
     let mut current_number = 1usize;
 
     println!("功能列表如下：");
@@ -706,7 +811,8 @@ fn main() {
     let selection = selection_str.parse::<usize>().unwrap_or(0);
 
     if let Some((module_name, opt_idx)) = option_map.get(&selection) {
-        let module_idx = options.iter()
+        let module_idx = options
+            .iter()
             .position(|(name, _)| name == module_name)
             .unwrap();
         options[module_idx].1[*opt_idx].exec();
@@ -745,9 +851,15 @@ impl BMSEvent {
 
     fn work_info_url(self, work_num: i32) -> String {
         match self {
-            BMSEvent::BOFTT => format!("https://manbow.nothing.sh/event/event.cgi?action=More_def&num={work_num}&event=146"),
-            BMSEvent::BOF21 => format!("https://manbow.nothing.sh/event/event.cgi?action=More_def&num={work_num}&event=149"),
-            BMSEvent::LetsBMSEdit3 => format!("https://venue.bmssearch.net/letsbmsedit3/{work_num}"),
+            BMSEvent::BOFTT => format!(
+                "https://manbow.nothing.sh/event/event.cgi?action=More_def&num={work_num}&event=146"
+            ),
+            BMSEvent::BOF21 => format!(
+                "https://manbow.nothing.sh/event/event.cgi?action=More_def&num={work_num}&event=149"
+            ),
+            BMSEvent::LetsBMSEdit3 => {
+                format!("https://venue.bmssearch.net/letsbmsedit3/{work_num}")
+            }
         }
     }
 }
@@ -759,7 +871,9 @@ fn jump_to_work_info(_args: &[Box<dyn Any>]) {
     }
 
     let default_event = BMSEvent::BOFTT as i32;
-    let event_val_str = input_string(&format!("Input event value (Default: BOFTT {default_event}):"));
+    let event_val_str = input_string(&format!(
+        "Input event value (Default: BOFTT {default_event}):"
+    ));
     let event_val = if event_val_str.is_empty() {
         default_event
     } else {
@@ -775,14 +889,13 @@ fn jump_to_work_info(_args: &[Box<dyn Any>]) {
     let tips = "Input id (default: Jump to List):";
 
     loop {
-        let num_str = input_string(tips)
-            .trim()
-            .replace(['[', ']'], "");
+        let num_str = input_string(tips).trim().replace(['[', ']'], "");
 
         let mut nums: Vec<i32> = Vec::new();
         for token in num_str.replace(',', " ").split_whitespace() {
             if !token.is_empty()
-                && let Ok(n) = token.parse::<i32>() {
+                && let Ok(n) = token.parse::<i32>()
+            {
                 nums.push(n);
             }
         }
@@ -793,7 +906,11 @@ fn jump_to_work_info(_args: &[Box<dyn Any>]) {
             }
         } else if nums.len() == 2 {
             let (start, end) = (nums[0], nums[1]);
-            let (start, end) = if start > end { (end, start) } else { (start, end) };
+            let (start, end) = if start > end {
+                (end, start)
+            } else {
+                (start, end)
+            };
             for id in start..=end {
                 open_url(&event.work_info_url(id));
             }
@@ -821,17 +938,11 @@ fn open_url(url: &str) {
 
     #[cfg(target_os = "macos")]
     {
-        std::process::Command::new("open")
-            .arg(url)
-            .spawn()
-            .ok();
+        std::process::Command::new("open").arg(url).spawn().ok();
     }
 
     #[cfg(target_os = "linux")]
     {
-        std::process::Command::new("xdg-open")
-            .arg(url)
-            .spawn()
-            .ok();
+        std::process::Command::new("xdg-open").arg(url).spawn().ok();
     }
 }

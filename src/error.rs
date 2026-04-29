@@ -5,7 +5,7 @@ use thiserror::Error;
 /// Application error types.
 #[derive(Error, Debug)]
 #[allow(dead_code)]
-pub enum AppError {
+pub(crate) enum AppError {
     /// IO error
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
@@ -34,7 +34,7 @@ pub enum AppError {
 
 /// Result type alias using `AppError`.
 #[allow(dead_code)]
-pub type Result<T> = std::result::Result<T, AppError>;
+pub(crate) type Result<T> = std::result::Result<T, AppError>;
 
 impl From<zip::result::ZipError> for AppError {
     fn from(e: zip::result::ZipError) -> Self {

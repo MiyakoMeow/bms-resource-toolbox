@@ -6,8 +6,10 @@
 use std::path::{Path, PathBuf};
 use tracing::info;
 
-use crate::fs::rawpack::{extract_archive, get_num_set_file_names, move_out_files_in_folder_in_cache_dir};
 use crate::fs::pack_move::is_dir_having_file;
+use crate::fs::rawpack::{
+    extract_archive, get_num_set_file_names, move_out_files_in_folder_in_cache_dir,
+};
 
 /// Extract archives by original filename to BMS folder structure
 ///
@@ -19,7 +21,10 @@ pub fn unzip_with_name_to_bms_folder(
     cache_dir: &Path,
     root_dir: &Path,
 ) -> Result<(), std::io::Error> {
-    info!("Unzip with name to BMS folder: {:?} -> {:?}", pack_dir, root_dir);
+    info!(
+        "Unzip with name to BMS folder: {:?} -> {:?}",
+        pack_dir, root_dir
+    );
 
     // Create directories
     if !cache_dir.is_dir() {
@@ -39,13 +44,14 @@ pub fn unzip_with_name_to_bms_folder(
                 continue;
             }
 
-            let name = path.file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("");
+            let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
             let name_lower = name.to_lowercase();
             #[expect(clippy::case_sensitive_file_extension_comparisons)]
-            if name_lower.ends_with(".zip") || name_lower.ends_with(".7z") || name_lower.ends_with(".rar") {
+            if name_lower.ends_with(".zip")
+                || name_lower.ends_with(".7z")
+                || name_lower.ends_with(".rar")
+            {
                 archive_names.push(name.to_string());
             }
         }
@@ -63,7 +69,8 @@ pub fn unzip_with_name_to_bms_folder(
         let file_path = pack_dir.join(file_name);
 
         // Get filename without extension
-        let file_stem = file_path.file_stem()
+        let file_stem = file_path
+            .file_stem()
             .and_then(|n| n.to_str())
             .unwrap_or("")
             .trim_end_matches('.')
@@ -98,7 +105,10 @@ pub fn unzip_with_name_to_bms_folder(
         let target_dir_path = root_dir.join(&file_stem);
 
         // Move cache to BMS dir
-        info!("Moving files from {:?} to {:?}", cache_dir_path, target_dir_path);
+        info!(
+            "Moving files from {:?} to {:?}",
+            cache_dir_path, target_dir_path
+        );
 
         // Get entries in cache dir
         let entries: Vec<_> = std::fs::read_dir(&cache_dir_path)?
@@ -156,7 +166,10 @@ pub fn unzip_numeric_to_bms_folder(
     cache_dir: &Path,
     root_dir: &Path,
 ) -> Result<(), std::io::Error> {
-    info!("Unzip numeric to BMS folder: {:?} -> {:?}", pack_dir, root_dir);
+    info!(
+        "Unzip numeric to BMS folder: {:?} -> {:?}",
+        pack_dir, root_dir
+    );
 
     // Create directories
     if !cache_dir.is_dir() {
@@ -213,9 +226,7 @@ pub fn unzip_numeric_to_bms_folder(
                 if !dir_path.is_dir() {
                     continue;
                 }
-                let dir_name = dir_path.file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("");
+                let dir_name = dir_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
                 // Check if dir_name starts with id_str
                 if !dir_name.starts_with(id_str) {
@@ -223,7 +234,10 @@ pub fn unzip_numeric_to_bms_folder(
                 }
                 // Check remaining: must be empty or start with "." or " "
                 let remaining = &dir_name[id_str.len()..];
-                if !remaining.is_empty() && !remaining.starts_with('.') && !remaining.starts_with(' ') {
+                if !remaining.is_empty()
+                    && !remaining.starts_with('.')
+                    && !remaining.starts_with(' ')
+                {
                     continue;
                 }
                 // Found match
@@ -236,7 +250,10 @@ pub fn unzip_numeric_to_bms_folder(
         let target_dir_path = target_dir_path.unwrap_or_else(|| root_dir.join(id_str));
 
         // Move cache to BMS dir
-        info!("Moving files from {:?} to {:?}", cache_dir_path, target_dir_path);
+        info!(
+            "Moving files from {:?} to {:?}",
+            cache_dir_path, target_dir_path
+        );
 
         // Get entries in cache dir
         let entries: Vec<_> = std::fs::read_dir(&cache_dir_path)?
@@ -321,12 +338,14 @@ pub fn set_file_num(dir: &Path) -> Result<(), std::io::Error> {
                 continue;
             }
 
-            let name = path.file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("");
+            let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
             // Skip if already numbered
-            if name.split_whitespace().next().is_some_and(|s| s.chars().all(|c| c.is_ascii_digit())) {
+            if name
+                .split_whitespace()
+                .next()
+                .is_some_and(|s| s.chars().all(|c| c.is_ascii_digit()))
+            {
                 continue;
             }
 
@@ -384,7 +403,10 @@ pub fn set_file_num(dir: &Path) -> Result<(), std::io::Error> {
     let (file_idx, num) = if parts.len() == 1 {
         (0, parts[0].parse::<i32>().unwrap_or(0))
     } else {
-        (parts[0].parse::<usize>().unwrap_or(0), parts[1].parse::<i32>().unwrap_or(0))
+        (
+            parts[0].parse::<usize>().unwrap_or(0),
+            parts[1].parse::<i32>().unwrap_or(0),
+        )
     };
 
     if file_idx >= file_names.len() {

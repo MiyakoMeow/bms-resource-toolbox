@@ -5,12 +5,12 @@
 
 #![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 
+use crate::media::audio::{AudioPreset, get_audio_process_cmd};
+use crate::media::video::{VideoPreset, get_video_process_cmd};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use tokio::process::Command;
 use tracing::info;
-use crate::media::audio::{get_audio_process_cmd, AudioPreset};
-use crate::media::video::{get_video_process_cmd, VideoPreset};
 
 /// Convert audio file using preset
 pub async fn convert_audio(
@@ -37,9 +37,7 @@ pub async fn convert_audio(
     if output.success() {
         Ok(())
     } else {
-        Err(std::io::Error::other(
-            "Conversion failed",
-        ))
+        Err(std::io::Error::other("Conversion failed"))
     }
 }
 
@@ -63,9 +61,7 @@ pub async fn convert_video(
     if output.success() {
         Ok(())
     } else {
-        Err(std::io::Error::other(
-            "Conversion failed",
-        ))
+        Err(std::io::Error::other("Conversion failed"))
     }
 }
 
@@ -77,9 +73,7 @@ pub async fn transfer_audio_by_format_in_dir(
     _remove_origin_on_success: bool,
     _remove_origin_on_failed: bool,
 ) -> Result<(), std::io::Error> {
-    let hdd = !dir
-        .to_string_lossy()
-        .starts_with("C:");
+    let hdd = !dir.to_string_lossy().starts_with("C:");
 
     let max_workers = if hdd { 4 } else { 8 };
 
@@ -90,15 +84,16 @@ pub async fn transfer_audio_by_format_in_dir(
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_file()
-                && let Some(ext) = path.extension() {
-                    let ext_str = ext.to_string_lossy().to_lowercase();
-                    if input_exts.iter().any(|e| e.to_lowercase() == ext_str) {
-                        let stem = path.file_stem().unwrap_or_default().to_string_lossy();
-                        let output_ext = &presets[0].output_format;
-                        let output = path.parent().unwrap().join(format!("{stem}.{output_ext}"));
-                        tasks.push((path, output, 0));
-                    }
+                && let Some(ext) = path.extension()
+            {
+                let ext_str = ext.to_string_lossy().to_lowercase();
+                if input_exts.iter().any(|e| e.to_lowercase() == ext_str) {
+                    let stem = path.file_stem().unwrap_or_default().to_string_lossy();
+                    let output_ext = &presets[0].output_format;
+                    let output = path.parent().unwrap().join(format!("{stem}.{output_ext}"));
+                    tasks.push((path, output, 0));
                 }
+            }
         }
     }
 

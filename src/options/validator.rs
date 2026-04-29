@@ -10,8 +10,8 @@ use std::process::Stdio;
 use tokio::process::Command;
 
 /// Check if ffmpeg is available
-#[allow(dead_code)]
-pub async fn check_ffmpeg() -> bool {
+#[expect(dead_code)]
+pub(crate) async fn check_ffmpeg() -> bool {
     Command::new("ffmpeg")
         .arg("-version")
         .stdout(Stdio::null())
@@ -23,8 +23,8 @@ pub async fn check_ffmpeg() -> bool {
 }
 
 /// Check if flac is available
-#[allow(dead_code)]
-pub async fn check_flac() -> bool {
+#[expect(dead_code)]
+pub(crate) async fn check_flac() -> bool {
     Command::new("flac")
         .arg("--version")
         .stdout(Stdio::null())
@@ -36,8 +36,8 @@ pub async fn check_flac() -> bool {
 }
 
 /// Check if oggenc is available
-#[allow(dead_code)]
-pub async fn check_oggenc() -> bool {
+#[expect(dead_code)]
+pub(crate) async fn check_oggenc() -> bool {
     Command::new("oggenc")
         .arg("-v")
         .stdout(Stdio::null())
@@ -49,8 +49,8 @@ pub async fn check_oggenc() -> bool {
 }
 
 /// Validate path exists and is a directory
-#[allow(dead_code)]
-pub fn validate_dir(path: &Path) -> Result<(), String> {
+#[expect(dead_code)]
+pub(crate) fn validate_dir(path: &Path) -> Result<(), String> {
     if !path.exists() {
         return Err(format!("Path does not exist: {}", path.display()));
     }
@@ -61,8 +61,8 @@ pub fn validate_dir(path: &Path) -> Result<(), String> {
 }
 
 /// Validate path exists and is a file
-#[allow(dead_code)]
-pub fn validate_file(path: &Path) -> Result<(), String> {
+#[expect(dead_code)]
+pub(crate) fn validate_file(path: &Path) -> Result<(), String> {
     if !path.exists() {
         return Err(format!("Path does not exist: {}", path.display()));
     }

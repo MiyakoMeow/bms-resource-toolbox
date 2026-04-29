@@ -8,11 +8,12 @@ use std::fs::File;
 use std::io::{self, BufRead, BufReader, Write};
 use std::path::PathBuf;
 
+#[allow(dead_code)]
 const HISTORY_FILE: &str = "input_history.log";
 
 /// Input type for interactive prompts.
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[allow(dead_code)]
 pub enum InputType {
     /// Any string input.
     #[default]
@@ -26,8 +27,8 @@ pub enum InputType {
 }
 
 /// Confirmation type for interactive prompts.
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[allow(dead_code)]
 pub enum ConfirmType {
     /// No confirmation required.
     NoConfirm,
@@ -39,8 +40,8 @@ pub enum ConfirmType {
 }
 
 /// Input specification for interactive prompts.
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct Input {
     /// The type of input to receive.
     pub input_type: InputType,
@@ -50,8 +51,8 @@ pub struct Input {
 
 impl Input {
     /// Execute the input prompt
-    #[allow(dead_code)]
     #[must_use]
+    #[allow(dead_code)]
     pub fn exec_input(&self) -> Box<dyn Any> {
         match self.input_type {
             InputType::Any => {
@@ -94,8 +95,8 @@ impl Default for Input {
 }
 
 /// Option for interactive menu.
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct CliOption<T: FnMut(Box<dyn Any>)> {
     /// Function to execute when option is selected.
     pub func: T,
@@ -107,21 +108,13 @@ pub struct CliOption<T: FnMut(Box<dyn Any>)> {
     pub confirm: ConfirmType,
 }
 
-
-
-
-
-
-
-
-
 /// Read input with path history support.
 ///
 /// # Panics
 ///
 /// Panics if flushing stdout fails.
-#[allow(dead_code)]
 #[must_use]
+#[allow(dead_code)]
 pub fn input_path(prompt: &str) -> PathBuf {
     // Load history
     let history = load_path_history();
@@ -229,8 +222,8 @@ fn save_path_history(paths: &[PathBuf]) {
 /// # Panics
 ///
 /// Panics if flushing stdout fails.
-#[allow(dead_code)]
 #[must_use]
+#[allow(dead_code)]
 pub fn input_string(prompt: &str) -> String {
     print!("{prompt}");
     io::stdout().flush().unwrap();
@@ -238,5 +231,3 @@ pub fn input_string(prompt: &str) -> String {
     io::stdin().read_line(&mut input).unwrap();
     input.trim().to_string()
 }
-
-

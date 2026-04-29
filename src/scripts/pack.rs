@@ -3,21 +3,19 @@
 //! This module provides high-level functions for generating
 //! BMS packs including RAW to HQ and HQ to LQ conversion.
 
-use std::path::Path;
-use tracing::info;
-use crate::fs::{
-    is_dir_having_file, remove_empty_dirs, sync_folder, SYNC_PRESET_FOR_APPEND,
+use crate::fs::{SYNC_PRESET_FOR_APPEND, is_dir_having_file, remove_empty_dirs, sync_folder};
+use crate::media::video::{
+    transfer_video_by_format_in_dir, video_preset_avi_512x512, video_preset_mpeg1video_512x512,
+    video_preset_wmv2_512x512,
 };
 use crate::media::{
-    transfer_audio_by_format_in_dir,
     audio::{audio_preset_flac, audio_preset_flac_ffmpeg, audio_preset_ogg_q10},
-};
-use crate::media::video::{
-    transfer_video_by_format_in_dir,
-    video_preset_avi_512x512, video_preset_mpeg1video_512x512, video_preset_wmv2_512x512
+    transfer_audio_by_format_in_dir,
 };
 use crate::options::bms_folder::{append_name_by_bms, copy_numbered_workdir_names};
 use crate::options::rawpack::unzip_numeric_to_bms_folder;
+use std::path::Path;
+use tracing::info;
 
 /// Remove media files according to rule
 ///
@@ -27,7 +25,9 @@ use crate::options::rawpack::unzip_numeric_to_bms_folder;
 pub fn remove_unneed_media_files(root_dir: &Path, rule: &str) -> Result<(), std::io::Error> {
     // Rule: oraja - remove all video and some image files
     if rule == "oraja" {
-        let extensions_to_remove = ["jpg", "jpeg", "png", "gif", "bmp", "mp4", "avi", "wmv", "mpg", "mpeg"];
+        let extensions_to_remove = [
+            "jpg", "jpeg", "png", "gif", "bmp", "mp4", "avi", "wmv", "mpg", "mpeg",
+        ];
 
         for entry in walkdir::WalkDir::new(root_dir)
             .into_iter()
@@ -35,13 +35,14 @@ pub fn remove_unneed_media_files(root_dir: &Path, rule: &str) -> Result<(), std:
         {
             let path = entry.path();
             if path.is_file()
-                && let Some(ext) = path.extension() {
-                    let ext_str = ext.to_string_lossy().to_lowercase();
-                    if extensions_to_remove.contains(&ext_str.as_str()) {
-                        info!("Removing: {:?}", path);
-                        std::fs::remove_file(path)?;
-                    }
+                && let Some(ext) = path.extension()
+            {
+                let ext_str = ext.to_string_lossy().to_lowercase();
+                if extensions_to_remove.contains(&ext_str.as_str()) {
+                    info!("Removing: {:?}", path);
+                    std::fs::remove_file(path)?;
                 }
+            }
         }
     }
     Ok(())
@@ -71,7 +72,8 @@ pub async fn pack_raw_to_hq(root_dir: &Path) -> Result<(), std::io::Error> {
         &[flac_preset, flac_ffmpeg_preset],
         true,
         true,
-    ).await?;
+    )
+    .await?;
 
     // Phase 2: Remove unnecessary media files
     info!("Removing Unneed Files");
@@ -94,13 +96,7 @@ pub async fn pack_hq_to_lq(root_dir: &Path) -> Result<(), std::io::Error> {
     // Phase 1: Convert FLAC to OGG
     info!("Parsing Audio... Phase 1: FLAC -> OGG");
     let ogg_preset = audio_preset_ogg_q10();
-    transfer_audio_by_format_in_dir(
-        root_dir,
-        &["flac"],
-        &[ogg_preset],
-        true,
-        false,
-    ).await?;
+    transfer_audio_by_format_in_dir(root_dir, &["flac"], &[ogg_preset], true, false).await?;
 
     // Phase 2: Convert video
     info!("Parsing Video...");
@@ -109,13 +105,7 @@ pub async fn pack_hq_to_lq(root_dir: &Path) -> Result<(), std::io::Error> {
         video_preset_wmv2_512x512(),
         video_preset_avi_512x512(),
     ];
-    transfer_video_by_format_in_dir(
-        root_dir,
-        &["mp4"],
-        &presets,
-        true,
-        false,
-    ).await?;
+    transfer_video_by_format_in_dir(root_dir, &["mp4"], &presets, true, false).await?;
 
     Ok(())
 }
@@ -130,8 +120,11 @@ pub async fn pack_hq_to_lq(root_dir: &Path) -> Result<(), std::io::Error> {
 /// # Errors
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
-#[allow(dead_code)]
-pub fn pack_setup_rawpack_to_hq_check(pack_dir: &Path, root_dir: &Path) -> Result<(), std::io::Error> {
+#[expect(dead_code)]
+pub(crate) fn pack_setup_rawpack_to_hq_check(
+    pack_dir: &Path,
+    root_dir: &Path,
+) -> Result<(), std::io::Error> {
     use crate::fs::rawpack::get_num_set_file_names;
 
     println!(" - Input 1: Pack dir path");
@@ -173,8 +166,8 @@ pub fn pack_setup_rawpack_to_hq_check(pack_dir: &Path, root_dir: &Path) -> Resul
 /// # Errors
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
-#[allow(dead_code)]
-pub fn pack_update_rawpack_to_hq_check(
+#[expect(dead_code)]
+pub(crate) fn pack_update_rawpack_to_hq_check(
     pack_dir: &Path,
     root_dir: &Path,
     sync_dir: &Path,
@@ -257,7 +250,8 @@ pub async fn pack_setup_rawpack_to_hq(
         &[flac_preset, flac_ffmpeg_preset],
         true,
         false,
-    ).await?;
+    )
+    .await?;
 
     // Step 4: Remove unnecessary media files
     info!("Removing Unneed Files");
@@ -276,7 +270,10 @@ pub async fn pack_update_rawpack_to_hq(
     root_dir: &Path,
     sync_dir: &Path,
 ) -> Result<(), std::io::Error> {
-    info!("Pack Update RAW -> HQ: {:?} -> {:?} (sync from {:?})", pack_dir, root_dir, sync_dir);
+    info!(
+        "Pack Update RAW -> HQ: {:?} -> {:?} (sync from {:?})",
+        pack_dir, root_dir, sync_dir
+    );
 
     // Setup directories
     std::fs::create_dir_all(root_dir)?;
@@ -300,7 +297,8 @@ pub async fn pack_update_rawpack_to_hq(
         &[flac_preset, flac_ffmpeg_preset],
         true,
         false,
-    ).await?;
+    )
+    .await?;
 
     // Step 4: Remove unnecessary media files
     info!("Removing Unneed Files");

@@ -3,7 +3,6 @@
 //! This module provides functions for creating valid
 //! filesystem names by replacing invalid characters.
 
-
 use std::path::Path;
 
 /// Get a valid filesystem name by replacing invalid characters.
@@ -20,10 +19,6 @@ pub fn get_valid_fs_name(name: &str) -> String {
     }
     result
 }
-
-
-
-
 
 /// Calculate media filename similarity between two directories
 ///
@@ -78,9 +73,13 @@ pub fn bms_dir_similarity(dir_path_a: &Path, dir_path_b: &Path) -> f64 {
     let (file_set_a, media_set_a, non_media_set_a) = fetch_dir_elements(dir_path_a);
     let (file_set_b, media_set_b, non_media_set_b) = fetch_dir_elements(dir_path_b);
 
-    if file_set_a.is_empty() || file_set_b.is_empty()
-        || media_set_a.is_empty() || media_set_b.is_empty()
-        || non_media_set_a.is_empty() || non_media_set_b.is_empty() {
+    if file_set_a.is_empty()
+        || file_set_b.is_empty()
+        || media_set_a.is_empty()
+        || media_set_b.is_empty()
+        || non_media_set_a.is_empty()
+        || non_media_set_b.is_empty()
+    {
         return 0.0;
     }
 

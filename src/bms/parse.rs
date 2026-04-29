@@ -40,18 +40,9 @@ pub fn parse_bms_content(content: &str) -> BMSInfo {
     }
 
     // Extract known fields
-    info.title = header_map
-        .get("TITLE")
-        .cloned()
-        .unwrap_or_default();
-    info.artist = header_map
-        .get("ARTIST")
-        .cloned()
-        .unwrap_or_default();
-    info.genre = header_map
-        .get("GENRE")
-        .cloned()
-        .unwrap_or_default();
+    info.title = header_map.get("TITLE").cloned().unwrap_or_default();
+    info.artist = header_map.get("ARTIST").cloned().unwrap_or_default();
+    info.genre = header_map.get("GENRE").cloned().unwrap_or_default();
 
     // Parse playlevel
     if let Some(pl) = header_map.get("PLAYLEVEL") {
@@ -60,7 +51,10 @@ pub fn parse_bms_content(content: &str) -> BMSInfo {
 
     // Parse difficulty
     if let Some(diff) = header_map.get("DIFFICULTY") {
-        info.difficulty = diff.parse::<i32>().map(BMSDifficulty::from).unwrap_or(BMSDifficulty::Unknown);
+        info.difficulty = diff
+            .parse::<i32>()
+            .map(BMSDifficulty::from)
+            .unwrap_or(BMSDifficulty::Unknown);
     }
 
     // Parse total
@@ -77,12 +71,13 @@ pub fn parse_bms_content(content: &str) -> BMSInfo {
 
     // Handle #BMP line itself (no numeric suffix)
     if let Some(value) = header_map.get("BMP")
-        && let Some(ext) = Path::new(value).extension() {
-            let ext_str = format!(".{}", ext.to_string_lossy());
-            if !ext_str.is_empty() && !bmp_formats.contains(&ext_str) {
-                bmp_formats.push(ext_str);
-            }
+        && let Some(ext) = Path::new(value).extension()
+    {
+        let ext_str = format!(".{}", ext.to_string_lossy());
+        if !ext_str.is_empty() && !bmp_formats.contains(&ext_str) {
+            bmp_formats.push(ext_str);
         }
+    }
 
     // Handle #BMP01, #BMP02, etc. (channel keys - skip if value looks like a number)
     for key in header_map.keys() {
@@ -91,9 +86,10 @@ pub fn parse_bms_content(content: &str) -> BMSInfo {
             // Skip numeric keys that are likely channel data (e.g., BMP01)
             if num.parse::<f64>().is_err()
                 && let Some(value) = header_map.get(&format!("BMP{num}"))
-                    && !bmp_formats.contains(value) {
-                        bmp_formats.push(value.clone());
-                    }
+                && !bmp_formats.contains(value)
+            {
+                bmp_formats.push(value.clone());
+            }
         }
     }
     info.bmp_formats = bmp_formats;
@@ -106,7 +102,8 @@ pub fn parse_bms_content(content: &str) -> BMSInfo {
 /// # Errors
 pub fn parse_bmson_file<P: AsRef<Path>>(path: P) -> Result<BMSInfo, std::io::Error> {
     let content = std::fs::read_to_string(path)?;
-    parse_bmson_content(&content).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+    parse_bmson_content(&content)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
 }
 
 /// Parse BMSON JSON content
@@ -134,7 +131,9 @@ pub fn parse_bmson_content(content: &str) -> Result<BMSInfo, serde_json::Error> 
         title: info.title.unwrap_or_default(),
         artist: info.artist.unwrap_or_default(),
         genre: info.genre.unwrap_or_default(),
-        difficulty: info.difficulty.map_or(BMSDifficulty::Unknown, BMSDifficulty::from),
+        difficulty: info
+            .difficulty
+            .map_or(BMSDifficulty::Unknown, BMSDifficulty::from),
         playlevel: info.playlevel.unwrap_or(0),
         bmp_formats: Vec::new(),
         total: info.total,

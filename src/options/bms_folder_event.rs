@@ -33,7 +33,10 @@ pub fn check_num_folder(bms_dir: &Path, max_count: i32) {
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
 pub fn create_num_folders(root_dir: &Path, folder_count: i32) -> Result<(), std::io::Error> {
-    info!("Creating {} numbered folders in {:?}", folder_count, root_dir);
+    info!(
+        "Creating {} numbered folders in {:?}",
+        folder_count, root_dir
+    );
 
     for i in 1..=folder_count {
         let folder_name = format!("{i}");
@@ -78,7 +81,8 @@ pub fn generate_work_info_table(root_dir: &Path) -> Result<(), std::io::Error> {
             continue;
         }
 
-        let work_name = work_path.file_name()
+        let work_name = work_path
+            .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("")
             .to_string();

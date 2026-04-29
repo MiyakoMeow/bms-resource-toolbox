@@ -5,9 +5,9 @@
 
 use std::path::Path;
 
-use crate::bms::encoding::{get_boftt_encoding, get_bms_file_str};
+use crate::bms::encoding::{get_bms_file_str, get_boftt_encoding};
 use crate::bms::parse::{parse_bms_content, parse_bms_file, parse_bmson_file};
-use crate::bms::types::{BMSInfo, BMS_FILE_EXTS, BMSON_FILE_EXTS};
+use crate::bms::types::{BMS_FILE_EXTS, BMSInfo, BMSON_FILE_EXTS};
 use crate::bms::work::extract_work_name;
 
 /// Get list of `BMSInfo` from all BMS files in a directory
@@ -45,16 +45,16 @@ pub fn get_dir_bms_list(dir_path: &Path) -> Vec<BMSInfo> {
                 let info = parse_bms_file_with_encoding(&file_path, boftt_encoding);
                 if info.title.is_empty() && info.artist.is_empty() && info.genre.is_empty() {
                     if let Ok(fallback_info) = parse_bms_file(&file_path)
-                        && (!fallback_info.title.is_empty() || !fallback_info.artist.is_empty()) {
-                            info_list.push(fallback_info);
-                        }
+                        && (!fallback_info.title.is_empty() || !fallback_info.artist.is_empty())
+                    {
+                        info_list.push(fallback_info);
+                    }
                 } else {
                     info_list.push(info);
                 }
-            } else if is_bmson_file
-                && let Ok(info) = parse_bmson_file(&file_path) {
-                    info_list.push(info);
-                }
+            } else if is_bmson_file && let Ok(info) = parse_bmson_file(&file_path) {
+                info_list.push(info);
+            }
         }
     }
 
@@ -87,11 +87,13 @@ pub fn get_dir_bms_info(bms_dir_path: &Path) -> Option<BMSInfo> {
     let titles: Vec<String> = bms_list.iter().map(|b| b.title.clone()).collect();
     let title = extract_work_name(&titles, true, &[]);
 
-    let title = if title.ends_with('-') && !title.matches('-').count().is_multiple_of(2) && title.len() > 1 {
-        title[..title.len() - 1].trim().to_string()
-    } else {
-        title
-    };
+    let title =
+        if title.ends_with('-') && !title.matches('-').count().is_multiple_of(2) && title.len() > 1
+        {
+            title[..title.len() - 1].trim().to_string()
+        } else {
+            title
+        };
 
     let artist = extract_work_name_for_artist(&titles);
 

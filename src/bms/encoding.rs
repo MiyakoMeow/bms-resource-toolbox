@@ -3,7 +3,11 @@
 //! This module provides multi-encoding detection for BMS files,
 //! supporting Shift-JIS, GBK, UTF-8, and other encodings.
 
-#![allow(clippy::missing_errors_doc, clippy::missing_panics_doc, clippy::items_after_statements)]
+#![allow(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::items_after_statements
+)]
 
 use std::path::Path;
 
@@ -26,7 +30,7 @@ const BOFTT_ID_ENCODING: [(&str, &str); 4] = [
 ];
 
 /// Get BOFTT encoding for a given ID
-#[must_use] 
+#[must_use]
 pub fn get_boftt_encoding(id: &str) -> Option<&'static str> {
     BOFTT_ID_ENCODING
         .iter()
@@ -36,9 +40,7 @@ pub fn get_boftt_encoding(id: &str) -> Option<&'static str> {
 
 /// `PriorityDecoder` attempts to decode byte sequences using multiple encodings
 /// in priority order, trying 1-4 bytes at a time for each character
-#[expect(dead_code)]
 pub struct PriorityDecoder {
-    encoding_priority: Vec<String>,
     codecs: Vec<&'static encoding_rs::Encoding>,
 }
 
@@ -46,17 +48,13 @@ impl PriorityDecoder {
     /// Create a new `PriorityDecoder` with encoding priority list.
     #[must_use]
     pub fn new(encoding_priority: &[&str]) -> Self {
-        let encoding_priority: Vec<String> = encoding_priority.iter().map(std::string::ToString::to_string).collect();
         let mut codecs: Vec<&'static encoding_rs::Encoding> = Vec::new();
-        for enc in &encoding_priority {
+        for enc in encoding_priority {
             if let Some(encoding) = encoding_rs::Encoding::for_label(enc.as_bytes()) {
                 codecs.push(encoding);
             }
         }
-        Self {
-            encoding_priority,
-            codecs,
-        }
+        Self { codecs }
     }
 
     /// Decode a single byte sequence using the encoding priority
@@ -91,21 +89,19 @@ impl PriorityDecoder {
 
             match ch {
                 Some(c) => result.push(c),
-                None => {
-                    match errors {
-                        "strict" => {
-                            return Err(std::io::Error::new(
-                                std::io::ErrorKind::InvalidData,
-                                format!(
-                                    "Cannot decode byte sequence: {:02x?}",
-                                    &byte_data[position..=position]
-                                ),
-                            ));
-                        }
-                        "replace" => result.push('\u{FFFD}'),
-                        _ => {}
+                None => match errors {
+                    "strict" => {
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            format!(
+                                "Cannot decode byte sequence: {:02x?}",
+                                &byte_data[position..=position]
+                            ),
+                        ));
                     }
-                }
+                    "replace" => result.push('\u{FFFD}'),
+                    _ => {}
+                },
             }
             position += consumed;
         }
@@ -115,8 +111,8 @@ impl PriorityDecoder {
 }
 
 /// Read file with encoding priority decoding
-#[allow(dead_code)]
-pub fn read_file_with_priority<P: AsRef<Path>>(
+#[expect(dead_code)]
+pub(crate) fn read_file_with_priority<P: AsRef<Path>>(
     file_path: P,
     encoding_priority: &[&str],
     errors: &str,
@@ -143,7 +139,7 @@ pub fn read_file_with_priority<P: AsRef<Path>>(
 }
 
 /// Get BMS file string with optional forced encoding
-#[must_use] 
+#[must_use]
 pub fn get_bms_file_str(file_bytes: &[u8], encoding: Option<&str>) -> String {
     let mut encodings: Vec<&str> = ENCODINGS.to_vec();
     if let Some(enc) = encoding {

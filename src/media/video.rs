@@ -25,11 +25,12 @@ pub struct VideoInfo {
 
 /// Video conversion preset.
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct VideoPreset {
     /// Name of the preset
+    #[allow(dead_code)]
     pub name: String,
     /// Executable name (ffmpeg)
+    #[allow(dead_code)]
     pub exec: String,
     /// Output format (avi, mpg, wmv)
     pub output_format: String,
@@ -63,15 +64,14 @@ impl VideoPreset {
     }
 
     /// Get output file path by replacing extension
-    #[allow(dead_code)]
     #[must_use]
+    #[allow(dead_code)]
     pub fn get_output_file_path(&self, input_file_path: &Path) -> PathBuf {
         let stem = input_file_path.file_stem().unwrap_or_default();
-        input_file_path.parent().unwrap_or(Path::new(".")).join(format!(
-            "{}.{}",
-            stem.to_string_lossy(),
-            self.output_format
-        ))
+        input_file_path
+            .parent()
+            .unwrap_or(Path::new("."))
+            .join(format!("{}.{}", stem.to_string_lossy(), self.output_format))
     }
 
     /// Get ffmpeg filter complex for resizing (Python-style with boxblur overlay)
@@ -85,8 +85,8 @@ impl VideoPreset {
     }
 
     /// Get ffmpeg command string
-    #[allow(dead_code)]
     #[must_use]
+    #[allow(dead_code)]
     pub fn get_video_process_cmd(&self, input_file_path: &Path, output_file_path: &Path) -> String {
         let input = input_file_path.to_string_lossy();
         let output = output_file_path.to_string_lossy();
@@ -112,19 +112,40 @@ pub const FLITER_480P: &str = "-filter_complex \"[0:v]scale=640:480:force_origin
 /// Video preset for AVI encoding at 512x512.
 #[must_use]
 pub fn video_preset_avi_512x512() -> VideoPreset {
-    VideoPreset::new("AVI_512X512", "ffmpeg", "avi", 512, 512, "-c:v mpeg4 -q:v 4")
+    VideoPreset::new(
+        "AVI_512X512",
+        "ffmpeg",
+        "avi",
+        512,
+        512,
+        "-c:v mpeg4 -q:v 4",
+    )
 }
 
 /// Video preset for MPEG1 encoding at 512x512.
 #[must_use]
 pub fn video_preset_mpeg1video_512x512() -> VideoPreset {
-    VideoPreset::new("MPEG1VIDEO_512X512", "ffmpeg", "mpg", 512, 512, "-c:v mpeg1video -b:v 2000k")
+    VideoPreset::new(
+        "MPEG1VIDEO_512X512",
+        "ffmpeg",
+        "mpg",
+        512,
+        512,
+        "-c:v mpeg1video -b:v 2000k",
+    )
 }
 
 /// Video preset for WMV2 encoding at 512x512.
 #[must_use]
 pub fn video_preset_wmv2_512x512() -> VideoPreset {
-    VideoPreset::new("WMV2_512X512", "ffmpeg", "wmv", 512, 512, "-c:v wmv2 -b:v 2000k")
+    VideoPreset::new(
+        "WMV2_512X512",
+        "ffmpeg",
+        "wmv",
+        512,
+        512,
+        "-c:v wmv2 -b:v 2000k",
+    )
 }
 
 /// Video preset for AVI encoding at 480p.
@@ -136,38 +157,58 @@ pub fn video_preset_avi_480p() -> VideoPreset {
 /// Video preset for WMV2 encoding at 480p.
 #[must_use]
 pub fn video_preset_wmv2_480p() -> VideoPreset {
-    VideoPreset::new("WMV2_480P", "ffmpeg", "wmv", 640, 480, "-c:v wmv2 -b:v 2000k")
+    VideoPreset::new(
+        "WMV2_480P",
+        "ffmpeg",
+        "wmv",
+        640,
+        480,
+        "-c:v wmv2 -b:v 2000k",
+    )
 }
 
 /// Video preset for MPEG1 encoding at 480p.
 #[must_use]
 pub fn video_preset_mpeg1video_480p() -> VideoPreset {
-    VideoPreset::new("MPEG1VIDEO_480P", "ffmpeg", "mpg", 640, 480, "-c:v mpeg1video -b:v 1500k")
+    VideoPreset::new(
+        "MPEG1VIDEO_480P",
+        "ffmpeg",
+        "mpg",
+        640,
+        480,
+        "-c:v mpeg1video -b:v 1500k",
+    )
 }
 
 /// Lazy static for AVI 512x512 video preset.
-pub static VIDEO_PRESET_AVI_512X512: LazyLock<VideoPreset> = LazyLock::new(video_preset_avi_512x512);
+pub static VIDEO_PRESET_AVI_512X512: LazyLock<VideoPreset> =
+    LazyLock::new(video_preset_avi_512x512);
 /// Lazy static for MPEG1 512x512 video preset.
-pub static VIDEO_PRESET_MPEG1VIDEO_512X512: LazyLock<VideoPreset> = LazyLock::new(video_preset_mpeg1video_512x512);
+pub static VIDEO_PRESET_MPEG1VIDEO_512X512: LazyLock<VideoPreset> =
+    LazyLock::new(video_preset_mpeg1video_512x512);
 /// Lazy static for WMV2 512x512 video preset.
-pub static VIDEO_PRESET_WMV2_512X512: LazyLock<VideoPreset> = LazyLock::new(video_preset_wmv2_512x512);
+pub static VIDEO_PRESET_WMV2_512X512: LazyLock<VideoPreset> =
+    LazyLock::new(video_preset_wmv2_512x512);
 /// Lazy static for AVI 480p video preset.
 pub static VIDEO_PRESET_AVI_480P: LazyLock<VideoPreset> = LazyLock::new(video_preset_avi_480p);
 /// Lazy static for WMV2 480p video preset.
 pub static VIDEO_PRESET_WMV2_480P: LazyLock<VideoPreset> = LazyLock::new(video_preset_wmv2_480p);
 /// Lazy static for MPEG1 480p video preset.
-pub static VIDEO_PRESET_MPEG1VIDEO_480P: LazyLock<VideoPreset> = LazyLock::new(video_preset_mpeg1video_480p);
+pub static VIDEO_PRESET_MPEG1VIDEO_480P: LazyLock<VideoPreset> =
+    LazyLock::new(video_preset_mpeg1video_480p);
 
 /// Get video info from file using ffprobe
-#[allow(dead_code)]
 #[must_use]
+#[allow(dead_code)]
 pub fn get_video_info(file_path: &Path) -> Option<VideoInfo> {
     let output = std::process::Command::new("ffprobe")
         .args([
             "-show_format",
             "-show_streams",
-            "-print_format", "json",
-            "-v", "quiet",
+            "-print_format",
+            "json",
+            "-v",
+            "quiet",
             &file_path.to_string_lossy(),
         ])
         .output()
@@ -185,7 +226,11 @@ pub fn get_video_info(file_path: &Path) -> Option<VideoInfo> {
             let width = u32::try_from(stream["width"].as_u64()?).ok()?;
             let height = u32::try_from(stream["height"].as_u64()?).ok()?;
             let bit_rate = stream["bit_rate"].as_str()?.parse().unwrap_or(0);
-            return Some(VideoInfo { width, height, bit_rate });
+            return Some(VideoInfo {
+                width,
+                height,
+                bit_rate,
+            });
         }
     }
 
@@ -193,15 +238,17 @@ pub fn get_video_info(file_path: &Path) -> Option<VideoInfo> {
 }
 
 /// Get video size (width, height) from file using ffprobe
-#[allow(dead_code)]
 #[must_use]
+#[allow(dead_code)]
 pub fn get_video_size(file_path: &Path) -> Option<(u32, u32)> {
     let output = std::process::Command::new("ffprobe")
         .args([
             "-show_format",
             "-show_streams",
-            "-print_format", "json",
-            "-v", "quiet",
+            "-print_format",
+            "json",
+            "-v",
+            "quiet",
             &file_path.to_string_lossy(),
         ])
         .output()
@@ -226,8 +273,8 @@ pub fn get_video_size(file_path: &Path) -> Option<(u32, u32)> {
 }
 
 /// Get preferred preset list based on video aspect ratio
-#[allow(dead_code)]
 #[must_use]
+#[allow(dead_code)]
 pub fn get_prefered_preset_list(file_path: &Path) -> Vec<VideoPreset> {
     let Some((width, height)) = get_video_size(file_path) else {
         return Vec::new();
@@ -250,8 +297,8 @@ pub fn get_prefered_preset_list(file_path: &Path) -> Vec<VideoPreset> {
 }
 
 /// Get video presets array.
-#[allow(dead_code)]
 #[must_use]
+#[allow(dead_code)]
 pub fn video_presets() -> [VideoPreset; 3] {
     [
         video_preset_mpeg1video_512x512(),
@@ -261,7 +308,7 @@ pub fn video_presets() -> [VideoPreset; 3] {
 }
 
 /// Get video process command.
-#[must_use] 
+#[must_use]
 pub fn get_video_process_cmd(
     file_path: &Path,
     output_file_path: &Path,
@@ -278,6 +325,7 @@ pub fn get_video_process_cmd(
 }
 
 /// Convert video file using preset
+#[allow(dead_code)]
 pub async fn convert_video(
     input: &Path,
     output: &Path,
@@ -296,9 +344,7 @@ pub async fn convert_video(
     if output.success() {
         Ok(())
     } else {
-        Err(std::io::Error::other(
-            "Conversion failed",
-        ))
+        Err(std::io::Error::other("Conversion failed"))
     }
 }
 
@@ -321,15 +367,16 @@ pub async fn transfer_video_by_format_in_dir(
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_file()
-                && let Some(ext) = path.extension() {
-                    let ext_str = ext.to_string_lossy().to_lowercase();
-                    if input_exts.iter().any(|e| e.to_lowercase() == ext_str) {
-                        let stem = path.file_stem().unwrap_or_default().to_string_lossy();
-                        let output_ext = &presets[0].output_format;
-                        let output = path.parent().unwrap().join(format!("{stem}.{output_ext}"));
-                        tasks.push((path, output, 0));
-                    }
+                && let Some(ext) = path.extension()
+            {
+                let ext_str = ext.to_string_lossy().to_lowercase();
+                if input_exts.iter().any(|e| e.to_lowercase() == ext_str) {
+                    let stem = path.file_stem().unwrap_or_default().to_string_lossy();
+                    let output_ext = &presets[0].output_format;
+                    let output = path.parent().unwrap().join(format!("{stem}.{output_ext}"));
+                    tasks.push((path, output, 0));
                 }
+            }
         }
     }
 
@@ -339,9 +386,10 @@ pub async fn transfer_video_by_format_in_dir(
     let mut handles = Vec::new();
     for (input, output, preset_idx) in tasks {
         if handles.len() >= max_workers
-            && let Some(res) = handles.pop() {
-                let _ = res.await;
-            }
+            && let Some(res) = handles.pop()
+        {
+            let _ = res.await;
+        }
 
         let preset = &presets[preset_idx];
         let input_clone = input.clone();

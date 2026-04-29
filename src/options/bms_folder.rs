@@ -28,12 +28,14 @@ pub fn append_name_by_bms(root_dir: &Path) -> Result<(), std::io::Error> {
             continue;
         }
 
-        let dir_name = dir_path.file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("");
+        let dir_name = dir_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
         // Skip if already renamed (has content after the number)
-        if !dir_name.trim().is_empty() && dir_name.chars().all(|c| c.is_ascii_digit() || c.is_whitespace()) {
+        if !dir_name.trim().is_empty()
+            && dir_name
+                .chars()
+                .all(|c| c.is_ascii_digit() || c.is_whitespace())
+        {
             // This is a numeric-only folder, try to rename
             if let Some(new_name) = rename_folder_by_bms(&dir_path) {
                 let new_path = dir_path.with_file_name(&new_name);
@@ -58,12 +60,14 @@ fn rename_folder_by_bms(work_dir: &Path) -> Option<String> {
     use crate::bms::dir::get_dir_bms_info;
     use crate::fs::name::get_valid_fs_name;
 
-    let dir_name = work_dir.file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("");
+    let dir_name = work_dir.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
     // Check if it's a purely numeric folder
-    if !dir_name.trim().is_empty() && !dir_name.chars().all(|c| c.is_ascii_digit() || c.is_whitespace()) {
+    if !dir_name.trim().is_empty()
+        && !dir_name
+            .chars()
+            .all(|c| c.is_ascii_digit() || c.is_whitespace())
+    {
         return None;
     }
 
@@ -92,7 +96,10 @@ fn rename_folder_by_bms(work_dir: &Path) -> Option<String> {
 /// # Errors
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
-pub fn copy_numbered_workdir_names(root_dir_from: &Path, root_dir_to: &Path) -> Result<(), std::io::Error> {
+pub fn copy_numbered_workdir_names(
+    root_dir_from: &Path,
+    root_dir_to: &Path,
+) -> Result<(), std::io::Error> {
     if !root_dir_from.is_dir() || !root_dir_to.is_dir() {
         return Ok(());
     }
@@ -111,9 +118,7 @@ pub fn copy_numbered_workdir_names(root_dir_from: &Path, root_dir_to: &Path) -> 
             continue;
         }
 
-        let dst_name = dst_path.file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("");
+        let dst_name = dst_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
         // Extract numeric prefix
         let num_prefix = dst_name.split_whitespace().next().unwrap_or("");
@@ -128,7 +133,11 @@ pub fn copy_numbered_workdir_names(root_dir_from: &Path, root_dir_to: &Path) -> 
             if src_name.starts_with(numeric_part) {
                 let target_path = dst_path.with_file_name(src_name);
                 if target_path != dst_path {
-                    info!("Renaming {:?} -> {:?}", dst_path.file_name(), target_path.file_name());
+                    info!(
+                        "Renaming {:?} -> {:?}",
+                        dst_path.file_name(),
+                        target_path.file_name()
+                    );
                     std::fs::rename(&dst_path, &target_path)?;
                 }
                 break;
@@ -174,9 +183,7 @@ pub fn append_artist_name_by_bms(root_dir: &Path) -> Result<(), std::io::Error> 
             continue;
         }
 
-        let dir_name = dir_path.file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("");
+        let dir_name = dir_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
         // Skip if already has artist suffix
         if dir_name.ends_with(']') {
@@ -242,7 +249,8 @@ pub fn set_name_by_bms(root_dir: &Path) -> Result<(), std::io::Error> {
             continue;
         }
 
-        let dir_name = dir_path.file_name()
+        let dir_name = dir_path
+            .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("")
             .to_string();
@@ -266,14 +274,19 @@ pub fn set_name_by_bms(root_dir: &Path) -> Result<(), std::io::Error> {
 /// Returns true if successful, false if skipped or failed
 fn set_single_folder_name_by_bms(work_dir: &Path) -> Result<bool, std::io::Error> {
     use crate::bms::dir::get_dir_bms_info;
-    use crate::fs::name::{get_valid_fs_name, bms_dir_similarity};
-    use crate::fs::pack_move::{move_elements_across_dir, MoveOptions, ReplaceOptions, REPLACE_OPTION_UPDATE_PACK};
+    use crate::fs::name::{bms_dir_similarity, get_valid_fs_name};
+    use crate::fs::pack_move::{
+        MoveOptions, REPLACE_OPTION_UPDATE_PACK, ReplaceOptions, move_elements_across_dir,
+    };
 
     let mut info = get_dir_bms_info(work_dir);
 
     // If no BMS info found, try to move out nested contents and retry
     while info.is_none() {
-        println!("{} has no bms/bmson files! Trying to move out.", work_dir.display());
+        println!(
+            "{} has no bms/bmson files! Trying to move out.",
+            work_dir.display()
+        );
 
         let elements: Vec<_> = std::fs::read_dir(work_dir)?
             .filter_map(std::result::Result::ok)
@@ -297,7 +310,12 @@ fn set_single_folder_name_by_bms(work_dir: &Path) -> Result<bool, std::io::Error
         }
 
         println!(" - Moving out files...");
-        move_elements_across_dir(inner_path, work_dir, MoveOptions::default(), ReplaceOptions::default())?;
+        move_elements_across_dir(
+            inner_path,
+            work_dir,
+            MoveOptions::default(),
+            ReplaceOptions::default(),
+        )?;
         info = get_dir_bms_info(work_dir);
     }
 
@@ -320,7 +338,12 @@ fn set_single_folder_name_by_bms(work_dir: &Path) -> Result<bool, std::io::Error
         return Ok(true);
     }
 
-    println!("{}: Rename! Title: {}; Artist: {}", work_dir.display(), info.title, info.artist);
+    println!(
+        "{}: Rename! Title: {}; Artist: {}",
+        work_dir.display(),
+        info.title,
+        info.artist
+    );
 
     if !new_dir_path.is_dir() {
         std::fs::rename(work_dir, &new_dir_path)?;
@@ -329,7 +352,10 @@ fn set_single_folder_name_by_bms(work_dir: &Path) -> Result<bool, std::io::Error
 
     // Directory already exists - check similarity
     let similarity = bms_dir_similarity(work_dir, &new_dir_path);
-    println!(" - Directory {} exists! Similarity: {similarity}", new_dir_path.display());
+    println!(
+        " - Directory {} exists! Similarity: {similarity}",
+        new_dir_path.display()
+    );
 
     if similarity < 0.8 {
         println!(" - Merge canceled.");
@@ -337,7 +363,12 @@ fn set_single_folder_name_by_bms(work_dir: &Path) -> Result<bool, std::io::Error
     }
 
     println!(" - Merge start!");
-    move_elements_across_dir(work_dir, &new_dir_path, MoveOptions::default(), REPLACE_OPTION_UPDATE_PACK.clone())?;
+    move_elements_across_dir(
+        work_dir,
+        &new_dir_path,
+        MoveOptions::default(),
+        REPLACE_OPTION_UPDATE_PACK.clone(),
+    )?;
     Ok(true)
 }
 
@@ -349,7 +380,10 @@ fn set_single_folder_name_by_bms(work_dir: &Path) -> Result<bool, std::io::Error
 /// # Errors
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
-pub fn scan_folder_similar_folders(root_dir: &Path, similarity_trigger: f64) -> Result<(), std::io::Error> {
+pub fn scan_folder_similar_folders(
+    root_dir: &Path,
+    similarity_trigger: f64,
+) -> Result<(), std::io::Error> {
     if !root_dir.is_dir() {
         return Ok(());
     }
@@ -380,7 +414,11 @@ pub fn scan_folder_similar_folders(root_dir: &Path, similarity_trigger: f64) -> 
 }
 
 /// Calculate similarity ratio between two strings using `SequenceMatcher` logic
-#[expect(clippy::needless_range_loop, clippy::cast_lossless, clippy::cast_precision_loss)]
+#[expect(
+    clippy::needless_range_loop,
+    clippy::cast_lossless,
+    clippy::cast_precision_loss
+)]
 fn similar_ratio(a: &str, b: &str) -> f64 {
     let mut matches = 0;
     let max_len = a.len().max(b.len());
@@ -444,9 +482,7 @@ pub fn undo_set_name(root_dir: &Path) -> Result<(), std::io::Error> {
             continue;
         }
 
-        let dir_name = dir_path.file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("");
+        let dir_name = dir_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
         // Find first space and check if ends with "]"
         if let Some(space_pos) = dir_name.find(' ') {
@@ -460,7 +496,10 @@ pub fn undo_set_name(root_dir: &Path) -> Result<(), std::io::Error> {
                 }
 
                 if new_dir_path.is_dir() {
-                    println!("Warning: Target {} already exists! Skipping {dir_name}", new_dir_path.display());
+                    println!(
+                        "Warning: Target {} already exists! Skipping {dir_name}",
+                        new_dir_path.display()
+                    );
                     continue;
                 }
 

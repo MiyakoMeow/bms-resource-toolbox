@@ -27,10 +27,8 @@ pub struct MoveOptions {
     pub print_info: bool,
 }
 
-
 /// Action to take when a file conflict occurs
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-#[allow(dead_code)]
 pub enum ReplaceAction {
     /// Skip the file
     Skip = 0,
@@ -38,11 +36,11 @@ pub enum ReplaceAction {
     #[default]
     Replace = 1,
     /// Rename the source file
+    #[allow(dead_code)]
     Rename = 2,
     /// Check if content differs, then rename or replace
     CheckReplace = 12,
 }
-
 
 /// Options for handling file conflicts
 #[derive(Debug, Clone)]
@@ -63,17 +61,18 @@ impl Default for ReplaceOptions {
 }
 
 /// Replace options for update pack operations.
-pub static REPLACE_OPTION_UPDATE_PACK: LazyLock<ReplaceOptions> = LazyLock::new(|| ReplaceOptions {
-    ext: HashMap::from([
-        (String::from("bms"), ReplaceAction::CheckReplace),
-        (String::from("bml"), ReplaceAction::CheckReplace),
-        (String::from("bme"), ReplaceAction::CheckReplace),
-        (String::from("pms"), ReplaceAction::CheckReplace),
-        (String::from("txt"), ReplaceAction::CheckReplace),
-        (String::from("bmson"), ReplaceAction::CheckReplace),
-    ]),
-    default: ReplaceAction::Replace,
-});
+pub static REPLACE_OPTION_UPDATE_PACK: LazyLock<ReplaceOptions> =
+    LazyLock::new(|| ReplaceOptions {
+        ext: HashMap::from([
+            (String::from("bms"), ReplaceAction::CheckReplace),
+            (String::from("bml"), ReplaceAction::CheckReplace),
+            (String::from("bme"), ReplaceAction::CheckReplace),
+            (String::from("pms"), ReplaceAction::CheckReplace),
+            (String::from("txt"), ReplaceAction::CheckReplace),
+            (String::from("bmson"), ReplaceAction::CheckReplace),
+        ]),
+        default: ReplaceAction::Replace,
+    });
 
 /// Default move options.
 pub const DEFAULT_MOVE_OPTIONS: MoveOptions = MoveOptions { print_info: false };
@@ -91,7 +90,12 @@ pub fn is_dir_having_file(dir: &Path) -> bool {
         return false;
     }
     std::fs::read_dir(dir)
-        .map(|mut entries| entries.any(|e| e.map(|e| e.file_type().map(|ft| ft.is_file()).unwrap_or(false)).unwrap_or(false)))
+        .map(|mut entries| {
+            entries.any(|e| {
+                e.map(|e| e.file_type().map(|ft| ft.is_file()).unwrap_or(false))
+                    .unwrap_or(false)
+            })
+        })
         .unwrap_or(false)
 }
 
@@ -133,7 +137,9 @@ pub fn move_elements_across_dir(
         let dst_path = dst.join(&filename);
 
         if src_path.is_file() {
-            if let Some((planned_src, planned_dst)) = plan_move_file(&src_path, &dst_path, &replace_options) {
+            if let Some((planned_src, planned_dst)) =
+                plan_move_file(&src_path, &dst_path, &replace_options)
+            {
                 write_ops.push((planned_src, planned_dst));
             }
         } else if src_path.is_dir() {
@@ -153,10 +159,9 @@ pub fn move_elements_across_dir(
     }
 
     let should_clean = replace_options.default != ReplaceAction::Skip || !is_dir_having_file(src);
-    if should_clean
-        && let Err(e) = std::fs::remove_dir_all(src) {
-            tracing::warn!("Failed to remove source directory {:?}: {}", src, e);
-        }
+    if should_clean && let Err(e) = std::fs::remove_dir_all(src) {
+        tracing::warn!("Failed to remove source directory {:?}: {}", src, e);
+    }
 
     Ok(())
 }
@@ -172,7 +177,11 @@ fn plan_move_file(
         .and_then(|e| e.to_str())
         .unwrap_or("")
         .to_lowercase();
-    let action = replace_options.ext.get(&file_ext).copied().unwrap_or(replace_options.default);
+    let action = replace_options
+        .ext
+        .get(&file_ext)
+        .copied()
+        .unwrap_or(replace_options.default);
 
     match action {
         ReplaceAction::Skip => {
@@ -186,7 +195,10 @@ fn plan_move_file(
             // Find a new name that doesn't conflict
             for i in 0..100 {
                 let stem = dst_path.file_stem().unwrap_or_default().to_string_lossy();
-                let ext = dst_path.extension().map(|e| e.to_string_lossy()).unwrap_or_default();
+                let ext = dst_path
+                    .extension()
+                    .map(|e| e.to_string_lossy())
+                    .unwrap_or_default();
                 let new_name = if ext.is_empty() {
                     format!("{stem}.{i}")
                 } else {
@@ -209,7 +221,10 @@ fn plan_move_file(
                 // Different content, rename
                 for i in 0..100 {
                     let stem = dst_path.file_stem().unwrap_or_default().to_string_lossy();
-                    let ext = dst_path.extension().map(|e| e.to_string_lossy()).unwrap_or_default();
+                    let ext = dst_path
+                        .extension()
+                        .map(|e| e.to_string_lossy())
+                        .unwrap_or_default();
                     let new_name = if ext.is_empty() {
                         format!("{stem}.{i}")
                     } else {

@@ -6,9 +6,16 @@
 use std::path::Path;
 use tracing::info;
 
-use crate::media::audio::{AudioPreset, audio_preset_flac, audio_preset_flac_ffmpeg, audio_preset_ogg_q10, audio_preset_wav_from_flac, audio_preset_wav_ffmpeg};
-use crate::media::video::{transfer_video_by_format_in_dir, VideoPreset, VIDEO_PRESET_AVI_512X512, VIDEO_PRESET_AVI_480P, VIDEO_PRESET_MPEG1VIDEO_512X512, VIDEO_PRESET_MPEG1VIDEO_480P, VIDEO_PRESET_WMV2_512X512, VIDEO_PRESET_WMV2_480P};
+use crate::media::audio::{
+    AudioPreset, audio_preset_flac, audio_preset_flac_ffmpeg, audio_preset_ogg_q10,
+    audio_preset_wav_ffmpeg, audio_preset_wav_from_flac,
+};
 use crate::media::transfer_audio_by_format_in_dir;
+use crate::media::video::{
+    VIDEO_PRESET_AVI_480P, VIDEO_PRESET_AVI_512X512, VIDEO_PRESET_MPEG1VIDEO_480P,
+    VIDEO_PRESET_MPEG1VIDEO_512X512, VIDEO_PRESET_WMV2_480P, VIDEO_PRESET_WMV2_512X512,
+    VideoPreset, transfer_video_by_format_in_dir,
+};
 
 /// Transfer audio files in a BMS root directory
 ///
@@ -28,10 +35,26 @@ pub async fn transfer_audio(root_dir: &Path) -> Result<(), std::io::Error> {
 
     // Audio transfer modes: (name, input_exts, presets)
     let modes: [(&str, Vec<&str>, Vec<AudioPreset>); 4] = [
-        ("Convert: WAV to FLAC", vec!["wav"], vec![audio_preset_flac(), audio_preset_flac_ffmpeg()]),
-        ("Compress: FLAC to OGG Q10", vec!["flac"], vec![audio_preset_ogg_q10()]),
-        ("Compress: WAV to OGG Q10", vec!["wav"], vec![audio_preset_ogg_q10()]),
-        ("Reverse: FLAC to WAV", vec!["flac"], vec![audio_preset_wav_from_flac(), audio_preset_wav_ffmpeg()]),
+        (
+            "Convert: WAV to FLAC",
+            vec!["wav"],
+            vec![audio_preset_flac(), audio_preset_flac_ffmpeg()],
+        ),
+        (
+            "Compress: FLAC to OGG Q10",
+            vec!["flac"],
+            vec![audio_preset_ogg_q10()],
+        ),
+        (
+            "Compress: WAV to OGG Q10",
+            vec!["wav"],
+            vec![audio_preset_ogg_q10()],
+        ),
+        (
+            "Reverse: FLAC to WAV",
+            vec!["flac"],
+            vec![audio_preset_wav_from_flac(), audio_preset_wav_ffmpeg()],
+        ),
     ];
 
     info!("Available audio modes:");
@@ -77,19 +100,12 @@ pub async fn transfer_audio(root_dir: &Path) -> Result<(), std::io::Error> {
             continue;
         }
 
-        let bms_dir_name = bms_dir.file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("");
+        let bms_dir_name = bms_dir.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
         info!("Processing: {}", bms_dir_name);
 
-        transfer_audio_by_format_in_dir(
-            &bms_dir,
-            &combined_exts,
-            &combined_presets,
-            true,
-            true,
-        ).await?;
+        transfer_audio_by_format_in_dir(&bms_dir, &combined_exts, &combined_presets, true, true)
+            .await?;
     }
 
     Ok(())
@@ -117,8 +133,14 @@ pub async fn transfer_video(root_dir: &Path) -> Result<(), std::io::Error> {
         ("MP4 -> AVI 480p", VIDEO_PRESET_AVI_480P.clone()),
         ("MP4 -> WMV2 512x512", VIDEO_PRESET_WMV2_512X512.clone()),
         ("MP4 -> WMV2 480p", VIDEO_PRESET_WMV2_480P.clone()),
-        ("MP4 -> MPEG1VIDEO 512x512", VIDEO_PRESET_MPEG1VIDEO_512X512.clone()),
-        ("MP4 -> MPEG1VIDEO 480p", VIDEO_PRESET_MPEG1VIDEO_480P.clone()),
+        (
+            "MP4 -> MPEG1VIDEO 512x512",
+            VIDEO_PRESET_MPEG1VIDEO_512X512.clone(),
+        ),
+        (
+            "MP4 -> MPEG1VIDEO 480p",
+            VIDEO_PRESET_MPEG1VIDEO_480P.clone(),
+        ),
     ];
 
     info!("Available video modes:");
@@ -162,19 +184,11 @@ pub async fn transfer_video(root_dir: &Path) -> Result<(), std::io::Error> {
             continue;
         }
 
-        let bms_dir_name = bms_dir.file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("");
+        let bms_dir_name = bms_dir.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
         info!("Processing: {}", bms_dir_name);
 
-        transfer_video_by_format_in_dir(
-            &bms_dir,
-            &["mp4"],
-            &combined_presets,
-            true,
-            true,
-        ).await?;
+        transfer_video_by_format_in_dir(&bms_dir, &["mp4"], &combined_presets, true, true).await?;
     }
 
     Ok(())

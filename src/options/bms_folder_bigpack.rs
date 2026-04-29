@@ -3,13 +3,16 @@
 //! This module provides functions for managing large BMS packs
 //! including folder splitting, merging, and media file removal.
 
+use regex::Regex;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 use tracing::info;
-use regex::Regex;
 
-use crate::fs::pack_move::{move_elements_across_dir, REPLACE_OPTION_UPDATE_PACK, MoveOptions, ReplaceOptions, is_dir_having_file};
+use crate::fs::pack_move::{
+    MoveOptions, REPLACE_OPTION_UPDATE_PACK, ReplaceOptions, is_dir_having_file,
+    move_elements_across_dir,
+};
 
 /// Regular expression for Japanese Hiragana
 const RE_JAPANESE_HIRAGANA: &str = r"[぀-ゟ]+";
@@ -87,16 +90,16 @@ pub fn split_folders_with_first_char(root_dir: &Path) -> Result<(), std::io::Err
         return Ok(());
     }
 
-    let root_folder_name = root_dir.file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("");
+    let root_folder_name = root_dir.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
     if root_folder_name.ends_with(']') {
         info!("{} endswith ']'. Aborting...", root_dir.display());
         return Ok(());
     }
 
-    let Some(parent_dir) = root_dir.parent() else { return Ok(()) };
+    let Some(parent_dir) = root_dir.parent() else {
+        return Ok(());
+    };
 
     let entries: Vec<_> = std::fs::read_dir(root_dir)?
         .filter_map(std::result::Result::ok)
@@ -108,7 +111,8 @@ pub fn split_folders_with_first_char(root_dir: &Path) -> Result<(), std::io::Err
             continue;
         }
 
-        let element_name = element_path.file_name()
+        let element_name = element_path
+            .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("");
 
@@ -138,10 +142,10 @@ pub fn split_folders_with_first_char(root_dir: &Path) -> Result<(), std::io::Err
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
 pub fn undo_split_pack(root_dir: &Path) -> Result<(), std::io::Error> {
-    let root_folder_name = root_dir.file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("");
-    let Some(parent_dir) = root_dir.parent() else { return Ok(()) };
+    let root_folder_name = root_dir.file_name().and_then(|n| n.to_str()).unwrap_or("");
+    let Some(parent_dir) = root_dir.parent() else {
+        return Ok(());
+    };
 
     // Find folders that start with root_folder_name [ and end with ]
     let mut pairs: Vec<(PathBuf, PathBuf)> = Vec::new();
@@ -152,11 +156,14 @@ pub fn undo_split_pack(root_dir: &Path) -> Result<(), std::io::Error> {
             if !folder_path.is_dir() {
                 continue;
             }
-            let folder_name = folder_path.file_name()
+            let folder_name = folder_path
+                .file_name()
                 .and_then(|n| n.to_str())
                 .unwrap_or("");
 
-            if folder_name.starts_with(&format!("{root_folder_name} [")) && folder_name.ends_with(']') {
+            if folder_name.starts_with(&format!("{root_folder_name} ["))
+                && folder_name.ends_with(']')
+            {
                 info!(" - {:?} <- {:?}", root_dir, folder_path);
                 pairs.push((folder_path, root_dir.to_path_buf()));
             }
@@ -174,8 +181,6 @@ pub fn undo_split_pack(root_dir: &Path) -> Result<(), std::io::Error> {
 
     Ok(())
 }
-
-
 
 /// Move works from one pack directory to another
 ///
@@ -196,14 +201,17 @@ pub fn move_works_in_pack(root_dir_from: &Path, root_dir_to: &Path) -> Result<()
                 continue;
             }
 
-            let bms_dir_name = bms_dir.file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("");
+            let bms_dir_name = bms_dir.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
             info!("Moving: {}", bms_dir_name);
 
             let dst_bms_dir = root_dir_to.join(bms_dir_name);
-            move_elements_across_dir(&bms_dir, &dst_bms_dir, MoveOptions::default(), REPLACE_OPTION_UPDATE_PACK.clone())?;
+            move_elements_across_dir(
+                &bms_dir,
+                &dst_bms_dir,
+                MoveOptions::default(),
+                REPLACE_OPTION_UPDATE_PACK.clone(),
+            )?;
             move_count += 1;
         }
     }
@@ -214,7 +222,12 @@ pub fn move_works_in_pack(root_dir_from: &Path, root_dir_to: &Path) -> Result<()
     }
 
     // Deal with song dir if no subdirs
-    move_elements_across_dir(root_dir_from, root_dir_to, MoveOptions::default(), REPLACE_OPTION_UPDATE_PACK.clone())?;
+    move_elements_across_dir(
+        root_dir_from,
+        root_dir_to,
+        MoveOptions::default(),
+        REPLACE_OPTION_UPDATE_PACK.clone(),
+    )?;
 
     Ok(())
 }
@@ -224,8 +237,8 @@ pub fn move_works_in_pack(root_dir_from: &Path, root_dir_to: &Path) -> Result<()
 pub type RemoveMediaRule = Vec<(Vec<&'static str>, Vec<&'static str>)>;
 
 /// ORAJA removal rule - remove redundant video files and prefer specific formats
+#[must_use]
 #[allow(dead_code)]
-#[must_use] 
 pub fn get_remove_media_rule_oraja() -> RemoveMediaRule {
     vec![
         (vec!["mp4"], vec!["avi", "wmv", "mpg", "mpeg"]),
@@ -236,11 +249,12 @@ pub fn get_remove_media_rule_oraja() -> RemoveMediaRule {
     ]
 }
 
-
-
 /// Remove unneeded media files according to rule in a work directory
 #[allow(dead_code)]
-fn workdir_remove_unneed_media_files(work_dir: &Path, rule: &RemoveMediaRule) -> Result<(), std::io::Error> {
+fn workdir_remove_unneed_media_files(
+    work_dir: &Path,
+    rule: &RemoveMediaRule,
+) -> Result<(), std::io::Error> {
     let mut remove_pairs: Vec<(PathBuf, PathBuf)> = Vec::new();
     let mut removed_files: std::collections::HashSet<PathBuf> = std::collections::HashSet::new();
 
@@ -254,7 +268,8 @@ fn workdir_remove_unneed_media_files(work_dir: &Path, rule: &RemoveMediaRule) ->
             continue;
         }
 
-        let file_ext = check_file_path.extension()
+        let file_ext = check_file_path
+            .extension()
             .and_then(|e| e.to_str())
             .unwrap_or("")
             .to_lowercase();
@@ -265,7 +280,11 @@ fn workdir_remove_unneed_media_files(work_dir: &Path, rule: &RemoveMediaRule) ->
             }
 
             // File is empty?
-            if check_file_path.metadata().map(|m| m.len() == 0).unwrap_or(false) {
+            if check_file_path
+                .metadata()
+                .map(|m| m.len() == 0)
+                .unwrap_or(false)
+            {
                 info!(" - !x!: File {:?} is Empty! Skipping...", check_file_path);
                 continue;
             }
@@ -287,7 +306,11 @@ fn workdir_remove_unneed_media_files(work_dir: &Path, rule: &RemoveMediaRule) ->
 
     // Remove files
     for (check_file_path, replacing_file_path) in &remove_pairs {
-        info!("- Remove file {:?}, because {:?} exists.", replacing_file_path.file_name(), check_file_path.file_name());
+        info!(
+            "- Remove file {:?}, because {:?} exists.",
+            replacing_file_path.file_name(),
+            check_file_path.file_name()
+        );
         let _ = std::fs::remove_file(replacing_file_path);
     }
 
@@ -305,11 +328,13 @@ fn workdir_remove_unneed_media_files(work_dir: &Path, rule: &RemoveMediaRule) ->
         if !count_file_path.is_file() {
             continue;
         }
-        let file_ext = count_file_path.extension()
+        let file_ext = count_file_path
+            .extension()
             .and_then(|e| e.to_str())
             .unwrap_or("")
             .to_lowercase();
-        let file_name = count_file_path.file_name()
+        let file_name = count_file_path
+            .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("")
             .to_string();
@@ -317,9 +342,10 @@ fn workdir_remove_unneed_media_files(work_dir: &Path, rule: &RemoveMediaRule) ->
     }
 
     if let Some(mp4_files) = ext_count.get("mp4")
-        && mp4_files.len() > 1 {
-            info!(" - Tips: {:?} has more than 1 mp4 files!", work_dir);
-        }
+        && mp4_files.len() > 1
+    {
+        info!(" - Tips: {:?} has more than 1 mp4 files!", work_dir);
+    }
 
     Ok(())
 }
@@ -330,7 +356,10 @@ fn workdir_remove_unneed_media_files(work_dir: &Path, rule: &RemoveMediaRule) ->
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
 #[allow(dead_code)]
-pub fn remove_unneed_media_files(root_dir: &Path, rule: Option<RemoveMediaRule>) -> Result<(), std::io::Error> {
+pub fn remove_unneed_media_files(
+    root_dir: &Path,
+    rule: Option<RemoveMediaRule>,
+) -> Result<(), std::io::Error> {
     let rule = rule.unwrap_or_else(get_remove_media_rule_oraja);
 
     let entries: Vec<_> = std::fs::read_dir(root_dir)?
@@ -355,7 +384,9 @@ pub fn remove_unneed_media_files(root_dir: &Path, rule: Option<RemoveMediaRule>)
 /// Returns [`std::io::Error`] if directory operations fail.
 pub fn remove_zero_sized_media_files(current_dir: &Path) -> Result<(), std::io::Error> {
     const TEMP_FILES: &[&str] = &["desktop.ini", "thumbs.db", ".ds_store"];
-    const MEDIA_EXTS: &[&str] = &["flac", "ogg", "wav", "mp4", "mkv", "avi", "wmv", "mpg", "mpeg", "jpg", "png", "bmp", "svg"];
+    const MEDIA_EXTS: &[&str] = &[
+        "flac", "ogg", "wav", "mp4", "mkv", "avi", "wmv", "mpg", "mpeg", "jpg", "png", "bmp", "svg",
+    ];
 
     let mut next_dirs: Vec<PathBuf> = Vec::new();
 
@@ -365,7 +396,8 @@ pub fn remove_zero_sized_media_files(current_dir: &Path) -> Result<(), std::io::
 
     for entry in &entries {
         let element_path = entry.path();
-        let element_name = element_path.file_name()
+        let element_name = element_path
+            .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("");
 
@@ -382,7 +414,8 @@ pub fn remove_zero_sized_media_files(current_dir: &Path) -> Result<(), std::io::
             }
 
             // Check if zero-sized media file
-            let ext = element_path.extension()
+            let ext = element_path
+                .extension()
                 .and_then(|e| e.to_str())
                 .unwrap_or("")
                 .to_lowercase();
@@ -391,7 +424,11 @@ pub fn remove_zero_sized_media_files(current_dir: &Path) -> Result<(), std::io::
                 continue;
             }
 
-            if element_path.metadata().map(|m| m.len() == 0).unwrap_or(false) {
+            if element_path
+                .metadata()
+                .map(|m| m.len() == 0)
+                .unwrap_or(false)
+            {
                 info!(" - Remove empty file: {:?}", element_path);
                 let _ = std::fs::remove_file(&element_path);
             }
@@ -434,13 +471,19 @@ pub fn move_out_works(target_root_dir: &Path) -> Result<(), std::io::Error> {
                 continue;
             }
 
-            let work_dir_name = work_dir_path.file_name()
+            let work_dir_name = work_dir_path
+                .file_name()
                 .and_then(|n| n.to_str())
                 .unwrap_or("");
 
             let target_work_dir_path = target_root_dir.join(work_dir_name);
 
-            move_elements_across_dir(&work_dir_path, &target_work_dir_path, MoveOptions::default(), REPLACE_OPTION_UPDATE_PACK.clone())?;
+            move_elements_across_dir(
+                &work_dir_path,
+                &target_work_dir_path,
+                MoveOptions::default(),
+                REPLACE_OPTION_UPDATE_PACK.clone(),
+            )?;
         }
 
         // Remove empty root_dir if not having files
@@ -457,7 +500,10 @@ pub fn move_out_works(target_root_dir: &Path) -> Result<(), std::io::Error> {
 /// # Errors
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
-pub fn move_works_with_same_name(root_dir_from: &Path, root_dir_to: &Path) -> Result<(), std::io::Error> {
+pub fn move_works_with_same_name(
+    root_dir_from: &Path,
+    root_dir_to: &Path,
+) -> Result<(), std::io::Error> {
     if !root_dir_from.is_dir() || !root_dir_to.is_dir() {
         return Ok(());
     }
@@ -491,9 +537,17 @@ pub fn move_works_with_same_name(root_dir_from: &Path, root_dir_to: &Path) -> Re
     }
 
     // Execute moves
-    for (_, from_path, _, to_path) in pairs.iter().map(|(f, t)| (f.clone(), f.clone(), t.clone(), t.clone())) {
+    for (_, from_path, _, to_path) in pairs
+        .iter()
+        .map(|(f, t)| (f.clone(), f.clone(), t.clone(), t.clone()))
+    {
         info!("合并: {:?} -> {:?}", from_path, to_path);
-        move_elements_across_dir(&from_path, &to_path, MoveOptions::default(), REPLACE_OPTION_UPDATE_PACK.clone())?;
+        move_elements_across_dir(
+            &from_path,
+            &to_path,
+            MoveOptions::default(),
+            REPLACE_OPTION_UPDATE_PACK.clone(),
+        )?;
     }
 
     Ok(())
@@ -509,9 +563,12 @@ pub fn move_works_with_same_name_to_siblings(root_dir_from: &Path) -> Result<(),
         return Ok(());
     }
 
-    let Some(parent_dir) = root_dir_from.parent() else { return Ok(()) };
+    let Some(parent_dir) = root_dir_from.parent() else {
+        return Ok(());
+    };
 
-    let root_base_name = root_dir_from.file_name()
+    let root_base_name = root_dir_from
+        .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("");
 
@@ -532,7 +589,8 @@ pub fn move_works_with_same_name_to_siblings(root_dir_from: &Path) -> Result<(),
                 continue;
             }
 
-            let sibling_name = sibling_path.file_name()
+            let sibling_name = sibling_path
+                .file_name()
                 .and_then(|n| n.to_str())
                 .unwrap_or("");
 
@@ -564,7 +622,12 @@ pub fn move_works_with_same_name_to_siblings(root_dir_from: &Path) -> Result<(),
     // Execute moves
     for (from_path, target_path) in &pairs {
         info!("合并: {:?} -> {:?}", from_path, target_path);
-        move_elements_across_dir(from_path, target_path, MoveOptions::default(), REPLACE_OPTION_UPDATE_PACK.clone())?;
+        move_elements_across_dir(
+            from_path,
+            target_path,
+            MoveOptions::default(),
+            REPLACE_OPTION_UPDATE_PACK.clone(),
+        )?;
     }
 
     Ok(())

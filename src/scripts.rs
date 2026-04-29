@@ -4,4 +4,3 @@
 //! for converting between raw, HQ, and LQ BMS packages.
 
 pub mod pack;
-

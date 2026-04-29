@@ -5,14 +5,14 @@
 
 #![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 
+use crate::bms::CHART_FILE_EXTS;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
-use crate::bms::CHART_FILE_EXTS;
 
 /// Walk through BMS directories (directories containing BMS files)
-#[allow(dead_code)]
 #[must_use]
-pub fn walk_bms_dirs(root: &Path) -> Vec<PathBuf> {
+#[expect(dead_code)]
+pub(crate) fn walk_bms_dirs(root: &Path) -> Vec<PathBuf> {
     let mut dirs: Vec<PathBuf> = Vec::new();
 
     if !root.is_dir() {
@@ -35,9 +35,8 @@ pub fn walk_bms_dirs(root: &Path) -> Vec<PathBuf> {
 }
 
 /// Check if a directory contains a BMS chart file
-#[allow(dead_code)]
 #[must_use]
-pub fn has_chart_file(dir: &Path) -> bool {
+pub(crate) fn has_chart_file(dir: &Path) -> bool {
     if !dir.is_dir() {
         return false;
     }
@@ -83,7 +82,7 @@ pub fn remove_empty_dirs(dir: &Path) -> Result<(), std::io::Error> {
 }
 
 /// Check if a directory is empty
-#[must_use] 
+#[must_use]
 pub fn is_dir_empty(dir: &Path) -> bool {
     std::fs::read_dir(dir)
         .map(|mut entries| entries.next().is_none())
