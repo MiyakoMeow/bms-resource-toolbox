@@ -1,5 +1,5 @@
 use bms_resource_toolbox::fs::walk::has_chart_file;
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use tokio::runtime::Runtime;
 
 fn benchmark_async_has_chart_file(c: &mut Criterion) {

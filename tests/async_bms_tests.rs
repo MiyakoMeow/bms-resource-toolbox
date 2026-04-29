@@ -16,7 +16,9 @@ fn unique_temp_dir(prefix: &str) -> PathBuf {
 async fn test_read_bms_file_utf8() {
     let dir = unique_temp_dir("read_utf8");
     let path = dir.join("test.bms");
-    tokio::fs::write(&path, "#TITLE テスト曲\n#ARTIST テスト\n").await.unwrap();
+    tokio::fs::write(&path, "#TITLE テスト曲\n#ARTIST テスト\n")
+        .await
+        .unwrap();
 
     let content = read_bms_file(&path).await.unwrap();
     assert!(content.contains("#TITLE"));
@@ -28,7 +30,9 @@ async fn test_read_bms_file_utf8() {
 async fn test_read_bms_file_ascii() {
     let dir = unique_temp_dir("read_ascii");
     let path = dir.join("test.bms");
-    tokio::fs::write(&path, "#TITLE Test Song\n#ARTIST Artist\n").await.unwrap();
+    tokio::fs::write(&path, "#TITLE Test Song\n#ARTIST Artist\n")
+        .await
+        .unwrap();
 
     let content = read_bms_file(&path).await.unwrap();
     assert!(content.contains("#TITLE Test Song"));
@@ -64,7 +68,10 @@ async fn test_parse_bms_file_full_metadata() {
     assert_eq!(info.artist, "Test Artist");
     assert_eq!(info.genre, "Genre");
     assert_eq!(info.playlevel, 7);
-    assert_eq!(info.difficulty, bms_resource_toolbox::bms::BMSDifficulty::Another);
+    assert_eq!(
+        info.difficulty,
+        bms_resource_toolbox::bms::BMSDifficulty::Another
+    );
     assert_eq!(info.total, Some(200.5));
     assert_eq!(info.stage_file.as_deref(), Some("bg.png"));
     let _ = tokio::fs::remove_dir_all(&dir).await;
@@ -74,7 +81,9 @@ async fn test_parse_bms_file_full_metadata() {
 async fn test_parse_bms_file_minimal() {
     let dir = unique_temp_dir("parse_min");
     let path = dir.join("test.bms");
-    tokio::fs::write(&path, "#TITLE Only Title\n").await.unwrap();
+    tokio::fs::write(&path, "#TITLE Only Title\n")
+        .await
+        .unwrap();
 
     let info = parse_bms_file(&path).await.unwrap();
     assert_eq!(info.title, "Only Title");

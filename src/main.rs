@@ -104,7 +104,9 @@ async fn load_path_history() -> Vec<PathBuf> {
 async fn save_path_history(paths: &[PathBuf]) {
     if let Ok(mut file) = tokio::fs::File::create(HISTORY_FILE).await {
         for path in paths {
-            let _ = file.write_all(format!("{}\n", path.display()).as_bytes()).await;
+            let _ = file
+                .write_all(format!("{}\n", path.display()).as_bytes())
+                .await;
         }
     }
 }
@@ -714,7 +716,9 @@ async fn main() {
             exec_func: |args| {
                 let pack = args[0].downcast_ref::<PathBuf>().unwrap();
                 let root = args[1].downcast_ref::<PathBuf>().unwrap();
-                Handle::current().block_on(pack_setup_rawpack_to_hq(pack, root)).ok();
+                Handle::current()
+                    .block_on(pack_setup_rawpack_to_hq(pack, root))
+                    .ok();
             },
             inputs: vec![
                 Input {
@@ -736,7 +740,8 @@ async fn main() {
                 let pack = args[0].downcast_ref::<PathBuf>().unwrap();
                 let root = args[1].downcast_ref::<PathBuf>().unwrap();
                 let sync = args[2].downcast_ref::<PathBuf>().unwrap();
-                Handle::current().block_on(pack_update_rawpack_to_hq(pack, root, sync))
+                Handle::current()
+                    .block_on(pack_update_rawpack_to_hq(pack, root, sync))
                     .ok();
             },
             inputs: vec![

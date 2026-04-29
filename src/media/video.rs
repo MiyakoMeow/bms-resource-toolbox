@@ -151,7 +151,14 @@ pub fn video_preset_wmv2_512x512() -> VideoPreset {
 /// Video preset for AVI encoding at 480p.
 #[must_use]
 pub fn video_preset_avi_480p() -> VideoPreset {
-    VideoPreset::new("AVI_480P", "ffmpeg", "avi", 640, 480, "-c:v mpeg4 -q:v 8 -an")
+    VideoPreset::new(
+        "AVI_480P",
+        "ffmpeg",
+        "avi",
+        640,
+        480,
+        "-c:v mpeg4 -q:v 8 -an",
+    )
 }
 
 /// Video preset for WMV2 encoding at 480p.

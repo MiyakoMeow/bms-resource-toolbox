@@ -11,4 +11,5 @@ pub mod walk;
 
 pub use pack_move::is_dir_having_file;
 pub use sync::{SYNC_PRESET_FOR_APPEND, sync_folder};
+#[allow(unused_imports)]
 pub use walk::{has_chart_file, remove_empty_dirs};

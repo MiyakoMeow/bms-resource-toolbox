@@ -128,7 +128,8 @@ fn workdir_remove_unneed_media_files(
     }
 
     // Count extensions for diagnostics
-    let mut ext_count: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+    let mut ext_count: std::collections::HashMap<String, Vec<String>> =
+        std::collections::HashMap::new();
     for entry in &entries {
         let count_file_path = entry.path();
         if !count_file_path.is_file() {
@@ -143,14 +144,20 @@ fn workdir_remove_unneed_media_files(
             .file_name()
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_default();
-        ext_count.entry(file_ext.clone()).or_default().push(file_name);
+        ext_count
+            .entry(file_ext.clone())
+            .or_default()
+            .push(file_name);
     }
 
     // Check for multiple mp4 files
     if let Some(mp4_files) = ext_count.get("mp4")
         && mp4_files.len() > 1
     {
-        info!("Tips: {:?} has more than 1 mp4 files! {:?}", work_dir, mp4_files);
+        info!(
+            "Tips: {:?} has more than 1 mp4 files! {:?}",
+            work_dir, mp4_files
+        );
     }
 
     Ok(())

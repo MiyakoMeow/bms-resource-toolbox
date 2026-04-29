@@ -149,6 +149,10 @@ pub static SYNC_PRESET_CACHE: LazyLock<SoftSyncPreset> = LazyLock::new(|| SoftSy
 /// - `src_dir` is not a directory
 /// - `dst_dir` creation fails
 /// - reading directories fails
+///
+/// # Panics
+///
+/// Panics if the semaphore acquisition fails (should not happen in normal operation).
 #[expect(clippy::too_many_lines)]
 pub async fn sync_folder(
     src_dir: &Path,
@@ -222,7 +226,9 @@ pub async fn sync_folder(
 
             // Check extension bounds
             let mut ext_in_bound = false;
-            for (ext_bound_from_list, ext_bound_to_list) in &preset_clone.no_activate_ext_bound_pairs {
+            for (ext_bound_from_list, ext_bound_to_list) in
+                &preset_clone.no_activate_ext_bound_pairs
+            {
                 if !ext_bound_from_list.iter().any(|e| e == &ext) {
                     continue;
                 }
@@ -303,7 +309,11 @@ pub async fn sync_folder(
             }
 
             // Remove same source files
-            if preset_clone.remove_src_same_files && dst_file_exists && is_same_file && src_path_clone.is_file() {
+            if preset_clone.remove_src_same_files
+                && dst_file_exists
+                && is_same_file
+                && src_path_clone.is_file()
+            {
                 remove_files.push(src_path_clone.clone());
                 let _ = tokio::fs::remove_file(&src_path_clone).await;
             }
@@ -434,7 +444,9 @@ mod tests {
         tokio::fs::create_dir_all(&dst_dir).await.unwrap();
 
         // Create a test file
-        tokio::fs::write(src_dir.join("test.txt"), "content").await.unwrap();
+        tokio::fs::write(src_dir.join("test.txt"), "content")
+            .await
+            .unwrap();
 
         let preset = SoftSyncPreset::default();
         let result = sync_folder(&src_dir, &dst_dir, &preset).await;

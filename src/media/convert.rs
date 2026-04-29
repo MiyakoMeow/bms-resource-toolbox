@@ -166,7 +166,8 @@ pub async fn transfer_audio_by_format_in_dir(
         if let Ok((input, preset_idx, result, presets_vec)) = result {
             match result {
                 Ok(()) => {
-                    if remove_origin_on_success && input.is_file()
+                    if remove_origin_on_success
+                        && input.is_file()
                         && let Err(e) = std::fs::remove_file(&input)
                     {
                         info!("Failed to remove origin file {:?}: {}", input, e);
@@ -190,7 +191,8 @@ pub async fn transfer_audio_by_format_in_dir(
                             (input_clone, next_idx, result, presets_clone)
                         });
                         handles.push(handle);
-                    } else if remove_origin_on_failed && input.is_file()
+                    } else if remove_origin_on_failed
+                        && input.is_file()
                         && let Err(e) = std::fs::remove_file(&input)
                     {
                         info!("Failed to remove failed origin file {:?}: {}", input, e);
