@@ -4,12 +4,13 @@
 //! with history tracking for paths.
 
 use std::any::Any;
-use std::fs::File;
-use std::io::{self, BufRead, BufReader, Write};
+use std::io::{self, Write};
 use std::path::PathBuf;
 
-#[allow(dead_code)]
-const HISTORY_FILE: &str = "input_history.log";
+use tokio::io::AsyncWriteExt;
+use tokio::runtime::Handle;
+
+static HISTORY_FILE: &str = "input_history.log";
 
 /// Input type for interactive prompts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -108,19 +109,30 @@ pub struct CliOption<T: FnMut(Box<dyn Any>)> {
     pub confirm: ConfirmType,
 }
 
-/// Read input with path history support.
+/// Read a string from stdin with a prompt.
 ///
 /// # Panics
 ///
 /// Panics if flushing stdout fails.
 #[must_use]
-#[allow(dead_code)]
-pub fn input_path(prompt: &str) -> PathBuf {
-    // Load history
-    let history = load_path_history();
+pub fn input_string(prompt: &str) -> String {
+    print!("{prompt}");
+    io::stdout().flush().unwrap();
+    let mut input = String::new();
+    io::stdin().read_line(&mut input).unwrap();
+    input.trim().to_string()
+}
+
+/// Read a path from stdin with history support.
+///
+/// # Panics
+///
+/// Panics if flushing stdout fails.
+#[must_use]
+pub fn input_path(_prompt: &str) -> PathBuf {
+    let history = Handle::current().block_on(load_path_history());
     let mut paths = history;
 
-    // Show history if available
     if !paths.is_empty() {
         println!("输入路径开始。以下是之前使用过的路径：");
         let display: Vec<_> = paths.iter().take(5).collect();
@@ -132,14 +144,9 @@ pub fn input_path(prompt: &str) -> PathBuf {
         }
     }
 
-    // Get user input
-    print!("{prompt}");
-    io::stdout().flush().unwrap();
-    let mut input_line = String::new();
-    io::stdin().read_line(&mut input_line).unwrap();
-    let mut input_str = input_line.trim();
+    let mut input_str =
+        input_string("直接输入路径，或输入上面的数字（索引）进行选择，输入？查看所有选项：");
 
-    // Handle help command
     if input_str == "?" || input_str == "？" {
         if paths.is_empty() {
             println!("暂无历史路径记录");
@@ -149,15 +156,10 @@ pub fn input_path(prompt: &str) -> PathBuf {
                 println!("  {}: {}", i, path.display());
             }
         }
-        print!("请输入选择：");
-        io::stdout().flush().unwrap();
-        input_line.clear();
-        io::stdin().read_line(&mut input_line).unwrap();
-        input_str = input_line.trim();
+        input_str = input_string("请输入选择：");
     }
 
     let selected: PathBuf = if input_str.chars().all(|c| c.is_ascii_digit()) {
-        // Numeric selection
         if let Ok(idx) = input_str.parse::<usize>() {
             if idx < paths.len() {
                 let selected = paths.remove(idx);
@@ -170,66 +172,14 @@ pub fn input_path(prompt: &str) -> PathBuf {
             PathBuf::from(input_str)
         }
     } else {
-        // Direct path input
-        let p = PathBuf::from(input_str);
-        // Remove if exists and add to front
+        let p = PathBuf::from(&input_str);
         paths.retain(|x| x != &p);
         paths.insert(0, p.clone());
         p
     };
 
-    // Save history
-    save_path_history(&paths);
-
+    Handle::current().block_on(save_path_history(&paths));
     selected
-}
-
-/// Load path history from file.
-#[allow(dead_code)]
-fn load_path_history() -> Vec<PathBuf> {
-    let history_path = PathBuf::from(HISTORY_FILE);
-    if !history_path.exists() {
-        return Vec::new();
-    }
-
-    let file = File::open(&history_path).ok();
-    match file {
-        Some(f) => {
-            let reader = BufReader::new(f);
-            reader
-                .lines()
-                .map_while(std::result::Result::ok)
-                .map(|s| PathBuf::from(s.trim()))
-                .filter(|p| !p.as_os_str().is_empty())
-                .collect()
-        }
-        None => Vec::new(),
-    }
-}
-
-/// Save path history to file.
-#[allow(dead_code)]
-fn save_path_history(paths: &[PathBuf]) {
-    if let Ok(mut file) = File::create(HISTORY_FILE) {
-        for path in paths {
-            let _ = writeln!(file, "{}", path.display());
-        }
-    }
-}
-
-/// Get string input.
-///
-/// # Panics
-///
-/// Panics if flushing stdout fails.
-#[must_use]
-#[allow(dead_code)]
-pub fn input_string(prompt: &str) -> String {
-    print!("{prompt}");
-    io::stdout().flush().unwrap();
-    let mut input = String::new();
-    io::stdin().read_line(&mut input).unwrap();
-    input.trim().to_string()
 }
 
 /// Ask for confirmation with a prompt.
@@ -241,4 +191,33 @@ pub fn input_confirm(prompt: &str, default_yes: bool) -> bool {
     let default_str = if default_yes { "[Y/n]" } else { "[y/N]" };
     let result = input_string(&format!("{prompt} {default_str}"));
     result.is_empty() || result.to_lowercase().starts_with('y')
+}
+
+async fn load_path_history() -> Vec<PathBuf> {
+    let history_path = PathBuf::from(HISTORY_FILE);
+    if !history_path.exists() {
+        return Vec::new();
+    }
+
+    match tokio::fs::read_to_string(&history_path).await {
+        Ok(content) => {
+            let lines: Vec<PathBuf> = content
+                .lines()
+                .map(|s| PathBuf::from(s.trim()))
+                .filter(|p| !p.as_os_str().is_empty())
+                .collect();
+            lines
+        }
+        Err(_) => Vec::new(),
+    }
+}
+
+async fn save_path_history(paths: &[PathBuf]) {
+    if let Ok(mut file) = tokio::fs::File::create(HISTORY_FILE).await {
+        for path in paths {
+            let _ = file
+                .write_all(format!("{}\n", path.display()).as_bytes())
+                .await;
+        }
+    }
 }
