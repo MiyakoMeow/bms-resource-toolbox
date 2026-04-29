@@ -154,4 +154,18 @@ mod tests {
         assert!(cmd.contains("input.wav"));
         assert!(cmd.contains("output.flac"));
     }
+
+    #[test]
+    fn test_audio_preset_flac() {
+        let preset = audio_preset_flac();
+        assert_eq!(preset.output_format, "flac");
+        assert!(preset.exec.contains("flac"));
+    }
+
+    #[test]
+    fn test_audio_preset_ogg() {
+        let preset = audio_preset_ogg_q10();
+        assert_eq!(preset.output_format, "ogg");
+        assert!(preset.exec.contains("oggenc"));
+    }
 }

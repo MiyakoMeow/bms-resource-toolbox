@@ -341,14 +341,25 @@ pub async fn convert_video(
     let cmd_str = get_video_process_cmd(input, output, preset);
     info!("Running: {}", cmd_str);
 
-    let output = Command::new("cmd")
-        .args(["/C", &cmd_str])
+    let shell = if cfg!(target_os = "windows") {
+        "cmd"
+    } else {
+        "sh"
+    };
+    let shell_arg = if cfg!(target_os = "windows") {
+        "/C"
+    } else {
+        "-c"
+    };
+
+    let status = Command::new(shell)
+        .args([shell_arg, &cmd_str])
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .status()
         .await?;
 
-    if output.success() {
+    if status.success() {
         Ok(())
     } else {
         Err(std::io::Error::other("Conversion failed"))
@@ -451,5 +462,19 @@ mod tests {
         assert!(cmd.contains("ffmpeg"));
         assert!(cmd.contains("input.mp4"));
         assert!(cmd.contains("output.avi"));
+    }
+
+    #[test]
+    fn test_video_preset_avi() {
+        let preset = VIDEO_PRESET_AVI_512X512.clone();
+        assert_eq!(preset.name, "AVI_512X512");
+        assert!(preset.output_format.ends_with("avi"));
+    }
+
+    #[test]
+    fn test_video_preset_wmv() {
+        let preset = VIDEO_PRESET_WMV2_480P.clone();
+        assert_eq!(preset.name, "WMV2_480P");
+        assert!(preset.output_format.ends_with("wmv"));
     }
 }
