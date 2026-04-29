@@ -75,6 +75,8 @@ pub fn generate_work_info_table(root_dir: &Path) -> Result<(), std::io::Error> {
         .filter_map(std::result::Result::ok)
         .collect();
 
+    let rt = tokio::runtime::Runtime::new().unwrap();
+
     for entry in entries {
         let work_path = entry.path();
         if !work_path.is_dir() {
@@ -87,7 +89,7 @@ pub fn generate_work_info_table(root_dir: &Path) -> Result<(), std::io::Error> {
             .unwrap_or("")
             .to_string();
 
-        let bms_info = get_dir_bms_info(&work_path);
+        let bms_info = rt.block_on(get_dir_bms_info(&work_path));
         let (title, artist, genre) = match bms_info {
             Some(i) => (i.title, i.artist, i.genre),
             None => (String::new(), String::new(), String::new()),

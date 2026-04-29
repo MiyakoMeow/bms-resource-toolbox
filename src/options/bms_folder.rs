@@ -71,7 +71,8 @@ fn rename_folder_by_bms(work_dir: &Path) -> Option<String> {
         return None;
     }
 
-    let info = get_dir_bms_info(work_dir)?;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let info = rt.block_on(get_dir_bms_info(work_dir))?;
     if info.title.is_empty() && info.artist.is_empty() {
         return None;
     }
@@ -177,6 +178,8 @@ pub fn append_artist_name_by_bms(root_dir: &Path) -> Result<(), std::io::Error> 
 
     let mut pairs: Vec<(PathBuf, PathBuf)> = Vec::new();
 
+    let rt = tokio::runtime::Runtime::new().unwrap();
+
     for entry in entries {
         let dir_path = entry.path();
         if !dir_path.is_dir() {
@@ -190,7 +193,7 @@ pub fn append_artist_name_by_bms(root_dir: &Path) -> Result<(), std::io::Error> 
             continue;
         }
 
-        let info = get_dir_bms_info(&dir_path);
+        let info = rt.block_on(get_dir_bms_info(&dir_path));
         if info.is_none() {
             println!("Dir {} has no bms files!", dir_path.display());
             continue;
@@ -279,7 +282,8 @@ fn set_single_folder_name_by_bms(work_dir: &Path) -> Result<bool, std::io::Error
         MoveOptions, REPLACE_OPTION_UPDATE_PACK, ReplaceOptions, move_elements_across_dir,
     };
 
-    let mut info = get_dir_bms_info(work_dir);
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let mut info = rt.block_on(get_dir_bms_info(work_dir));
 
     // If no BMS info found, try to move out nested contents and retry
     while info.is_none() {
@@ -316,7 +320,7 @@ fn set_single_folder_name_by_bms(work_dir: &Path) -> Result<bool, std::io::Error
             MoveOptions::default(),
             ReplaceOptions::default(),
         )?;
-        info = get_dir_bms_info(work_dir);
+        info = rt.block_on(get_dir_bms_info(work_dir));
     }
 
     let info = info.unwrap();

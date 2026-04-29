@@ -10,6 +10,7 @@
 )]
 
 use std::path::Path;
+use tokio::fs;
 
 /// Encoding priority order (from Python ENCODINGS)
 pub const ENCODINGS: [&str; 6] = [
@@ -110,18 +111,15 @@ impl PriorityDecoder {
     }
 }
 
-/// Read file with encoding priority decoding
+/// Read file with encoding priority decoding - 异步版本
 #[expect(dead_code)]
-pub(crate) fn read_file_with_priority<P: AsRef<Path>>(
+pub(crate) async fn read_file_with_priority<P: AsRef<Path>>(
     file_path: P,
     encoding_priority: &[&str],
     errors: &str,
 ) -> Result<Option<String>, std::io::Error> {
-    match std::fs::File::open(file_path.as_ref()) {
-        Ok(mut file) => {
-            let mut byte_data = Vec::new();
-            use std::io::Read;
-            file.read_to_end(&mut byte_data)?;
+    match fs::read(file_path.as_ref()).await {
+        Ok(byte_data) => {
             let decoder = PriorityDecoder::new(encoding_priority);
             match decoder.decode(&byte_data, errors) {
                 Ok(s) => Ok(Some(s)),
@@ -155,14 +153,10 @@ pub fn get_bms_file_str(file_bytes: &[u8], encoding: Option<&str>) -> String {
     }
 }
 
-/// Read BMS file auto-detecting encoding
-pub fn read_bms_file<P: AsRef<Path>>(path: P) -> Result<String, std::io::Error> {
+/// Read BMS file auto-detecting encoding - 异步版本
+pub async fn read_bms_file<P: AsRef<Path>>(path: P) -> Result<String, std::io::Error> {
     let path = path.as_ref();
-    let mut file = std::fs::File::open(path)?;
-    let len = file.metadata()?.len();
-    let mut bytes = Vec::with_capacity(usize::try_from(len).unwrap_or(usize::MAX));
-    use std::io::Read;
-    file.read_to_end(&mut bytes)?;
+    let bytes = fs::read(path).await?;
 
     let content = get_bms_file_str(&bytes, None);
     Ok(content)
@@ -171,9 +165,10 @@ pub fn read_bms_file<P: AsRef<Path>>(path: P) -> Result<String, std::io::Error> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::test;
 
     #[test]
-    fn test_priority_decoder() {
+    async fn test_priority_decoder() {
         // Test Shift-JIS encoded "こんにちは"
         let test_bytes: &[u8] = &[0x82, 0xb1, 0x82, 0xf1, 0x82, 0xc9, 0x82, 0xbf, 0x82, 0xcd];
         let decoder = PriorityDecoder::new(&["shift-jis", "utf-8"]);

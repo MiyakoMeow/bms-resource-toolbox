@@ -9,12 +9,13 @@ use crate::bms::encoding::read_bms_file;
 use crate::bms::types::{BMSDifficulty, BMSInfo};
 use std::collections::HashMap;
 use std::path::Path;
+use tokio::fs;
 
-/// Parse a BMS file and extract metadata
+/// Parse a BMS file and extract metadata - 异步版本
 ///
 /// # Errors
-pub fn parse_bms_file<P: AsRef<Path>>(path: P) -> Result<BMSInfo, std::io::Error> {
-    let content = read_bms_file(path)?;
+pub async fn parse_bms_file<P: AsRef<Path>>(path: P) -> Result<BMSInfo, std::io::Error> {
+    let content = read_bms_file(path).await?;
     Ok(parse_bms_content(&content))
 }
 
@@ -97,11 +98,11 @@ pub fn parse_bms_content(content: &str) -> BMSInfo {
     info
 }
 
-/// Parse a BMSON (JSON) file
+/// Parse a BMSON (JSON) file - 异步版本
 ///
 /// # Errors
-pub fn parse_bmson_file<P: AsRef<Path>>(path: P) -> Result<BMSInfo, std::io::Error> {
-    let content = std::fs::read_to_string(path)?;
+pub async fn parse_bmson_file<P: AsRef<Path>>(path: P) -> Result<BMSInfo, std::io::Error> {
+    let content = fs::read_to_string(path).await?;
     parse_bmson_content(&content)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
 }
@@ -174,9 +175,10 @@ pub fn parse_bmson_content(content: &str) -> Result<BMSInfo, serde_json::Error> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::test;
 
     #[test]
-    fn test_parse_bms_content() {
+    async fn test_parse_bms_content() {
         let content = r"
 #TITLE Test Song
 #ARTIST Test Artist

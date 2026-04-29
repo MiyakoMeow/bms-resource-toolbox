@@ -9,15 +9,15 @@ use crate::bms::encoding::{get_bms_file_str, get_boftt_encoding};
 use crate::bms::parse::{parse_bms_content, parse_bms_file, parse_bmson_file};
 use crate::bms::types::{BMS_FILE_EXTS, BMSInfo, BMSON_FILE_EXTS};
 use crate::bms::work::extract_work_name;
+use tokio::fs;
 
-/// Get list of `BMSInfo` from all BMS files in a directory
+/// Get list of `BMSInfo` from all BMS files in a directory - 异步版本
 ///
 /// This replicates Python's `get_dir_bms_list(dir_path)`:
 /// - Scans first-level files in the directory
 /// - For BOFTT packs, uses ID-specific encoding from directory name
 /// - Parses BMS/BME/BML/PMS and BMSON files
-#[must_use]
-pub fn get_dir_bms_list(dir_path: &Path) -> Vec<BMSInfo> {
+pub async fn get_dir_bms_list(dir_path: &Path) -> Vec<BMSInfo> {
     let mut info_list: Vec<BMSInfo> = Vec::new();
 
     let dir_name = dir_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
@@ -28,8 +28,8 @@ pub fn get_dir_bms_list(dir_path: &Path) -> Vec<BMSInfo> {
     };
     let boftt_encoding = id.and_then(get_boftt_encoding);
 
-    if let Ok(entries) = std::fs::read_dir(dir_path) {
-        for entry in entries.flatten() {
+    if let Ok(mut entries) = fs::read_dir(dir_path).await {
+        while let Some(entry) = entries.next_entry().await.unwrap_or(None) {
             let file_path = entry.path();
             if !file_path.is_file() {
                 continue;
@@ -42,9 +42,9 @@ pub fn get_dir_bms_list(dir_path: &Path) -> Vec<BMSInfo> {
             let is_bmson_file = BMSON_FILE_EXTS.iter().any(|ext| lower_name.ends_with(ext));
 
             if is_bms_file {
-                let info = parse_bms_file_with_encoding(&file_path, boftt_encoding);
+                let info = parse_bms_file_with_encoding(&file_path, boftt_encoding).await;
                 if info.title.is_empty() && info.artist.is_empty() && info.genre.is_empty() {
-                    if let Ok(fallback_info) = parse_bms_file(&file_path)
+                    if let Ok(fallback_info) = parse_bms_file(&file_path).await
                         && (!fallback_info.title.is_empty() || !fallback_info.artist.is_empty())
                     {
                         info_list.push(fallback_info);
@@ -52,7 +52,7 @@ pub fn get_dir_bms_list(dir_path: &Path) -> Vec<BMSInfo> {
                 } else {
                     info_list.push(info);
                 }
-            } else if is_bmson_file && let Ok(info) = parse_bmson_file(&file_path) {
+            } else if is_bmson_file && let Ok(info) = parse_bmson_file(&file_path).await {
                 info_list.push(info);
             }
         }
@@ -61,8 +61,8 @@ pub fn get_dir_bms_list(dir_path: &Path) -> Vec<BMSInfo> {
     info_list
 }
 
-fn parse_bms_file_with_encoding(file_path: &Path, encoding: Option<&str>) -> BMSInfo {
-    let Ok(bytes) = std::fs::read(file_path) else {
+async fn parse_bms_file_with_encoding(file_path: &Path, encoding: Option<&str>) -> BMSInfo {
+    let Ok(bytes) = fs::read(file_path).await else {
         return BMSInfo::default();
     };
 
@@ -71,15 +71,14 @@ fn parse_bms_file_with_encoding(file_path: &Path, encoding: Option<&str>) -> BMS
     parse_bms_content(&content)
 }
 
-/// Get aggregated `BMSInfo` for a directory
+/// Get aggregated `BMSInfo` for a directory - 异步版本
 ///
 /// This replicates Python's `get_dir_bms_info(bms_dir_path)`:
 /// - Gets list of all BMS files in directory
 /// - Extracts common title/artist/genre using longest-common-prefix
 /// - Returns `BMSInfo` with aggregated metadata
-#[must_use]
-pub fn get_dir_bms_info(bms_dir_path: &Path) -> Option<BMSInfo> {
-    let bms_list = get_dir_bms_list(bms_dir_path);
+pub async fn get_dir_bms_info(bms_dir_path: &Path) -> Option<BMSInfo> {
+    let bms_list = get_dir_bms_list(bms_dir_path).await;
     if bms_list.is_empty() {
         return None;
     }
