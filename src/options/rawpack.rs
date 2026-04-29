@@ -10,6 +10,7 @@ use crate::fs::pack_move::is_dir_having_file;
 use crate::fs::rawpack::{
     extract_archive, get_num_set_file_names, move_out_files_in_folder_in_cache_dir,
 };
+use crate::fs::utils::copy_dir_recursive;
 
 /// Extract archives by original filename to BMS folder structure
 ///
@@ -289,25 +290,6 @@ pub fn unzip_numeric_to_bms_folder(
         }
         let target_file_path = used_pack_dir.join(file_name);
         std::fs::rename(&file_path, &target_file_path).ok();
-    }
-
-    Ok(())
-}
-
-/// Copy directory recursively
-fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), std::io::Error> {
-    std::fs::create_dir_all(dst)?;
-
-    let entries = std::fs::read_dir(src)?;
-    for entry in entries {
-        let src_path = entry?.path();
-        let dst_path = dst.join(src_path.file_name().unwrap_or_default());
-
-        if src_path.is_dir() {
-            copy_dir_recursive(&src_path, &dst_path)?;
-        } else {
-            std::fs::copy(&src_path, &dst_path)?;
-        }
     }
 
     Ok(())

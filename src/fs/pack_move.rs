@@ -261,6 +261,8 @@ fn plan_move_file(
     }
 }
 
+use super::utils::copy_dir_recursive;
+
 /// Move a file (handles cross-device moves)
 fn move_file(src: &Path, dst: &Path) -> Result<(), std::io::Error> {
     std::fs::rename(src, dst).or_else(|_| {
@@ -281,32 +283,6 @@ fn move_dir_recursive(src: &Path, dst: &Path) -> Result<(), std::io::Error> {
         copy_dir_recursive(src, dst)?;
         std::fs::remove_dir_all(src)
     })
-}
-
-/// Copy directory recursively
-fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), std::io::Error> {
-    if !src.is_dir() {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::NotADirectory,
-            "Source is not a directory",
-        ));
-    }
-
-    std::fs::create_dir_all(dst)?;
-
-    for entry in std::fs::read_dir(src)? {
-        let entry = entry?;
-        let src_path = entry.path();
-        let dst_path = dst.join(entry.file_name());
-
-        if src_path.is_dir() {
-            copy_dir_recursive(&src_path, &dst_path)?;
-        } else {
-            std::fs::copy(&src_path, &dst_path)?;
-        }
-    }
-
-    Ok(())
 }
 
 #[cfg(test)]

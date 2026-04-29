@@ -7,6 +7,7 @@ pub mod name;
 pub mod pack_move;
 pub mod rawpack;
 pub mod sync;
+pub mod utils;
 pub mod walk;
 
 pub use pack_move::is_dir_having_file;
