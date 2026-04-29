@@ -15,7 +15,6 @@ use crate::fs::pack_move::{move_elements_across_dir, DEFAULT_MOVE_OPTIONS, DEFAU
 
 /// Get numbered file names from a directory
 /// Matches patterns like "001 filename.zip", "`001_filename.7z`"
-#[allow(dead_code)]
 #[must_use]
 pub fn get_num_set_file_names(dir: &Path) -> Vec<String> {
     let re = Regex::new(r"^(\d+)[_\s]+(.+)$").unwrap();
@@ -98,7 +97,6 @@ pub fn extract_numeric_to_bms_folder(
 }
 
 /// Extract archive files (zip, 7z, rar)
-#[allow(dead_code)]
 pub async fn extract_archive(
     archive_path: &Path,
     output_dir: &Path,
@@ -122,7 +120,6 @@ pub async fn extract_archive(
     }
 }
 
-#[allow(dead_code)]
 fn extract_zip(archive_path: &Path, output_dir: &Path) -> Result<(), std::io::Error> {
     use zip::ZipArchive;
 
@@ -147,7 +144,6 @@ fn extract_zip(archive_path: &Path, output_dir: &Path) -> Result<(), std::io::Er
     Ok(())
 }
 
-#[allow(dead_code)]
 async fn extract_7z(archive_path: &Path, output_dir: &Path) -> Result<(), std::io::Error> {
     let archive_path = archive_path.to_path_buf();
     let output_dir = output_dir.to_path_buf();
@@ -161,7 +157,6 @@ async fn extract_7z(archive_path: &Path, output_dir: &Path) -> Result<(), std::i
     }
 }
 
-#[allow(dead_code)]
 async fn extract_rar(archive_path: &Path, output_dir: &Path) -> Result<(), std::io::Error> {
     // Use unrar crate or fall back to external tool
     use tokio::process::Command;
@@ -189,7 +184,6 @@ async fn extract_rar(archive_path: &Path, output_dir: &Path) -> Result<(), std::
 /// - Moves files out of inner directories to the cache root
 ///
 /// Returns `true` on success, `false` on error or empty cache
-#[allow(dead_code)]
 pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
     let mut error = false;
 
@@ -200,10 +194,7 @@ pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
         let mut inner_dir_name: Option<String> = None;
 
         // Scan cache directory
-        let entries = match std::fs::read_dir(cache_dir_path) {
-            Ok(e) => e,
-            Err(_) => break,
-        };
+        let Ok(entries) = std::fs::read_dir(cache_dir_path) else { break };
 
         for entry in entries.flatten() {
             let cache_path = entry.path();
@@ -238,9 +229,7 @@ pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
 
         // Determine state
         let done;
-        if cache_folder_count == 0 {
-            done = true;
-        } else if cache_folder_count == 1 && cache_file_count >= 10 {
+        if cache_folder_count == 0 || (cache_folder_count == 1 && cache_file_count >= 10) {
             done = true;
         } else if cache_folder_count > 1 {
             // Check if there are BMS files anywhere in cache_dir

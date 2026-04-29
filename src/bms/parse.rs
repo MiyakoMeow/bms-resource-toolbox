@@ -13,14 +13,12 @@ use std::path::Path;
 /// Parse a BMS file and extract metadata
 ///
 /// # Errors
-#[allow(dead_code)]
 pub fn parse_bms_file<P: AsRef<Path>>(path: P) -> Result<BMSInfo, std::io::Error> {
     let content = read_bms_file(path)?;
     Ok(parse_bms_content(&content))
 }
 
 /// Parse BMS content string and extract metadata
-#[allow(dead_code)]
 pub fn parse_bms_content(content: &str) -> BMSInfo {
     let mut info = BMSInfo::default();
     let mut header_map: HashMap<String, String> = HashMap::new();
@@ -106,14 +104,12 @@ pub fn parse_bms_content(content: &str) -> BMSInfo {
 /// Parse a BMSON (JSON) file
 ///
 /// # Errors
-#[allow(dead_code)]
 pub fn parse_bmson_file<P: AsRef<Path>>(path: P) -> Result<BMSInfo, std::io::Error> {
     let content = std::fs::read_to_string(path)?;
     parse_bmson_content(&content).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
 }
 
 /// Parse BMSON JSON content
-#[allow(dead_code)]
 pub fn parse_bmson_content(content: &str) -> Result<BMSInfo, serde_json::Error> {
     #[derive(serde::Deserialize)]
     struct BmsonInfo {

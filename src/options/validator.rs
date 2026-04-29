@@ -5,7 +5,6 @@
 
 #![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 
-#[allow(dead_code)]
 use std::path::Path;
 use std::process::Stdio;
 use tokio::process::Command;
@@ -50,25 +49,25 @@ pub async fn check_oggenc() -> bool {
 }
 
 /// Validate path exists and is a directory
-#[allow(clippy::unnecessary_debug_formatting, dead_code)]
+#[allow(dead_code)]
 pub fn validate_dir(path: &Path) -> Result<(), String> {
     if !path.exists() {
-        return Err(format!("Path does not exist: {path:?}"));
+        return Err(format!("Path does not exist: {}", path.display()));
     }
     if !path.is_dir() {
-        return Err(format!("Path is not a directory: {path:?}"));
+        return Err(format!("Path is not a directory: {}", path.display()));
     }
     Ok(())
 }
 
 /// Validate path exists and is a file
-#[allow(clippy::unnecessary_debug_formatting, dead_code)]
+#[allow(dead_code)]
 pub fn validate_file(path: &Path) -> Result<(), String> {
     if !path.exists() {
-        return Err(format!("Path does not exist: {path:?}"));
+        return Err(format!("Path does not exist: {}", path.display()));
     }
     if !path.is_file() {
-        return Err(format!("Path is not a file: {path:?}"));
+        return Err(format!("Path is not a file: {}", path.display()));
     }
     Ok(())
 }

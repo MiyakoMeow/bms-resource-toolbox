@@ -9,7 +9,6 @@ use std::sync::LazyLock;
 use tokio::process::Command;
 
 /// Audio conversion preset.
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct AudioPreset {
     /// Executable name (ffmpeg, flac, oggenc)
@@ -33,7 +32,6 @@ impl AudioPreset {
 }
 
 /// Audio preset for OGG encoding at quality 10.
-#[allow(dead_code)]
 #[must_use]
 pub fn audio_preset_ogg_q10() -> AudioPreset {
     AudioPreset::new("oggenc", "ogg", Some("-q10"))
@@ -47,57 +45,46 @@ pub fn audio_preset_ogg_ffmpeg() -> AudioPreset {
 }
 
 /// Audio preset for WAV encoding using `FFmpeg`.
-#[allow(dead_code)]
 #[must_use]
 pub fn audio_preset_wav_ffmpeg() -> AudioPreset {
     AudioPreset::new("ffmpeg", "wav", None)
 }
 
 /// Audio preset for extracting WAV from FLAC.
-#[allow(dead_code)]
 #[must_use]
 pub fn audio_preset_wav_from_flac() -> AudioPreset {
     AudioPreset::new("flac", "wav", Some("-d --keep-foreign-metadata-if-present -f"))
 }
 
 /// Audio preset for FLAC encoding.
-#[allow(dead_code)]
 #[must_use]
 pub fn audio_preset_flac() -> AudioPreset {
     AudioPreset::new("flac", "flac", Some("--keep-foreign-metadata-if-present --best -f"))
 }
 
 /// Audio preset for FLAC encoding using `FFmpeg`.
-#[allow(dead_code)]
 #[must_use]
 pub fn audio_preset_flac_ffmpeg() -> AudioPreset {
     AudioPreset::new("ffmpeg", "flac", None)
 }
 
-/// Backward compatibility constants (deprecated - use functions instead)
-/// Deprecated OGG Q10 audio preset constant.
+/// Backward compatibility constant for OGG Q10 preset (deprecated)
 #[allow(dead_code)]
-#[deprecated(since = "0.1.0", note = "Use functions instead")]
 pub const AUDIO_PRESET_OGG_Q10: () = ();
-/// Deprecated OGG `FFmpeg` audio preset constant.
+/// Backward compatibility constant for OGG FFMPEG preset (deprecated)
 #[allow(dead_code)]
-#[deprecated(since = "0.1.0", note = "Use functions instead")]
 pub const AUDIO_PRESET_OGG_FFMPEG: () = ();
-/// Deprecated WAV `FFmpeg` audio preset constant.
+/// Backward compatibility constant for WAV FFMPEG preset (deprecated)
 #[allow(dead_code)]
-#[deprecated(since = "0.1.0", note = "Use functions instead")]
 pub const AUDIO_PRESET_WAV_FFMPEG: () = ();
-/// Deprecated WAV from FLAC audio preset constant.
+/// Backward compatibility constant for WAV from FLAC preset (deprecated)
 #[allow(dead_code)]
-#[deprecated(since = "0.1.0", note = "Use functions instead")]
 pub const AUDIO_PRESET_WAV_FROM_FLAC: () = ();
-/// Deprecated FLAC audio preset constant.
+/// Backward compatibility constant for FLAC preset (deprecated)
 #[allow(dead_code)]
-#[deprecated(since = "0.1.0", note = "Use functions instead")]
 pub const AUDIO_PRESET_FLAC: () = ();
-/// Deprecated FLAC `FFmpeg` audio preset constant.
+/// Backward compatibility constant for FLAC FFMPEG preset (deprecated)
 #[allow(dead_code)]
-#[deprecated(since = "0.1.0", note = "Use functions instead")]
 pub const AUDIO_PRESET_FLAC_FFMPEG: () = ();
 
 /// Lazy static for OGG Q10 audio preset.

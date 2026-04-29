@@ -11,9 +11,19 @@ use crate::media::video::{transfer_video_by_format_in_dir, VideoPreset, VIDEO_PR
 use crate::media::transfer_audio_by_format_in_dir;
 
 /// Transfer audio files in a BMS root directory
+///
 /// This is an interactive function that prompts the user for settings
-#[allow(dead_code)]
+///
+/// # Errors
+///
+/// Returns [`std::io::Error`] if directory operations fail.
+///
+/// # Panics
+///
+/// Panics if stdout flush fails.
 pub async fn transfer_audio(root_dir: &Path) -> Result<(), std::io::Error> {
+    use std::io::{self, Write};
+
     info!("Audio Transfer for: {:?}", root_dir);
 
     // Audio transfer modes: (name, input_exts, presets)
@@ -29,7 +39,6 @@ pub async fn transfer_audio(root_dir: &Path) -> Result<(), std::io::Error> {
         info!("  {}: {}", i, name);
     }
 
-    use std::io::{self, Write};
     print!("Select mode (number, or space-separated for multiple): ");
     io::stdout().flush().unwrap();
 
@@ -87,9 +96,19 @@ pub async fn transfer_audio(root_dir: &Path) -> Result<(), std::io::Error> {
 }
 
 /// Transfer video files in a BMS root directory
+///
 /// This is an interactive function that prompts the user for settings
-#[allow(dead_code)]
+///
+/// # Errors
+///
+/// Returns [`std::io::Error`] if directory operations fail.
+///
+/// # Panics
+///
+/// Panics if stdout flush fails.
 pub async fn transfer_video(root_dir: &Path) -> Result<(), std::io::Error> {
+    use std::io::{self, Write};
+
     info!("Video Transfer for: {:?}", root_dir);
 
     // Video presets: (name, preset)
@@ -107,7 +126,6 @@ pub async fn transfer_video(root_dir: &Path) -> Result<(), std::io::Error> {
         info!("  {}: {}", i, name);
     }
 
-    use std::io::{self, Write};
     print!("Select modes (space-separated numbers): ");
     io::stdout().flush().unwrap();
 

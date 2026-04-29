@@ -3,18 +3,14 @@
 //! This module provides core data structures for BMS files
 //! including `BMSInfo`, `BMSDifficulty`, and related constants.
 
-#[allow(dead_code)]
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// BMS file extensions
-#[allow(dead_code)]
 pub const BMS_FILE_EXTS: [&str; 4] = ["bms", "bme", "bml", "pms"];
 /// BMSON file extensions
-#[allow(dead_code)]
 pub const BMSON_FILE_EXTS: [&str; 1] = ["bmson"];
 /// Chart file extensions (BMS + BMSON)
-#[allow(dead_code)]
 pub const CHART_FILE_EXTS: [&str; 5] = ["bms", "bme", "bml", "pms", "bmson"];
 
 /// Audio file extensions
@@ -104,7 +100,6 @@ impl Default for BMSInfo {
 
 impl BMSInfo {
     /// Create a new `BMSInfo` with basic info.
-    #[allow(dead_code)]
     #[must_use]
     pub fn new(title: String, artist: String, genre: String) -> Self {
         Self {

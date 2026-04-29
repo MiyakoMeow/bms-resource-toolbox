@@ -8,7 +8,6 @@
 use std::path::Path;
 
 /// Encoding priority order (from Python ENCODINGS)
-#[allow(dead_code)]
 pub const ENCODINGS: [&str; 6] = [
     "shift-jis",
     "shift-jis-2004",
@@ -27,7 +26,6 @@ const BOFTT_ID_ENCODING: [(&str, &str); 4] = [
 ];
 
 /// Get BOFTT encoding for a given ID
-#[allow(dead_code)]
 #[must_use] 
 pub fn get_boftt_encoding(id: &str) -> Option<&'static str> {
     BOFTT_ID_ENCODING
@@ -38,7 +36,7 @@ pub fn get_boftt_encoding(id: &str) -> Option<&'static str> {
 
 /// `PriorityDecoder` attempts to decode byte sequences using multiple encodings
 /// in priority order, trying 1-4 bytes at a time for each character
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub struct PriorityDecoder {
     encoding_priority: Vec<String>,
     codecs: Vec<&'static encoding_rs::Encoding>,
@@ -46,7 +44,6 @@ pub struct PriorityDecoder {
 
 impl PriorityDecoder {
     /// Create a new `PriorityDecoder` with encoding priority list.
-    #[allow(dead_code)]
     #[must_use]
     pub fn new(encoding_priority: &[&str]) -> Self {
         let encoding_priority: Vec<String> = encoding_priority.iter().map(std::string::ToString::to_string).collect();
@@ -146,7 +143,6 @@ pub fn read_file_with_priority<P: AsRef<Path>>(
 }
 
 /// Get BMS file string with optional forced encoding
-#[allow(dead_code)]
 #[must_use] 
 pub fn get_bms_file_str(file_bytes: &[u8], encoding: Option<&str>) -> String {
     let mut encodings: Vec<&str> = ENCODINGS.to_vec();
@@ -164,7 +160,6 @@ pub fn get_bms_file_str(file_bytes: &[u8], encoding: Option<&str>) -> String {
 }
 
 /// Read BMS file auto-detecting encoding
-#[allow(dead_code)]
 pub fn read_bms_file<P: AsRef<Path>>(path: P) -> Result<String, std::io::Error> {
     let path = path.as_ref();
     let mut file = std::fs::File::open(path)?;

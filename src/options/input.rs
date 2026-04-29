@@ -3,51 +3,55 @@
 //! This module provides functions for handling user input
 //! with history tracking for paths.
 
-#![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
-
 use std::any::Any;
-#[allow(dead_code)]
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-#[allow(dead_code)]
 const HISTORY_FILE: &str = "input_history.log";
 
-/// Input type for interactive prompts
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+/// Input type for interactive prompts.
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum InputType {
+    /// Any string input.
     #[default]
     Any,
+    /// A single word without spaces.
     Word,
+    /// An integer input.
     Int,
+    /// A file system path with history.
     Path,
 }
 
-
-/// Confirmation type for interactive prompts
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+/// Confirmation type for interactive prompts.
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ConfirmType {
+    /// No confirmation required.
     NoConfirm,
+    /// Default to yes (confirm unless explicitly declined).
     #[default]
     DefaultYes,
+    /// Default to no (decline unless explicitly confirmed).
     DefaultNo,
 }
 
-
-/// Input specification for interactive prompts
+/// Input specification for interactive prompts.
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Input {
+    /// The type of input to receive.
     pub input_type: InputType,
+    /// Description of what the input represents.
     pub description: String,
 }
 
 impl Input {
     /// Execute the input prompt
     #[allow(dead_code)]
-    #[must_use] 
+    #[must_use]
     pub fn exec_input(&self) -> Box<dyn Any> {
         match self.input_type {
             InputType::Any => {
@@ -89,79 +93,35 @@ impl Default for Input {
     }
 }
 
-/// Option for interactive menu
+/// Option for interactive menu.
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
-pub struct Option<T: FnMut(Box<dyn Any>)> {
+pub struct CliOption<T: FnMut(Box<dyn Any>)> {
+    /// Function to execute when option is selected.
     pub func: T,
+    /// Display name of the option.
     pub name: String,
+    /// Input specifications for this option.
     pub inputs: Vec<Input>,
+    /// Confirmation type before execution.
     pub confirm: ConfirmType,
 }
 
-use crate::bms::types::CHART_FILE_EXTS;
 
-/// Check if a directory has no BMS chart files (is a "root" directory)
+
+
+
+
+
+
+
+/// Read input with path history support.
+///
+/// # Panics
+///
+/// Panics if flushing stdout fails.
 #[allow(dead_code)]
-#[must_use] 
-pub fn is_root_dir(root_dir: &Path) -> bool {
-    if !root_dir.is_dir() {
-        return false;
-    }
-
-    let entries = match std::fs::read_dir(root_dir) {
-        Ok(e) => e,
-        Err(_) => return false,
-    };
-
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.is_file()
-            && let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                let lower_name = name.to_lowercase();
-                if CHART_FILE_EXTS.iter().any(|ext| lower_name.ends_with(ext)) {
-                    return false;
-                }
-            }
-    }
-    true
-}
-
-/// Check if a directory has BMS chart files (is a "work" directory)
-#[allow(dead_code)]
-#[must_use] 
-pub fn is_work_dir(root_dir: &Path) -> bool {
-    if !root_dir.is_dir() {
-        return false;
-    }
-
-    let entries = match std::fs::read_dir(root_dir) {
-        Ok(e) => e,
-        Err(_) => return false,
-    };
-
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.is_file()
-            && let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                let lower_name = name.to_lowercase();
-                if CHART_FILE_EXTS.iter().any(|ext| lower_name.ends_with(ext)) {
-                    return true;
-                }
-            }
-    }
-    false
-}
-
-/// Check if a path is not a directory
-#[allow(dead_code)]
-#[must_use] 
-pub fn is_not_a_dir(dir: &Path) -> bool {
-    !dir.is_dir()
-}
-
-/// Read input with path history support
 #[must_use]
-#[allow(dead_code)]
 pub fn input_path(prompt: &str) -> PathBuf {
     // Load history
     let history = load_path_history();
@@ -231,7 +191,7 @@ pub fn input_path(prompt: &str) -> PathBuf {
     selected
 }
 
-/// Load path history from file
+/// Load path history from file.
 #[allow(dead_code)]
 fn load_path_history() -> Vec<PathBuf> {
     let history_path = PathBuf::from(HISTORY_FILE);
@@ -254,7 +214,7 @@ fn load_path_history() -> Vec<PathBuf> {
     }
 }
 
-/// Save path history to file
+/// Save path history to file.
 #[allow(dead_code)]
 fn save_path_history(paths: &[PathBuf]) {
     if let Ok(mut file) = File::create(HISTORY_FILE) {
@@ -264,9 +224,13 @@ fn save_path_history(paths: &[PathBuf]) {
     }
 }
 
-/// Get string input
-#[must_use]
+/// Get string input.
+///
+/// # Panics
+///
+/// Panics if flushing stdout fails.
 #[allow(dead_code)]
+#[must_use]
 pub fn input_string(prompt: &str) -> String {
     print!("{prompt}");
     io::stdout().flush().unwrap();
@@ -275,15 +239,4 @@ pub fn input_string(prompt: &str) -> String {
     input.trim().to_string()
 }
 
-/// Get yes/no confirmation
-#[must_use]
-#[allow(dead_code)]
-pub fn input_confirm(prompt: &str, default: bool) -> bool {
-    let default_str = if default { "[Y/n]" } else { "[y/N]" };
-    print!("{prompt} {default_str}: ");
-    io::stdout().flush().unwrap();
-    let mut input = String::new();
-    io::stdin().read_line(&mut input).unwrap();
-    let input = input.trim().to_lowercase();
-    input.is_empty() || input == "y" || input == "yes"
-}
+

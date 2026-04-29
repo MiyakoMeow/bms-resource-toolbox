@@ -12,34 +12,15 @@ use regex::Regex;
 use crate::fs::pack_move::{move_elements_across_dir, REPLACE_OPTION_UPDATE_PACK, MoveOptions, ReplaceOptions, is_dir_having_file};
 
 /// Regular expression for Japanese Hiragana
-#[allow(dead_code)]
 const RE_JAPANESE_HIRAGANA: &str = r"[぀-ゟ]+";
 /// Regular expression for Japanese Katakana
-#[allow(dead_code)]
 const RE_JAPANESE_KATAKANA: &str = r"[゠-ヿ]+";
 /// Regular expression for Chinese characters
-#[allow(dead_code)]
 const RE_CHINESE_CHARACTER: &str = r"[一-龥]+";
 
-#[allow(dead_code)]
 static RE_HIRAGANA: LazyLock<Regex> = LazyLock::new(|| Regex::new(RE_JAPANESE_HIRAGANA).unwrap());
-#[allow(dead_code)]
 static RE_KATAKANA: LazyLock<Regex> = LazyLock::new(|| Regex::new(RE_JAPANESE_KATAKANA).unwrap());
-#[allow(dead_code)]
 static RE_CHINESE: LazyLock<Regex> = LazyLock::new(|| Regex::new(RE_CHINESE_CHARACTER).unwrap());
-
-/// First character classification rules
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-pub struct FirstCharRule {
-    pub name: String,
-    pub check: fn(&str) -> bool,
-}
-
-#[allow(dead_code)]
-fn _check_digit(name: &str) -> bool {
-    name.chars().next().is_some_and(|c| c.is_ascii_digit())
-}
 
 fn _check_range(name: &str, start: char, end: char) -> bool {
     name.chars()
@@ -48,7 +29,6 @@ fn _check_range(name: &str, start: char, end: char) -> bool {
 }
 
 /// Find the first character rule group for a name
-#[allow(dead_code)]
 fn find_first_char_rule(name: &str) -> String {
     if name.is_empty() {
         return "未分类".to_string();
@@ -97,6 +77,10 @@ fn find_first_char_rule(name: &str) -> String {
 }
 
 /// Split folders in `root_dir` into subdirectories based on first character
+///
+/// # Errors
+///
+/// Returns [`std::io::Error`] if directory operations fail.
 pub fn split_folders_with_first_char(root_dir: &Path) -> Result<(), std::io::Error> {
     if !root_dir.is_dir() {
         info!("{} is not a dir! Aborting...", root_dir.display());
@@ -112,10 +96,7 @@ pub fn split_folders_with_first_char(root_dir: &Path) -> Result<(), std::io::Err
         return Ok(());
     }
 
-    let parent_dir = match root_dir.parent() {
-        Some(p) => p,
-        None => return Ok(()),
-    };
+    let Some(parent_dir) = root_dir.parent() else { return Ok(()) };
 
     let entries: Vec<_> = std::fs::read_dir(root_dir)?
         .filter_map(std::result::Result::ok)
@@ -152,14 +133,15 @@ pub fn split_folders_with_first_char(root_dir: &Path) -> Result<(), std::io::Err
 }
 
 /// Undo split pack operation - move folders back from categorized subdirs
+///
+/// # Errors
+///
+/// Returns [`std::io::Error`] if directory operations fail.
 pub fn undo_split_pack(root_dir: &Path) -> Result<(), std::io::Error> {
     let root_folder_name = root_dir.file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("");
-    let parent_dir = match root_dir.parent() {
-        Some(p) => p,
-        None => return Ok(()),
-    };
+    let Some(parent_dir) = root_dir.parent() else { return Ok(()) };
 
     // Find folders that start with root_folder_name [ and end with ]
     let mut pairs: Vec<(PathBuf, PathBuf)> = Vec::new();
@@ -193,87 +175,13 @@ pub fn undo_split_pack(root_dir: &Path) -> Result<(), std::io::Error> {
     Ok(())
 }
 
-/// Merge split folders back together
-pub fn merge_split_folders(root_dir: &Path) -> Result<(), std::io::Error> {
-    let dir_names: Vec<String> = std::fs::read_dir(root_dir)?
-        .filter_map(std::result::Result::ok)
-        .filter(|e| e.path().is_dir())
-        .filter_map(|e| e.file_name().to_str().map(String::from))
-        .collect();
 
-    let mut pairs: Vec<(String, String)> = Vec::new();
-
-    for dir_name in &dir_names {
-        let dir_path = root_dir.join(dir_name);
-        if !dir_path.is_dir() {
-            continue;
-        }
-
-        // Check if ends with "]"
-        if !dir_name.ends_with(']') {
-            continue;
-        }
-
-        // Find dir_name_without_artist
-        if let Some(bracket_pos) = dir_name.rfind('[') {
-            if bracket_pos < 2 {
-                continue;
-            }
-            let dir_name_without_artist = &dir_name[..bracket_pos - 1];
-            if dir_name_without_artist.is_empty() {
-                continue;
-            }
-
-            let dir_path_without_artist = root_dir.join(dir_name_without_artist);
-            if !dir_path_without_artist.is_dir() {
-                continue;
-            }
-
-            // Check for multiple folders with same prefix
-            let matching_dirs: Vec<_> = dir_names.iter()
-                .filter(|n| n.starts_with(&format!("{dir_name_without_artist} [")))
-                .collect();
-
-            if matching_dirs.len() > 2 {
-                info!(" !_! {} have more than 2 folders: {:?}", dir_name_without_artist, matching_dirs);
-                continue;
-            }
-
-            pairs.push((dir_name.clone(), dir_name_without_artist.to_string()));
-        }
-    }
-
-    // Check for duplicates
-    let mut last_from = String::new();
-    let mut duplicates: Vec<String> = Vec::new();
-    for (_target, from_dir_name) in &pairs {
-        if last_from == *from_dir_name {
-            duplicates.push(from_dir_name.clone());
-        }
-        last_from = from_dir_name.clone();
-    }
-
-    if !duplicates.is_empty() {
-        info!("Duplicate! {:?}", duplicates);
-        return Ok(());
-    }
-
-    // Print pairs and proceed
-    for (target, from) in &pairs {
-        info!("- Find Dir pair: {} <- {}", target, from);
-    }
-
-    for (target_dir_name, from_dir_name) in pairs {
-        let from_dir_path = root_dir.join(&from_dir_name);
-        let target_dir_path = root_dir.join(&target_dir_name);
-        info!(" - Moving: {} <- {}", target_dir_name, from_dir_name);
-        move_elements_across_dir(&from_dir_path, &target_dir_path, MoveOptions::default(), ReplaceOptions::default())?;
-    }
-
-    Ok(())
-}
 
 /// Move works from one pack directory to another
+///
+/// # Errors
+///
+/// Returns [`std::io::Error`] if directory operations fail.
 pub fn move_works_in_pack(root_dir_from: &Path, root_dir_to: &Path) -> Result<(), std::io::Error> {
     if root_dir_from == root_dir_to {
         return Ok(());
@@ -312,9 +220,11 @@ pub fn move_works_in_pack(root_dir_from: &Path, root_dir_to: &Path) -> Result<()
 }
 
 /// Media file removal rule
+#[allow(dead_code)]
 pub type RemoveMediaRule = Vec<(Vec<&'static str>, Vec<&'static str>)>;
 
 /// ORAJA removal rule - remove redundant video files and prefer specific formats
+#[allow(dead_code)]
 #[must_use] 
 pub fn get_remove_media_rule_oraja() -> RemoveMediaRule {
     vec![
@@ -326,19 +236,10 @@ pub fn get_remove_media_rule_oraja() -> RemoveMediaRule {
     ]
 }
 
-/// WAV fill FLAC rule
-#[must_use] 
-pub fn get_remove_media_rule_wav_fill_flac() -> RemoveMediaRule {
-    vec![(vec!["wav"], vec!["flac"])]
-}
 
-/// MPG fill WMV rule
-#[must_use] 
-pub fn get_remove_media_rule_mpg_fill_wmv() -> RemoveMediaRule {
-    vec![(vec!["mpg"], vec!["wmv"])]
-}
 
 /// Remove unneeded media files according to rule in a work directory
+#[allow(dead_code)]
 fn workdir_remove_unneed_media_files(work_dir: &Path, rule: &RemoveMediaRule) -> Result<(), std::io::Error> {
     let mut remove_pairs: Vec<(PathBuf, PathBuf)> = Vec::new();
     let mut removed_files: std::collections::HashSet<PathBuf> = std::collections::HashSet::new();
@@ -424,6 +325,10 @@ fn workdir_remove_unneed_media_files(work_dir: &Path, rule: &RemoveMediaRule) ->
 }
 
 /// Remove unneeded media files from all works in `root_dir`
+///
+/// # Errors
+///
+/// Returns [`std::io::Error`] if directory operations fail.
 #[allow(dead_code)]
 pub fn remove_unneed_media_files(root_dir: &Path, rule: Option<RemoveMediaRule>) -> Result<(), std::io::Error> {
     let rule = rule.unwrap_or_else(get_remove_media_rule_oraja);
@@ -444,7 +349,10 @@ pub fn remove_unneed_media_files(root_dir: &Path, rule: Option<RemoveMediaRule>)
 }
 
 /// Remove zero-sized media files and temp files
-#[allow(dead_code)]
+///
+/// # Errors
+///
+/// Returns [`std::io::Error`] if directory operations fail.
 pub fn remove_zero_sized_media_files(current_dir: &Path) -> Result<(), std::io::Error> {
     const TEMP_FILES: &[&str] = &["desktop.ini", "thumbs.db", ".ds_store"];
     const MEDIA_EXTS: &[&str] = &["flac", "ogg", "wav", "mp4", "mkv", "avi", "wmv", "mpg", "mpeg", "jpg", "png", "bmp", "svg"];
@@ -501,7 +409,10 @@ pub fn remove_zero_sized_media_files(current_dir: &Path) -> Result<(), std::io::
 }
 
 /// Move works out one level (un-nest subdirectories)
-#[allow(dead_code)]
+///
+/// # Errors
+///
+/// Returns [`std::io::Error`] if directory operations fail.
 pub fn move_out_works(target_root_dir: &Path) -> Result<(), std::io::Error> {
     let entries: Vec<_> = std::fs::read_dir(target_root_dir)?
         .filter_map(std::result::Result::ok)
@@ -542,7 +453,10 @@ pub fn move_out_works(target_root_dir: &Path) -> Result<(), std::io::Error> {
 }
 
 /// Move works with same name from one dir to another
-#[allow(dead_code)]
+///
+/// # Errors
+///
+/// Returns [`std::io::Error`] if directory operations fail.
 pub fn move_works_with_same_name(root_dir_from: &Path, root_dir_to: &Path) -> Result<(), std::io::Error> {
     if !root_dir_from.is_dir() || !root_dir_to.is_dir() {
         return Ok(());
@@ -586,16 +500,16 @@ pub fn move_works_with_same_name(root_dir_from: &Path, root_dir_to: &Path) -> Re
 }
 
 /// Move works with same name to sibling directories
-#[allow(dead_code)]
+///
+/// # Errors
+///
+/// Returns [`std::io::Error`] if directory operations fail.
 pub fn move_works_with_same_name_to_siblings(root_dir_from: &Path) -> Result<(), std::io::Error> {
     if !root_dir_from.is_dir() {
         return Ok(());
     }
 
-    let parent_dir = match root_dir_from.parent() {
-        Some(p) => p,
-        None => return Ok(()),
-    };
+    let Some(parent_dir) = root_dir_from.parent() else { return Ok(()) };
 
     let root_base_name = root_dir_from.file_name()
         .and_then(|n| n.to_str())

@@ -6,6 +6,7 @@ use tracing::info;
 
 /// BMS event types
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code, clippy::upper_case_acronyms)]
 pub enum BMSEvent {
     /// BOFTT event (BOF2020)
     BOFTT = 20,
@@ -15,8 +16,10 @@ pub enum BMSEvent {
     LetsBMSEdit3 = 103,
 }
 
+#[allow(dead_code)]
 impl BMSEvent {
     /// Get the list URL for this event
+    #[allow(clippy::trivially_copy_pass_by_ref)]
     #[must_use]
     pub fn list_url(&self) -> String {
         match self {
@@ -27,6 +30,7 @@ impl BMSEvent {
     }
 
     /// Get the work info URL for a specific work number
+    #[allow(clippy::trivially_copy_pass_by_ref)]
     #[must_use]
     pub fn work_info_url(&self, work_num: i32) -> String {
         match self {
@@ -38,15 +42,18 @@ impl BMSEvent {
 }
 
 /// Jump to work info page for a BMS event
+///
 /// This opens the web browser to the event's list page
 #[allow(dead_code)]
+#[allow(clippy::missing_panics_doc)]
 pub fn jump_to_work_info() {
+    use std::io::{self, Write};
+
     info!("BMS Event List:");
     info!("1. BOFTT (BOF2020)");
     info!("2. BOF21");
     info!("3. Let's BMS Edit 3");
 
-    use std::io::{self, Write};
     print!("Select event (1-3): ");
     io::stdout().flush().unwrap();
 

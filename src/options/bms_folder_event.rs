@@ -8,8 +8,11 @@ use tracing::info;
 use crate::bms::dir::get_dir_bms_info;
 
 /// Check if numbered folders exist in a BMS event directory
-#[allow(dead_code)]
-pub fn check_num_folder(bms_dir: &Path, max_count: i32) -> Result<(), std::io::Error> {
+///
+/// # Errors
+///
+/// Returns [`std::io::Error`] if directory operations fail.
+pub fn check_num_folder(bms_dir: &Path, max_count: i32) {
     info!("Checking BMS event directory: {:?}", bms_dir);
 
     for i in 1..=max_count {
@@ -22,12 +25,13 @@ pub fn check_num_folder(bms_dir: &Path, max_count: i32) -> Result<(), std::io::E
             info!("  [MISSING] Folder {} does not exist", i);
         }
     }
-
-    Ok(())
 }
 
 /// Create numbered folders in a BMS event directory
-#[allow(dead_code)]
+///
+/// # Errors
+///
+/// Returns [`std::io::Error`] if directory operations fail.
 pub fn create_num_folders(root_dir: &Path, folder_count: i32) -> Result<(), std::io::Error> {
     info!("Creating {} numbered folders in {:?}", folder_count, root_dir);
 
@@ -47,8 +51,16 @@ pub fn create_num_folders(root_dir: &Path, folder_count: i32) -> Result<(), std:
 }
 
 /// Generate a work info table (Excel xlsx) for BMS works in a directory
+///
 /// This creates an Excel file with title, artist, and genre info
-#[allow(dead_code)]
+///
+/// # Errors
+///
+/// Returns [`std::io::Error`] if directory operations fail.
+///
+/// # Panics
+///
+/// Panics if stdout flush fails.
 pub fn generate_work_info_table(root_dir: &Path) -> Result<(), std::io::Error> {
     use std::io::{self, Write};
 
@@ -81,7 +93,7 @@ pub fn generate_work_info_table(root_dir: &Path) -> Result<(), std::io::Error> {
         if let Ok(id) = id_str.parse::<u32>() {
             work_entries.push((id, work_name, title, artist, genre));
         } else {
-            println!("Warning: Skipping dir {} - invalid id format: {}", work_name, id_str);
+            println!("Warning: Skipping dir {work_name} - invalid id format: {id_str}");
         }
     }
 
@@ -114,7 +126,7 @@ pub fn generate_work_info_table(root_dir: &Path) -> Result<(), std::io::Error> {
         writeln!(file, "{id},{title},{artist},{genre}")?;
     }
 
-    println!("Saved table to {:?}", output_path);
+    println!("Saved table to {}", output_path.display());
 
     Ok(())
 }

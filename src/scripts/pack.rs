@@ -3,8 +3,6 @@
 //! This module provides high-level functions for generating
 //! BMS packs including RAW to HQ and HQ to LQ conversion.
 
-#![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
-
 use std::path::Path;
 use tracing::info;
 use crate::fs::{
@@ -18,9 +16,14 @@ use crate::media::video::{
     transfer_video_by_format_in_dir,
     video_preset_avi_512x512, video_preset_mpeg1video_512x512, video_preset_wmv2_512x512
 };
-use crate::options::{append_name_by_bms, copy_numbered_workdir_names, unzip_numeric_to_bms_folder};
+use crate::options::bms_folder::{append_name_by_bms, copy_numbered_workdir_names};
+use crate::options::rawpack::unzip_numeric_to_bms_folder;
 
 /// Remove media files according to rule
+///
+/// # Errors
+///
+/// Returns [`std::io::Error`] if directory operations fail.
 pub fn remove_unneed_media_files(root_dir: &Path, rule: &str) -> Result<(), std::io::Error> {
     // Rule: oraja - remove all video and some image files
     if rule == "oraja" {
@@ -48,8 +51,13 @@ pub fn remove_unneed_media_files(root_dir: &Path, rule: &str) -> Result<(), std:
 pub const REMOVE_MEDIA_RULE_ORAJA: &str = "oraja";
 
 /// Pack raw BMS to HQ version (for beatoraja/Qwilight)
+///
 /// 1. Convert WAV -> FLAC
 /// 2. Remove unnecessary media files
+///
+/// # Errors
+///
+/// Returns [`std::io::Error`] if directory operations fail.
 pub async fn pack_raw_to_hq(root_dir: &Path) -> Result<(), std::io::Error> {
     info!("Pack RAW -> HQ for: {:?}", root_dir);
 
@@ -73,8 +81,13 @@ pub async fn pack_raw_to_hq(root_dir: &Path) -> Result<(), std::io::Error> {
 }
 
 /// Pack HQ BMS to LQ version (for LR2)
+///
 /// 1. Convert FLAC -> OGG
 /// 2. Convert MP4 -> AVI/WMV/MPEG (512x512)
+///
+/// # Errors
+///
+/// Returns [`std::io::Error`] if directory operations fail.
 pub async fn pack_hq_to_lq(root_dir: &Path) -> Result<(), std::io::Error> {
     info!("Pack HQ -> LQ for: {:?}", root_dir);
 
@@ -107,12 +120,16 @@ pub async fn pack_hq_to_lq(root_dir: &Path) -> Result<(), std::io::Error> {
     Ok(())
 }
 
-/// Validate inputs for pack_setup_rawpack_to_hq
+/// Validate inputs for `pack_setup_rawpack_to_hq`
 ///
 /// This replicates Python's `_pack_setup_rawpack_to_hq_check`:
-/// - Checks pack_dir exists
+/// - Checks `pack_dir` exists
 /// - Prints numbered pack files
-/// - Checks root_dir does NOT exist
+/// - Checks `root_dir` does NOT exist
+///
+/// # Errors
+///
+/// Returns [`std::io::Error`] if directory operations fail.
 #[allow(dead_code)]
 pub fn pack_setup_rawpack_to_hq_check(pack_dir: &Path, root_dir: &Path) -> Result<(), std::io::Error> {
     use crate::fs::rawpack::get_num_set_file_names;
@@ -145,13 +162,17 @@ pub fn pack_setup_rawpack_to_hq_check(pack_dir: &Path, root_dir: &Path) -> Resul
     Ok(())
 }
 
-/// Validate inputs for pack_update_rawpack_to_hq
+/// Validate inputs for `pack_update_rawpack_to_hq`
 ///
 /// This replicates Python's `_pack_update_rawpack_to_hq_check`:
-/// - Checks pack_dir exists
+/// - Checks `pack_dir` exists
 /// - Prints numbered pack files
-/// - Checks root_dir does NOT exist
-/// - Checks sync_dir EXISTS
+/// - Checks `root_dir` does NOT exist
+/// - Checks `sync_dir` EXISTS
+///
+/// # Errors
+///
+/// Returns [`std::io::Error`] if directory operations fail.
 #[allow(dead_code)]
 pub fn pack_update_rawpack_to_hq_check(
     pack_dir: &Path,
@@ -199,6 +220,10 @@ pub fn pack_update_rawpack_to_hq_check(
 }
 
 /// Setup raw pack to HQ: extract -> rename -> convert -> clean
+///
+/// # Errors
+///
+/// Returns [`std::io::Error`] if directory operations fail.
 pub async fn pack_setup_rawpack_to_hq(
     pack_dir: &Path,
     root_dir: &Path,
@@ -242,6 +267,10 @@ pub async fn pack_setup_rawpack_to_hq(
 }
 
 /// Update raw pack to HQ with sync from existing directory
+///
+/// # Errors
+///
+/// Returns [`std::io::Error`] if directory operations fail.
 pub async fn pack_update_rawpack_to_hq(
     pack_dir: &Path,
     root_dir: &Path,

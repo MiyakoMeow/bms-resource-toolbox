@@ -3,8 +3,8 @@
 use thiserror::Error;
 
 /// Application error types.
-#[allow(dead_code)]
 #[derive(Error, Debug)]
+#[allow(dead_code)]
 pub enum AppError {
     /// IO error
     #[error("IO error: {0}")]

@@ -9,7 +9,14 @@ use crate::fs::name::bms_dir_similarity;
 use crate::fs::pack_move::{move_elements_across_dir, MoveOptions, REPLACE_OPTION_UPDATE_PACK};
 
 /// Fix Aery folders by merging similar directories
-#[allow(dead_code)]
+///
+/// # Errors
+///
+/// Returns [`std::io::Error`] if directory operations fail.
+///
+/// # Panics
+///
+/// Panics if stdout flush fails.
 pub fn aery_fix(src_dir: &Path) -> Result<(), std::io::Error> {
     use std::io::{self, Write};
 

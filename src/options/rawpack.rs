@@ -10,7 +10,10 @@ use crate::fs::rawpack::{extract_archive, get_num_set_file_names, move_out_files
 use crate::fs::pack_move::is_dir_having_file;
 
 /// Extract archives by original filename to BMS folder structure
-#[allow(dead_code)]
+///
+/// # Errors
+///
+/// Returns [`std::io::Error`] if directory operations fail.
 pub fn unzip_with_name_to_bms_folder(
     pack_dir: &Path,
     cache_dir: &Path,
@@ -41,7 +44,7 @@ pub fn unzip_with_name_to_bms_folder(
                 .unwrap_or("");
 
             let name_lower = name.to_lowercase();
-            #[allow(clippy::case_sensitive_file_extension_comparisons)]
+            #[expect(clippy::case_sensitive_file_extension_comparisons)]
             if name_lower.ends_with(".zip") || name_lower.ends_with(".7z") || name_lower.ends_with(".rar") {
                 archive_names.push(name.to_string());
             }
@@ -140,11 +143,14 @@ pub fn unzip_with_name_to_bms_folder(
 ///
 /// This replicates Python's `unzip_numeric_to_bms_folder`:
 /// - Gets numbered file list (e.g., "001 filename.zip")
-/// - Extracts to cache_dir/{id} for each file
-/// - Finds or creates target directory in root_dir with exact numeric match
+/// - Extracts to `cache_dir/{id}` for each file
+/// - Finds or creates target directory in `root_dir` with exact numeric match
 /// - Moves extracted files to target directory
-/// - Moves original archive to BOFTTPacks/
-#[allow(dead_code)]
+/// - Moves original archive to `BOFTTPacks/`
+///
+/// # Errors
+///
+/// Returns [`std::io::Error`] if directory operations fail.
 pub fn unzip_numeric_to_bms_folder(
     pack_dir: &Path,
     cache_dir: &Path,
@@ -291,13 +297,19 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), std::io::Error> {
 }
 
 /// Set file numbers for files in a directory
-#[allow(dead_code)]
+///
+/// # Errors
+///
+/// Returns [`std::io::Error`] if directory operations fail.
+///
+/// # Panics
+///
+/// Panics if stdout flush or stdin read fails.
 pub fn set_file_num(dir: &Path) -> Result<(), std::io::Error> {
     use std::io::{self, Write};
+    const ALLOWED_EXTS: &[&str] = &["zip", "7z", "rar", "mp4", "bms", "bme", "bml", "pms"];
 
     info!("Setting file numbers in: {:?}", dir);
-
-    const ALLOWED_EXTS: &[&str] = &["zip", "7z", "rar", "mp4", "bms", "bme", "bml", "pms"];
 
     // Get files to number
     let mut file_names: Vec<String> = Vec::new();
@@ -347,7 +359,7 @@ pub fn set_file_num(dir: &Path) -> Result<(), std::io::Error> {
     file_names.sort();
 
     // Print selections
-    println!("Here are files in {dir:?}:");
+    println!("Here are files in {}:", dir.display());
     for (i, name) in file_names.iter().enumerate() {
         println!("  - {i}: {name}");
     }

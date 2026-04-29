@@ -3,15 +3,12 @@
 //! This module provides utilities for moving files and directories
 //! between locations with conflict resolution.
 
-#![allow(clippy::missing_errors_doc, clippy::missing_panics_doc, clippy::items_after_statements)]
-
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 use tracing::info;
 
-/// Check if two files have the same content
-#[allow(dead_code)]
+/// Check if two files have the same content.
 #[must_use]
 pub fn is_same_content(file_a: &Path, file_b: &Path) -> bool {
     if !file_a.is_file() || !file_b.is_file() {
@@ -23,18 +20,17 @@ pub fn is_same_content(file_a: &Path, file_b: &Path) -> bool {
     }
 }
 
-/// Options for move operations
-#[derive(Debug, Clone)]
-#[derive(Default)]
+/// Options for move operations.
+#[derive(Debug, Clone, Copy, Default)]
 pub struct MoveOptions {
-    /// Whether to print move info
+    /// Whether to print move info.
     pub print_info: bool,
 }
 
 
 /// Action to take when a file conflict occurs
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[allow(dead_code)]
 pub enum ReplaceAction {
     /// Skip the file
     Skip = 0,
@@ -66,8 +62,7 @@ impl Default for ReplaceOptions {
     }
 }
 
-/// Replace options for update pack operations
-#[allow(dead_code)]
+/// Replace options for update pack operations.
 pub static REPLACE_OPTION_UPDATE_PACK: LazyLock<ReplaceOptions> = LazyLock::new(|| ReplaceOptions {
     ext: HashMap::from([
         (String::from("bms"), ReplaceAction::CheckReplace),
@@ -80,12 +75,10 @@ pub static REPLACE_OPTION_UPDATE_PACK: LazyLock<ReplaceOptions> = LazyLock::new(
     default: ReplaceAction::Replace,
 });
 
-/// Default move options
-#[allow(dead_code)]
+/// Default move options.
 pub const DEFAULT_MOVE_OPTIONS: MoveOptions = MoveOptions { print_info: false };
 
-/// Default replace options
-#[allow(dead_code)]
+/// Default replace options.
 pub static DEFAULT_REPLACE_OPTIONS: LazyLock<ReplaceOptions> = LazyLock::new(|| ReplaceOptions {
     ext: HashMap::new(),
     default: ReplaceAction::Replace,
@@ -102,9 +95,16 @@ pub fn is_dir_having_file(dir: &Path) -> bool {
         .unwrap_or(false)
 }
 
-/// Move elements (files and directories) from source to destination
-/// If conflict exists, handles it based on `ReplaceOptions`
-#[allow(dead_code)]
+/// Move elements (files and directories) from source to destination.
+///
+/// If conflict exists, handles it based on `ReplaceOptions`.
+///
+/// # Errors
+///
+/// Returns [`std::io::Error`] if:
+/// - `src` is not a directory
+/// - directory operations fail
+#[expect(clippy::needless_pass_by_value)]
 pub fn move_elements_across_dir(
     src: &Path,
     dst: &Path,
@@ -118,13 +118,11 @@ pub fn move_elements_across_dir(
         ));
     }
 
-    // If dst doesn't exist, just move src to dst
     if !dst.is_dir() {
         std::fs::create_dir_all(dst)?;
         return move_dir_recursive(src, dst);
     }
 
-    // Collect operations
     let mut next_folder_paths: Vec<(PathBuf, PathBuf)> = Vec::new();
     let mut write_ops: Vec<(PathBuf, PathBuf)> = Vec::new();
 
@@ -139,15 +137,10 @@ pub fn move_elements_across_dir(
                 write_ops.push((planned_src, planned_dst));
             }
         } else if src_path.is_dir() {
-            if dst_path.is_dir() {
-                next_folder_paths.push((src_path, dst_path));
-            } else {
-                next_folder_paths.push((src_path, dst_path));
-            }
+            next_folder_paths.push((src_path, dst_path));
         }
     }
 
-    // Execute file moves
     for (src_path, final_dst_path) in write_ops {
         if options.print_info {
             info!("Moving {:?} -> {:?}", src_path, final_dst_path);
@@ -155,12 +148,10 @@ pub fn move_elements_across_dir(
         move_file(&src_path, &final_dst_path)?;
     }
 
-    // Recurse into subdirectories
     for (src_path, dst_path) in next_folder_paths {
-        move_elements_across_dir(&src_path, &dst_path, options.clone(), replace_options.clone())?;
+        move_elements_across_dir(&src_path, &dst_path, options, replace_options.clone())?;
     }
 
-    // Clean source directory if needed
     let should_clean = replace_options.default != ReplaceAction::Skip || !is_dir_having_file(src);
     if should_clean
         && let Err(e) = std::fs::remove_dir_all(src) {
@@ -258,7 +249,6 @@ fn move_dir_recursive(src: &Path, dst: &Path) -> Result<(), std::io::Error> {
 }
 
 /// Copy directory recursively
-#[allow(dead_code)]
 fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), std::io::Error> {
     if !src.is_dir() {
         return Err(std::io::Error::new(

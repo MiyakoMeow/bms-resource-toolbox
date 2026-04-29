@@ -17,7 +17,6 @@ use std::collections::HashMap;
 /// * `titles` - A slice of title strings to extract common work name from
 /// * `remove_unclosed_pair` - Whether to remove unclosed brackets and content after
 /// * `remove_tailing_sign_list` - Additional trailing signs to remove
-#[allow(dead_code)]
 #[must_use]
 pub fn extract_work_name(
     titles: &[String],
@@ -44,9 +43,11 @@ pub fn extract_work_name(
     let max_count = *prefix_counts.values().max().unwrap_or(&0);
 
     // Find candidates with >= 67% of max count
+    #[expect(clippy::cast_precision_loss, clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let threshold = (max_count as f64 * 0.67) as usize;
     let mut candidates: Vec<(String, usize)> = prefix_counts
         .iter()
-        .filter(|&(_, count)| *count >= (max_count as f64 * 0.67) as usize)
+        .filter(|&(_, count)| *count >= threshold)
         .map(|(k, &v)| (k.clone(), v))
         .collect();
 
@@ -152,7 +153,6 @@ pub fn extract_work_name_default(titles: &[String]) -> String {
 
 /// Extract work name for artist extraction (with trailing sign removal)
 /// Replicates Python's artist extraction with signs: /, :, :, -, obj, obj., Obj, Obj., OBJ, OBJ.
-#[allow(dead_code)]
 #[must_use]
 pub fn extract_work_name_for_artist(titles: &[String]) -> String {
     extract_work_name(
@@ -163,7 +163,7 @@ pub fn extract_work_name_for_artist(titles: &[String]) -> String {
 }
 
 /// Count prefix occurrences of a character (deprecated - kept for compatibility)
-#[allow(dead_code)]
+#[expect(dead_code)]
 #[deprecated(since = "0.1.0", note = "Use extract_work_name() instead")]
 fn count_prefix(_s: &str, _c: char) -> usize {
     0 // Deprecated, kept for API compatibility

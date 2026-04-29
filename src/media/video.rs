@@ -13,15 +13,19 @@ use tracing::info;
 
 /// Video information
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct VideoInfo {
+    /// Video width in pixels.
     pub width: u32,
+    /// Video height in pixels.
     pub height: u32,
+    /// Video bit rate in bits per second.
     pub bit_rate: u64,
 }
 
 /// Video conversion preset.
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct VideoPreset {
     /// Name of the preset
     pub name: String,
@@ -59,6 +63,7 @@ impl VideoPreset {
     }
 
     /// Get output file path by replacing extension
+    #[allow(dead_code)]
     #[must_use]
     pub fn get_output_file_path(&self, input_file_path: &Path) -> PathBuf {
         let stem = input_file_path.file_stem().unwrap_or_default();
@@ -80,6 +85,7 @@ impl VideoPreset {
     }
 
     /// Get ffmpeg command string
+    #[allow(dead_code)]
     #[must_use]
     pub fn get_video_process_cmd(&self, input_file_path: &Path, output_file_path: &Path) -> String {
         let input = input_file_path.to_string_lossy();
@@ -104,64 +110,52 @@ pub const FLITER_512X512: &str = "-filter_complex \"[0:v]scale=512:512:force_ori
 pub const FLITER_480P: &str = "-filter_complex \"[0:v]scale=640:480:force_original_aspect_ratio=increase,crop=640:480:(ow-iw)/2:(oh-ih)/2,boxblur=20[v1];[0:v]scale=640:480:force_original_aspect_ratio=decrease[v2];[v1][v2]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2[vid]\" -map [vid]";
 
 /// Video preset for AVI encoding at 512x512.
-#[allow(dead_code)]
 #[must_use]
 pub fn video_preset_avi_512x512() -> VideoPreset {
     VideoPreset::new("AVI_512X512", "ffmpeg", "avi", 512, 512, "-c:v mpeg4 -q:v 4")
 }
 
 /// Video preset for MPEG1 encoding at 512x512.
-#[allow(dead_code)]
 #[must_use]
 pub fn video_preset_mpeg1video_512x512() -> VideoPreset {
     VideoPreset::new("MPEG1VIDEO_512X512", "ffmpeg", "mpg", 512, 512, "-c:v mpeg1video -b:v 2000k")
 }
 
 /// Video preset for WMV2 encoding at 512x512.
-#[allow(dead_code)]
 #[must_use]
 pub fn video_preset_wmv2_512x512() -> VideoPreset {
     VideoPreset::new("WMV2_512X512", "ffmpeg", "wmv", 512, 512, "-c:v wmv2 -b:v 2000k")
 }
 
 /// Video preset for AVI encoding at 480p.
-#[allow(dead_code)]
 #[must_use]
 pub fn video_preset_avi_480p() -> VideoPreset {
     VideoPreset::new("AVI_480P", "ffmpeg", "avi", 640, 480, "-c:v mpeg4 -q:v 4")
 }
 
 /// Video preset for WMV2 encoding at 480p.
-#[allow(dead_code)]
 #[must_use]
 pub fn video_preset_wmv2_480p() -> VideoPreset {
     VideoPreset::new("WMV2_480P", "ffmpeg", "wmv", 640, 480, "-c:v wmv2 -b:v 2000k")
 }
 
 /// Video preset for MPEG1 encoding at 480p.
-#[allow(dead_code)]
 #[must_use]
 pub fn video_preset_mpeg1video_480p() -> VideoPreset {
     VideoPreset::new("MPEG1VIDEO_480P", "ffmpeg", "mpg", 640, 480, "-c:v mpeg1video -b:v 1500k")
 }
 
 /// Lazy static for AVI 512x512 video preset.
-#[allow(dead_code)]
 pub static VIDEO_PRESET_AVI_512X512: LazyLock<VideoPreset> = LazyLock::new(video_preset_avi_512x512);
 /// Lazy static for MPEG1 512x512 video preset.
-#[allow(dead_code)]
 pub static VIDEO_PRESET_MPEG1VIDEO_512X512: LazyLock<VideoPreset> = LazyLock::new(video_preset_mpeg1video_512x512);
 /// Lazy static for WMV2 512x512 video preset.
-#[allow(dead_code)]
 pub static VIDEO_PRESET_WMV2_512X512: LazyLock<VideoPreset> = LazyLock::new(video_preset_wmv2_512x512);
 /// Lazy static for AVI 480p video preset.
-#[allow(dead_code)]
 pub static VIDEO_PRESET_AVI_480P: LazyLock<VideoPreset> = LazyLock::new(video_preset_avi_480p);
 /// Lazy static for WMV2 480p video preset.
-#[allow(dead_code)]
 pub static VIDEO_PRESET_WMV2_480P: LazyLock<VideoPreset> = LazyLock::new(video_preset_wmv2_480p);
 /// Lazy static for MPEG1 480p video preset.
-#[allow(dead_code)]
 pub static VIDEO_PRESET_MPEG1VIDEO_480P: LazyLock<VideoPreset> = LazyLock::new(video_preset_mpeg1video_480p);
 
 /// Get video info from file using ffprobe
@@ -235,11 +229,9 @@ pub fn get_video_size(file_path: &Path) -> Option<(u32, u32)> {
 #[allow(dead_code)]
 #[must_use]
 pub fn get_prefered_preset_list(file_path: &Path) -> Vec<VideoPreset> {
-    let size = match get_video_size(file_path) {
-        Some(s) => s,
-        None => return Vec::new(),
+    let Some((width, height)) = get_video_size(file_path) else {
+        return Vec::new();
     };
-    let (width, height) = size;
 
     // If width/height > 640/480, use 480p presets
     if f64::from(width) / f64::from(height) > 640.0 / 480.0 {
@@ -286,7 +278,6 @@ pub fn get_video_process_cmd(
 }
 
 /// Convert video file using preset
-#[allow(dead_code)]
 pub async fn convert_video(
     input: &Path,
     output: &Path,
@@ -312,7 +303,6 @@ pub async fn convert_video(
 }
 
 /// Transfer video files in directory using presets (with fallback)
-#[allow(dead_code)]
 pub async fn transfer_video_by_format_in_dir(
     dir: &Path,
     input_exts: &[&str],
