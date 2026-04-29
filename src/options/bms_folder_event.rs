@@ -6,6 +6,8 @@ use std::path::Path;
 use tracing::info;
 
 use crate::bms::dir::get_dir_bms_info;
+use crate::bms::work::parse_work_dir_name;
+use rust_xlsxwriter::{Format, Workbook};
 
 /// Check if numbered folders exist in a BMS event directory
 ///
@@ -59,12 +61,12 @@ pub fn create_num_folders(root_dir: &Path, folder_count: i32) -> Result<(), std:
 ///
 /// # Errors
 ///
-/// Returns [`std::io::Error`] if directory operations fail.
+/// Returns error if directory operations or xlsx generation fail.
 ///
 /// # Panics
 ///
 /// Panics if stdout flush fails.
-pub async fn generate_work_info_table(root_dir: &Path) -> Result<(), std::io::Error> {
+pub async fn generate_work_info_table(root_dir: &Path) -> anyhow::Result<()> {
     use std::io::{self, Write};
 
     info!("Generating work info table for: {:?}", root_dir);
@@ -93,11 +95,11 @@ pub async fn generate_work_info_table(root_dir: &Path) -> Result<(), std::io::Er
             None => (String::new(), String::new(), String::new()),
         };
 
-        let id_str = work_name.split('.').next().unwrap_or("");
-        if let Ok(id) = id_str.parse::<u32>() {
+        let (num_str, _rest) = parse_work_dir_name(&work_name);
+        if let Some(id_str) = num_str
+            && let Ok(id) = id_str.parse::<u32>()
+        {
             work_entries.push((id, work_name, title, artist, genre));
-        } else {
-            println!("Warning: Skipping dir {work_name} - invalid id format: {id_str}");
         }
     }
 
@@ -124,11 +126,26 @@ pub async fn generate_work_info_table(root_dir: &Path) -> Result<(), std::io::Er
 
     info!("Writing to file: {:?}", output_path);
 
-    let mut file = std::fs::File::create(&output_path)?;
-    writeln!(file, "ID,Title,Artist,Genre")?;
-    for (id, _name, title, artist, genre) in &work_entries {
-        writeln!(file, "{id},{title},{artist},{genre}")?;
+    let output_str = output_path.to_string_lossy().to_string();
+    let mut workbook = Workbook::new(&output_str);
+    let worksheet = workbook.add_worksheet();
+
+    let header_format = Format::new().set_bold();
+    worksheet.write_string(0, 0, "ID", &header_format)?;
+    worksheet.write_string(0, 1, "Title", &header_format)?;
+    worksheet.write_string(0, 2, "Artist", &header_format)?;
+    worksheet.write_string(0, 3, "Genre", &header_format)?;
+
+    for (row_idx, (id, _name, title, artist, genre)) in work_entries.iter().enumerate() {
+        #[allow(clippy::cast_possible_truncation)]
+        let row = (row_idx + 1) as u32;
+        worksheet.write_number_only(row, 0, f64::from(*id))?;
+        worksheet.write_string_only(row, 1, title)?;
+        worksheet.write_string_only(row, 2, artist)?;
+        worksheet.write_string_only(row, 3, genre)?;
     }
+
+    workbook.close()?;
 
     println!("Saved table to {}", output_path.display());
 
