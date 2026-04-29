@@ -335,7 +335,7 @@ async fn main() {
             name: "BMS根目录：按照BMS设置文件夹名".to_string(),
             exec_func: |args| {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
-                let _ = set_name_by_bms(path);
+                let _ = Handle::current().block_on(set_name_by_bms(path));
             },
             inputs: vec![Input {
                 input_type: InputType::Path,
@@ -349,7 +349,7 @@ async fn main() {
             name: "BMS根目录：按照BMS追加文件夹名".to_string(),
             exec_func: |args| {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
-                let _ = append_name_by_bms(path);
+                let _ = Handle::current().block_on(append_name_by_bms(path));
             },
             inputs: vec![Input {
                 input_type: InputType::Path,
@@ -363,7 +363,7 @@ async fn main() {
             name: "BMS根目录：按照BMS追加文件夹艺术家名".to_string(),
             exec_func: |args| {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
-                let _ = append_artist_name_by_bms(path);
+                let _ = Handle::current().block_on(append_artist_name_by_bms(path));
             },
             inputs: vec![Input {
                 input_type: InputType::Path,
@@ -595,7 +595,7 @@ async fn main() {
             name: "BMS活动目录：生成活动作品的xlsx表格".to_string(),
             exec_func: |args| {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
-                let _ = generate_work_info_table(path);
+                let _ = Handle::current().block_on(generate_work_info_table(path));
             },
             inputs: vec![Input {
                 input_type: InputType::Path,

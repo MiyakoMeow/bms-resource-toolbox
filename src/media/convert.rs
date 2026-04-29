@@ -110,8 +110,8 @@ pub async fn transfer_audio_by_format_in_dir(
     // Find files matching input extensions
     let mut tasks: Vec<(PathBuf, usize)> = Vec::new();
 
-    if let Ok(entries) = std::fs::read_dir(dir) {
-        for entry in entries.flatten() {
+    if let Ok(mut entries) = tokio::fs::read_dir(dir).await {
+        while let Some(entry) = entries.next_entry().await.unwrap_or(None) {
             let path = entry.path();
             if path.is_file()
                 && let Some(ext) = path.extension()
@@ -168,7 +168,7 @@ pub async fn transfer_audio_by_format_in_dir(
                 Ok(()) => {
                     if remove_origin_on_success
                         && input.is_file()
-                        && let Err(e) = std::fs::remove_file(&input)
+                        && let Err(e) = tokio::fs::remove_file(&input).await
                     {
                         info!("Failed to remove origin file {:?}: {}", input, e);
                     }
@@ -193,7 +193,7 @@ pub async fn transfer_audio_by_format_in_dir(
                         handles.push(handle);
                     } else if remove_origin_on_failed
                         && input.is_file()
-                        && let Err(e) = std::fs::remove_file(&input)
+                        && let Err(e) = tokio::fs::remove_file(&input).await
                     {
                         info!("Failed to remove failed origin file {:?}: {}", input, e);
                     }

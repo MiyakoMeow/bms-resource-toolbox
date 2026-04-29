@@ -14,7 +14,7 @@ use tracing::info;
 /// # Errors
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
-pub fn append_name_by_bms(root_dir: &Path) -> Result<(), std::io::Error> {
+pub async fn append_name_by_bms(root_dir: &Path) -> Result<(), std::io::Error> {
     if !root_dir.is_dir() {
         return Ok(());
     }
@@ -37,7 +37,7 @@ pub fn append_name_by_bms(root_dir: &Path) -> Result<(), std::io::Error> {
                 .all(|c| c.is_ascii_digit() || c.is_whitespace())
         {
             // This is a numeric-only folder, try to rename
-            if let Some(new_name) = rename_folder_by_bms(&dir_path) {
+            if let Some(new_name) = rename_folder_by_bms(&dir_path).await {
                 let new_path = dir_path.with_file_name(&new_name);
                 to_rename.push((dir_path, new_path));
             }
@@ -56,7 +56,7 @@ pub fn append_name_by_bms(root_dir: &Path) -> Result<(), std::io::Error> {
 ///
 /// Returns the new folder name if renamed, `None` if skipped.
 #[must_use]
-fn rename_folder_by_bms(work_dir: &Path) -> Option<String> {
+async fn rename_folder_by_bms(work_dir: &Path) -> Option<String> {
     use crate::bms::dir::get_dir_bms_info;
     use crate::fs::name::get_valid_fs_name;
 
@@ -71,8 +71,7 @@ fn rename_folder_by_bms(work_dir: &Path) -> Option<String> {
         return None;
     }
 
-    let rt = tokio::runtime::Runtime::new().unwrap();
-    let info = rt.block_on(get_dir_bms_info(work_dir))?;
+    let info = get_dir_bms_info(work_dir).await?;
     if info.title.is_empty() && info.artist.is_empty() {
         return None;
     }
@@ -162,7 +161,7 @@ pub fn copy_numbered_workdir_names(
 /// # Panics
 ///
 /// Panics if stdout flush or stdin read fails.
-pub fn append_artist_name_by_bms(root_dir: &Path) -> Result<(), std::io::Error> {
+pub async fn append_artist_name_by_bms(root_dir: &Path) -> Result<(), std::io::Error> {
     use std::io::{self, Write};
 
     use crate::bms::dir::get_dir_bms_info;
@@ -178,8 +177,6 @@ pub fn append_artist_name_by_bms(root_dir: &Path) -> Result<(), std::io::Error> 
 
     let mut pairs: Vec<(PathBuf, PathBuf)> = Vec::new();
 
-    let rt = tokio::runtime::Runtime::new().unwrap();
-
     for entry in entries {
         let dir_path = entry.path();
         if !dir_path.is_dir() {
@@ -193,7 +190,7 @@ pub fn append_artist_name_by_bms(root_dir: &Path) -> Result<(), std::io::Error> 
             continue;
         }
 
-        let info = rt.block_on(get_dir_bms_info(&dir_path));
+        let info = get_dir_bms_info(&dir_path).await;
         if info.is_none() {
             println!("Dir {} has no bms files!", dir_path.display());
             continue;
@@ -235,7 +232,7 @@ pub fn append_artist_name_by_bms(root_dir: &Path) -> Result<(), std::io::Error> 
 /// # Errors
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
-pub fn set_name_by_bms(root_dir: &Path) -> Result<(), std::io::Error> {
+pub async fn set_name_by_bms(root_dir: &Path) -> Result<(), std::io::Error> {
     if !root_dir.is_dir() {
         return Ok(());
     }
@@ -258,7 +255,7 @@ pub fn set_name_by_bms(root_dir: &Path) -> Result<(), std::io::Error> {
             .unwrap_or("")
             .to_string();
 
-        if !set_single_folder_name_by_bms(&dir_path)? {
+        if !set_single_folder_name_by_bms(&dir_path).await? {
             fail_list.push(dir_name);
         }
     }
@@ -275,15 +272,14 @@ pub fn set_name_by_bms(root_dir: &Path) -> Result<(), std::io::Error> {
 
 /// Set a single folder's name based on its BMS info
 /// Returns true if successful, false if skipped or failed
-fn set_single_folder_name_by_bms(work_dir: &Path) -> Result<bool, std::io::Error> {
+async fn set_single_folder_name_by_bms(work_dir: &Path) -> Result<bool, std::io::Error> {
     use crate::bms::dir::get_dir_bms_info;
     use crate::fs::name::{bms_dir_similarity, get_valid_fs_name};
     use crate::fs::pack_move::{
         MoveOptions, REPLACE_OPTION_UPDATE_PACK, ReplaceOptions, move_elements_across_dir,
     };
 
-    let rt = tokio::runtime::Runtime::new().unwrap();
-    let mut info = rt.block_on(get_dir_bms_info(work_dir));
+    let mut info = get_dir_bms_info(work_dir).await;
 
     // If no BMS info found, try to move out nested contents and retry
     while info.is_none() {
@@ -320,7 +316,7 @@ fn set_single_folder_name_by_bms(work_dir: &Path) -> Result<bool, std::io::Error
             MoveOptions::default(),
             ReplaceOptions::default(),
         )?;
-        info = rt.block_on(get_dir_bms_info(work_dir));
+        info = get_dir_bms_info(work_dir).await;
     }
 
     let info = info.unwrap();

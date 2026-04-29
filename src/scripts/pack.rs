@@ -339,7 +339,7 @@ pub async fn pack_setup_rawpack_to_hq(
     info!("Pack Setup RAW -> HQ: {:?} -> {:?}", pack_dir, root_dir);
 
     // Setup directories
-    std::fs::create_dir_all(root_dir)?;
+    tokio::fs::create_dir_all(root_dir).await?;
     let cache_dir = root_dir.join("CacheDir");
 
     // Step 1: Unzip packs
@@ -348,12 +348,12 @@ pub async fn pack_setup_rawpack_to_hq(
 
     // Remove cache dir if empty
     if !is_dir_having_file(&cache_dir) {
-        std::fs::remove_dir(&cache_dir)?;
+        tokio::fs::remove_dir(&cache_dir).await?;
     }
 
     // Step 2: Set dir names from BMS files
     info!("Setting dir names from BMS Files");
-    append_name_by_bms(root_dir)?;
+    append_name_by_bms(root_dir).await?;
 
     // Step 3: Convert WAV -> FLAC
     info!("Parsing Audio... Phase 1: WAV -> FLAC");
@@ -391,7 +391,7 @@ pub async fn pack_update_rawpack_to_hq(
     );
 
     // Setup directories
-    std::fs::create_dir_all(root_dir)?;
+    tokio::fs::create_dir_all(root_dir).await?;
     let cache_dir = root_dir.join("CacheDir");
 
     // Step 1: Unzip packs
