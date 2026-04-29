@@ -95,15 +95,19 @@ impl BMSInfo {
 }
 
 /// Audio file extensions supported by BMS
+#[allow(dead_code)]
 pub const AUDIO_FILE_EXTS: &[&str] = &[".wav", ".flac", ".ogg"];
 
 /// Video file extensions supported by BMS
+#[allow(dead_code)]
 pub const VIDEO_FILE_EXTS: &[&str] = &[".mp4", ".mkv", ".avi", ".wmv", ".mpg", ".mpeg"];
 
 /// Image file extensions supported by BMS
+#[allow(dead_code)]
 pub const IMAGE_FILE_EXTS: &[&str] = &[".bmp", ".png", ".jpg", ".jpeg", ".gif"];
 
 /// All media file extensions (audio + video + image)
+#[allow(dead_code)]
 pub const MEDIA_FILE_EXTS: &[&str] = &[
     ".wav", ".flac", ".ogg", // audio
     ".mp4", ".mkv", ".avi", ".wmv", ".mpg", ".mpeg", // video

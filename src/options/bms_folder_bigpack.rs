@@ -673,6 +673,7 @@ pub fn move_works_with_same_name_to_siblings(root_dir_from: &Path) -> Result<(),
 /// # Errors
 ///
 /// Returns [`anyhow::Error`] if directory operations fail.
+#[allow(dead_code)]
 pub async fn merge_split_folders(path: &Path) -> Result<()> {
     let mut entries = tokio::fs::read_dir(path).await?;
     let mut folders = Vec::new();

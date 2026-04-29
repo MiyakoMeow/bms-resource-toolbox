@@ -10,6 +10,7 @@ use super::input::input_string;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BMSEvent {
     /// BOF Team Festival.
+    #[allow(clippy::upper_case_acronyms)]
     BOFTT = 20,
     /// BOF 2021.
     BOF21 = 21,
