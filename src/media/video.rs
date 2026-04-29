@@ -118,7 +118,7 @@ pub fn video_preset_avi_512x512() -> VideoPreset {
         "avi",
         512,
         512,
-        "-c:v mpeg4 -q:v 4",
+        "-c:v mpeg4 -q:v 8 -an",
     )
 }
 
@@ -131,7 +131,7 @@ pub fn video_preset_mpeg1video_512x512() -> VideoPreset {
         "mpg",
         512,
         512,
-        "-c:v mpeg1video -b:v 2000k",
+        "-c:v mpeg1video -b:v 1500k -an",
     )
 }
 
@@ -144,14 +144,14 @@ pub fn video_preset_wmv2_512x512() -> VideoPreset {
         "wmv",
         512,
         512,
-        "-c:v wmv2 -b:v 2000k",
+        "-c:v wmv2 -q:v 8 -an",
     )
 }
 
 /// Video preset for AVI encoding at 480p.
 #[must_use]
 pub fn video_preset_avi_480p() -> VideoPreset {
-    VideoPreset::new("AVI_480P", "ffmpeg", "avi", 640, 480, "-c:v mpeg4 -q:v 4")
+    VideoPreset::new("AVI_480P", "ffmpeg", "avi", 640, 480, "-c:v mpeg4 -q:v 8 -an")
 }
 
 /// Video preset for WMV2 encoding at 480p.
@@ -163,7 +163,7 @@ pub fn video_preset_wmv2_480p() -> VideoPreset {
         "wmv",
         640,
         480,
-        "-c:v wmv2 -b:v 2000k",
+        "-c:v wmv2 -q:v 8 -an",
     )
 }
 
@@ -176,7 +176,7 @@ pub fn video_preset_mpeg1video_480p() -> VideoPreset {
         "mpg",
         640,
         480,
-        "-c:v mpeg1video -b:v 1500k",
+        "-c:v mpeg1video -b:v 1500k -an",
     )
 }
 

@@ -5,19 +5,27 @@
 
 use std::path::Path;
 
-/// Get a valid filesystem name by replacing invalid characters.
+/// Get a valid filesystem name by replacing invalid characters with full-width equivalents.
+///
+/// This matches Python behavior: invalid characters are replaced with their
+/// full-width Unicode counterparts rather than underscores.
 #[must_use]
 pub fn get_valid_fs_name(name: &str) -> String {
-    let invalid_chars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*'];
-    let mut result = String::with_capacity(name.len());
-    for c in name.chars() {
-        if invalid_chars.contains(&c) {
-            result.push('_');
-        } else {
-            result.push(c);
-        }
-    }
-    result
+    name.chars()
+        .map(|c| match c {
+            ':' => '：',
+            '\\' => '＼',
+            '/' => '／',
+            '*' => '＊',
+            '?' => '？',
+            '!' => '！',
+            '"' => '＂',
+            '<' => '＜',
+            '>' => '＞',
+            '|' => '｜',
+            _ => c,
+        })
+        .collect()
 }
 
 /// Calculate media filename similarity between two directories
@@ -103,7 +111,15 @@ mod tests {
     #[test]
     fn test_get_valid_fs_name() {
         assert_eq!(get_valid_fs_name("Artist - Title"), "Artist - Title");
-        assert_eq!(get_valid_fs_name("Artist: Title"), "Artist_ Title");
-        assert_eq!(get_valid_fs_name("Test/File"), "Test_File");
+        assert_eq!(get_valid_fs_name("Artist: Title"), "Artist： Title");
+        assert_eq!(get_valid_fs_name("Test/File"), "Test／File");
+        assert_eq!(get_valid_fs_name("Test\\File"), "Test＼File");
+        assert_eq!(get_valid_fs_name("Test*File"), "Test＊File");
+        assert_eq!(get_valid_fs_name("Test?File"), "Test？File");
+        assert_eq!(get_valid_fs_name("Test!File"), "Test！File");
+        assert_eq!(get_valid_fs_name("Test\"File"), "Test＂File");
+        assert_eq!(get_valid_fs_name("Test<File"), "Test＜File");
+        assert_eq!(get_valid_fs_name("Test>File"), "Test＞File");
+        assert_eq!(get_valid_fs_name("Test|File"), "Test｜File");
     }
 }

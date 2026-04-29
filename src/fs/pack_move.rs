@@ -83,20 +83,40 @@ pub static DEFAULT_REPLACE_OPTIONS: LazyLock<ReplaceOptions> = LazyLock::new(|| 
     default: ReplaceAction::Replace,
 });
 
-/// Check if a directory contains any files (non-recursive)
+/// Check if a directory contains any files (recursive)
+///
+/// This matches Python's `is_dir_having_file` behavior:
+/// - Recursively checks subdirectories
+/// - Only counts non-empty files (size > 0)
 #[must_use]
 pub fn is_dir_having_file(dir: &Path) -> bool {
+    fn check_recursive(dir: &Path) -> bool {
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return false;
+        };
+
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                // Check if file is non-empty (matches Python behavior)
+                if let Ok(metadata) = path.metadata()
+                    && metadata.len() > 0
+                {
+                    return true;
+                }
+            } else if path.is_dir() && check_recursive(&path) {
+                return true;
+            }
+        }
+
+        false
+    }
+
     if !dir.is_dir() {
         return false;
     }
-    std::fs::read_dir(dir)
-        .map(|mut entries| {
-            entries.any(|e| {
-                e.map(|e| e.file_type().map(|ft| ft.is_file()).unwrap_or(false))
-                    .unwrap_or(false)
-            })
-        })
-        .unwrap_or(false)
+
+    check_recursive(dir)
 }
 
 /// Move elements (files and directories) from source to destination.

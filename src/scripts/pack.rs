@@ -19,32 +19,140 @@ use tracing::info;
 
 /// Remove media files according to rule
 ///
+/// This matches Python's `_workdir_remove_unneed_media_files` behavior:
+/// - When a higher-quality format exists, remove lower-quality ones
+/// - Rule format: list of (`upper_exts`, `lower_exts`) pairs
+///   - If any file with `upper_ext` exists, remove files with `lower_ext`
+///
 /// # Errors
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
 pub fn remove_unneed_media_files(root_dir: &Path, rule: &str) -> Result<(), std::io::Error> {
-    // Rule: oraja - remove all video and some image files
-    if rule == "oraja" {
-        let extensions_to_remove = [
-            "jpg", "jpeg", "png", "gif", "bmp", "mp4", "avi", "wmv", "mpg", "mpeg",
-        ];
+    // Define rules matching Python's REMOVE_MEDIA_RULE_ORAJA
+    // (upper_exts, lower_exts): if upper exists, remove lower
+    let rules: Vec<(Vec<&str>, Vec<&str>)> = if rule == "oraja" {
+        vec![
+            (vec!["mp4"], vec!["avi", "wmv", "mpg", "mpeg"]),
+            (vec!["avi"], vec!["wmv", "mpg", "mpeg"]),
+            (vec!["flac", "wav"], vec!["ogg"]),
+            (vec!["flac"], vec!["wav"]),
+            (vec!["mpg"], vec!["wmv"]),
+        ]
+    } else {
+        return Ok(());
+    };
 
-        for entry in walkdir::WalkDir::new(root_dir)
-            .into_iter()
-            .filter_map(std::result::Result::ok)
-        {
-            let path = entry.path();
-            if path.is_file()
-                && let Some(ext) = path.extension()
+    // Process each BMS directory
+    for entry in walkdir::WalkDir::new(root_dir)
+        .min_depth(1)
+        .max_depth(1)
+        .into_iter()
+        .filter_map(std::result::Result::ok)
+    {
+        let work_dir = entry.path();
+        if !work_dir.is_dir() {
+            continue;
+        }
+
+        workdir_remove_unneed_media_files(work_dir, &rules)?;
+    }
+
+    Ok(())
+}
+
+/// Remove unnecessary media files in a single work directory
+///
+/// This matches Python's `_workdir_remove_unneed_media_files` behavior.
+fn workdir_remove_unneed_media_files(
+    work_dir: &Path,
+    rules: &[(Vec<&str>, Vec<&str>)],
+) -> Result<(), std::io::Error> {
+    use std::collections::HashSet;
+
+    let mut remove_pairs: Vec<(std::path::PathBuf, std::path::PathBuf)> = Vec::new();
+    let mut removed_files: HashSet<std::path::PathBuf> = HashSet::new();
+
+    // Collect files in work directory
+    let entries: Vec<_> = std::fs::read_dir(work_dir)?
+        .filter_map(std::result::Result::ok)
+        .collect();
+
+    // Find files to remove based on rules
+    for entry in &entries {
+        let check_file_path = entry.path();
+        if !check_file_path.is_file() {
+            continue;
+        }
+
+        let file_ext = check_file_path
+            .extension()
+            .map(|e| e.to_string_lossy().to_lowercase())
+            .unwrap_or_default();
+
+        for (upper_exts, lower_exts) in rules {
+            if !upper_exts.contains(&file_ext.as_str()) {
+                continue;
+            }
+
+            // Check if file is empty (skip if empty)
+            if let Ok(metadata) = check_file_path.metadata()
+                && metadata.len() == 0
             {
-                let ext_str = ext.to_string_lossy().to_lowercase();
-                if extensions_to_remove.contains(&ext_str.as_str()) {
-                    info!("Removing: {:?}", path);
-                    std::fs::remove_file(path)?;
+                info!("Skipping empty file: {:?}", check_file_path);
+                continue;
+            }
+
+            // Search for lower quality files to remove
+            for lower_ext in lower_exts {
+                let replacing_file_path = check_file_path.with_extension(lower_ext);
+                if replacing_file_path.is_file() && !removed_files.contains(&replacing_file_path) {
+                    remove_pairs.push((check_file_path.clone(), replacing_file_path.clone()));
+                    removed_files.insert(replacing_file_path);
                 }
             }
         }
     }
+
+    if !remove_pairs.is_empty() {
+        info!("Entering: {:?}", work_dir);
+    }
+
+    // Remove files
+    for (check_file_path, replacing_file_path) in &remove_pairs {
+        info!(
+            "Remove file {:?}, because {:?} exists.",
+            replacing_file_path.file_name().unwrap_or_default(),
+            check_file_path.file_name().unwrap_or_default()
+        );
+        std::fs::remove_file(replacing_file_path)?;
+    }
+
+    // Count extensions for diagnostics
+    let mut ext_count: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+    for entry in &entries {
+        let count_file_path = entry.path();
+        if !count_file_path.is_file() {
+            continue;
+        }
+
+        let file_ext = count_file_path
+            .extension()
+            .map(|e| e.to_string_lossy().to_lowercase())
+            .unwrap_or_default();
+        let file_name = count_file_path
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default();
+        ext_count.entry(file_ext.clone()).or_default().push(file_name);
+    }
+
+    // Check for multiple mp4 files
+    if let Some(mp4_files) = ext_count.get("mp4")
+        && mp4_files.len() > 1
+    {
+        info!("Tips: {:?} has more than 1 mp4 files! {:?}", work_dir, mp4_files);
+    }
+
     Ok(())
 }
 

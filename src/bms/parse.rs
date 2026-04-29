@@ -107,37 +107,67 @@ pub fn parse_bmson_file<P: AsRef<Path>>(path: P) -> Result<BMSInfo, std::io::Err
 }
 
 /// Parse BMSON JSON content
+///
+/// BMSON format stores metadata in an `info` nested object, not at the top level.
+/// This matches Python's `parse_bmson_file` behavior.
 pub fn parse_bmson_content(content: &str) -> Result<BMSInfo, serde_json::Error> {
     #[derive(serde::Deserialize)]
     struct BmsonInfo {
-        #[serde(rename = "title")]
         title: Option<String>,
-        #[serde(rename = "artist")]
         artist: Option<String>,
-        #[serde(rename = "genre")]
         genre: Option<String>,
-        #[serde(rename = "playlevel")]
-        playlevel: Option<i32>,
-        #[serde(rename = "difficulty")]
-        difficulty: Option<i32>,
-        #[serde(rename = "total")]
-        total: Option<f64>,
-        #[serde(rename = "stagefile")]
-        stagefile: Option<String>,
+        #[serde(rename = "level")]
+        level: Option<i32>,
     }
 
-    let info: BmsonInfo = serde_json::from_str(content)?;
+    #[derive(serde::Deserialize)]
+    struct BgaHeader {
+        name: String,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct Bga {
+        bga_header: Option<Vec<BgaHeader>>,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct BmsonRoot {
+        info: Option<BmsonInfo>,
+        bga: Option<Bga>,
+    }
+
+    let root: BmsonRoot = serde_json::from_str(content)?;
+
+    let info = root.info.unwrap_or(BmsonInfo {
+        title: None,
+        artist: None,
+        genre: None,
+        level: None,
+    });
+
+    let mut bmp_formats: Vec<String> = Vec::new();
+    if let Some(bga) = root.bga
+        && let Some(bga_headers) = bga.bga_header
+    {
+        for header in bga_headers {
+            if let Some(ext) = Path::new(&header.name).extension() {
+                let ext_str = format!(".{}", ext.to_string_lossy());
+                if !bmp_formats.contains(&ext_str) {
+                    bmp_formats.push(ext_str);
+                }
+            }
+        }
+    }
+
     Ok(BMSInfo {
         title: info.title.unwrap_or_default(),
         artist: info.artist.unwrap_or_default(),
         genre: info.genre.unwrap_or_default(),
-        difficulty: info
-            .difficulty
-            .map_or(BMSDifficulty::Unknown, BMSDifficulty::from),
-        playlevel: info.playlevel.unwrap_or(0),
-        bmp_formats: Vec::new(),
-        total: info.total,
-        stage_file: info.stagefile,
+        difficulty: BMSDifficulty::Unknown,
+        playlevel: info.level.unwrap_or(0),
+        bmp_formats,
+        total: None,
+        stage_file: None,
     })
 }
 

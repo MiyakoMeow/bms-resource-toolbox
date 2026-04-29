@@ -807,8 +807,16 @@ fn main() {
         current_number = ((current_number - 1) / 10 + 1) * 10 + 1;
     }
 
-    let selection_str = input_string("\n输入要启用的功能的下标：");
-    let selection = selection_str.parse::<usize>().unwrap_or(0);
+    // Loop until valid selection (matches Python behavior)
+    let selection = loop {
+        let selection_str = input_string("\n输入要启用的功能的下标：");
+        if let Ok(num) = selection_str.parse::<usize>()
+            && option_map.contains_key(&num)
+        {
+            break num;
+        }
+        println!("请重新输入");
+    };
 
     if let Some((module_name, opt_idx)) = option_map.get(&selection) {
         let module_idx = options
@@ -816,8 +824,6 @@ fn main() {
             .position(|(name, _)| name == module_name)
             .unwrap();
         options[module_idx].1[*opt_idx].exec();
-    } else {
-        println!("无效的选择。");
     }
 }
 

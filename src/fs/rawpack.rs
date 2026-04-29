@@ -125,9 +125,24 @@ fn extract_zip(archive_path: &Path, output_dir: &Path) -> Result<(), std::io::Er
     let file = std::fs::File::open(archive_path)?;
     let mut archive = ZipArchive::new(file)?;
 
+    // Detect if we need CP932 (Shift-JIS) decoding
+    // This matches Python's behavior: check non-UTF-8 entries for Japanese characters
+    let use_cp932 = detect_cp932_encoding(&mut archive);
+
     for i in 0..archive.len() {
         let mut file = archive.by_index(i)?;
-        let outpath = output_dir.join(file.mangled_name());
+
+        // Decode filename: try enclosed_name first, then CP932 if needed
+        let decoded_name = if let Some(enclosed) = file.enclosed_name() {
+            enclosed.to_string_lossy().to_string()
+        } else if use_cp932 {
+            // Try CP437 -> CP932 conversion on the name
+            decode_cp932_filename(file.name()).unwrap_or_else(|| file.name().to_string())
+        } else {
+            file.name().to_string()
+        };
+
+        let outpath = output_dir.join(&decoded_name);
 
         if file.is_dir() {
             std::fs::create_dir_all(&outpath)?;
@@ -141,6 +156,128 @@ fn extract_zip(archive_path: &Path, output_dir: &Path) -> Result<(), std::io::Er
     }
 
     Ok(())
+}
+
+/// Detect if ZIP file uses CP932 (Shift-JIS) encoding
+///
+/// This matches Python's behavior:
+/// 1. Check non-UTF-8 entries (using `name_raw` for detection)
+/// 2. Try CP437 -> CP932 conversion
+/// 3. Check if result contains Japanese/CJK characters
+fn detect_cp932_encoding(archive: &mut zip::ZipArchive<std::fs::File>) -> bool {
+    for i in 0..archive.len() {
+        let Ok(file) = archive.by_index(i) else {
+            continue;
+        };
+
+        // Get the raw name bytes
+        let raw_name_bytes = file.name_raw();
+        let name = file.name();
+
+        // If name contains non-ASCII characters that look garbled (CP437 decode of Shift-JIS),
+        // try re-decoding as Shift-JIS
+        if let Some(sjis_name) = try_decode_shift_jis(raw_name_bytes)
+            && contains_japanese_or_cjk(&sjis_name)
+        {
+            return true;
+        }
+
+        // Also try the current decoded name
+        if let Some(sjis_name) = decode_cp932_filename(name)
+            && contains_japanese_or_cjk(&sjis_name)
+        {
+            return true;
+        }
+    }
+
+    false
+}
+
+/// Try to decode bytes as Shift-JIS
+fn try_decode_shift_jis(bytes: &[u8]) -> Option<String> {
+    use encoding_rs::SHIFT_JIS;
+    let (decoded, _, had_errors) = SHIFT_JIS.decode(bytes);
+    if had_errors {
+        None
+    } else {
+        Some(decoded.to_string())
+    }
+}
+
+/// Decode filename from CP437 to CP932 (Shift-JIS)
+///
+/// This matches Python's `_try_decode_cp932_from_cp437` behavior.
+fn decode_cp932_filename(name: &str) -> Option<String> {
+    // Convert CP437 string to bytes
+    let cp437_bytes = encode_cp437(name)?;
+
+    // Try CP932 (Shift-JIS) decoding
+    try_decode_shift_jis(&cp437_bytes)
+}
+
+/// Encode string to CP437 bytes
+///
+/// CP437 is the default encoding for ZIP files on DOS/Windows.
+fn encode_cp437(name: &str) -> Option<Vec<u8>> {
+    let mut bytes = Vec::new();
+    for ch in name.chars() {
+        let byte = if ch.is_ascii() {
+            ch as u8
+        } else {
+            // CP437 extended characters (0x80-0xFF)
+            match ch {
+                'Ç' => 0x80, 'ü' => 0x81, 'é' => 0x82, 'â' => 0x83,
+                'ä' => 0x84, 'à' => 0x85, 'å' => 0x86, 'ç' => 0x87,
+                'ê' => 0x88, 'ë' => 0x89, 'è' => 0x8A, 'ï' => 0x8B,
+                'î' => 0x8C, 'ì' => 0x8D, 'Ä' => 0x8E, 'Å' => 0x8F,
+                'É' => 0x90, 'æ' => 0x91, 'Æ' => 0x92, 'ô' => 0x93,
+                'ö' => 0x94, 'ò' => 0x95, 'û' => 0x96, 'ù' => 0x97,
+                'ÿ' => 0x98, 'Ö' => 0x99, 'Ü' => 0x9A, '¢' => 0x9B,
+                '£' => 0x9C, '¥' => 0x9D, '₧' => 0x9E, 'ƒ' => 0x9F,
+                'á' => 0xA0, 'í' => 0xA1, 'ó' => 0xA2, 'ú' => 0xA3,
+                'ñ' => 0xA4, 'Ñ' => 0xA5, 'ª' => 0xA6, 'º' => 0xA7,
+                '¿' => 0xA8, '⌐' => 0xA9, '¬' => 0xAA, '½' => 0xAB,
+                '¼' => 0xAC, '¡' => 0xAD, '«' => 0xAE, '»' => 0xAF,
+                '░' => 0xB0, '▒' => 0xB1, '▓' => 0xB2, '│' => 0xB3,
+                '┤' => 0xB4, '╡' => 0xB5, '╢' => 0xB6, '╖' => 0xB7,
+                '╕' => 0xB8, '╣' => 0xB9, '║' => 0xBA, '╗' => 0xBB,
+                '╝' => 0xBC, '╜' => 0xBD, '╛' => 0xBE, '┐' => 0xBF,
+                '└' => 0xC0, '┴' => 0xC1, '┬' => 0xC2, '├' => 0xC3,
+                '─' => 0xC4, '┼' => 0xC5, '╞' => 0xC6, '╟' => 0xC7,
+                '╚' => 0xC8, '╔' => 0xC9, '╩' => 0xCA, '╦' => 0xCB,
+                '╠' => 0xCC, '═' => 0xCD, '╬' => 0xCE, '╧' => 0xCF,
+                '╨' => 0xD0, '╤' => 0xD1, '╥' => 0xD2, '╙' => 0xD3,
+                '╘' => 0xD4, '╒' => 0xD5, '╓' => 0xD6, '╫' => 0xD7,
+                '╪' => 0xD8, '┘' => 0xD9, '┌' => 0xDA, '█' => 0xDB,
+                '▄' => 0xDC, '▌' => 0xDD, '▐' => 0xDE, '▀' => 0xDF,
+                'α' => 0xE0, 'ß' => 0xE1, 'Γ' => 0xE2, 'π' => 0xE3,
+                'Σ' => 0xE4, 'σ' => 0xE5, 'µ' => 0xE6, 'τ' => 0xE7,
+                'Φ' => 0xE8, 'Θ' => 0xE9, 'Ω' => 0xEA, 'δ' => 0xEB,
+                '∞' => 0xEC, 'φ' => 0xED, 'ε' => 0xEE, '∩' => 0xEF,
+                '≡' => 0xF0, '±' => 0xF1, '≥' => 0xF2, '≤' => 0xF3,
+                '⌠' => 0xF4, '⌡' => 0xF5, '÷' => 0xF6, '≈' => 0xF7,
+                '°' => 0xF8, '∙' => 0xF9, '·' => 0xFA, '√' => 0xFB,
+                'ⁿ' => 0xFC, '²' => 0xFD, '■' => 0xFE,
+                _ => return None,
+            }
+        };
+        bytes.push(byte);
+    }
+    Some(bytes)
+}
+
+/// Check if string contains Japanese or CJK characters
+fn contains_japanese_or_cjk(name: &str) -> bool {
+    name.chars().any(|ch| {
+        matches!(ch,
+            '\u{3040}'..='\u{309F}' |  // Hiragana
+            '\u{30A0}'..='\u{30FF}' |  // Katakana
+            '\u{3400}'..='\u{9FFF}' |  // CJK Unified Ideographs
+            '\u{F900}'..='\u{FAFF}' |  // CJK Compatibility Ideographs
+            '\u{FE30}'..='\u{FE4F}' |  // CJK Compatibility Forms
+            '\u{20000}'..='\u{2A6DF}' // CJK Unified Ideographs Extension B
+        )
+    })
 }
 
 async fn extract_7z(archive_path: &Path, output_dir: &Path) -> Result<(), std::io::Error> {
@@ -187,6 +324,7 @@ async fn extract_rar(archive_path: &Path, output_dir: &Path) -> Result<(), std::
 /// - Moves files out of inner directories to the cache root
 ///
 /// Returns `true` on success, `false` on error or empty cache
+#[expect(clippy::too_many_lines)]
 pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
     let mut error = false;
 

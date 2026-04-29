@@ -138,6 +138,10 @@ pub fn split_folders_with_first_char(root_dir: &Path) -> Result<(), std::io::Err
 
 /// Undo split pack operation - move folders back from categorized subdirs
 ///
+/// This matches Python's `undo_split_pack` behavior:
+/// - Shows pairs of directories to merge
+/// - Asks for user confirmation before proceeding
+///
 /// # Errors
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
@@ -164,7 +168,7 @@ pub fn undo_split_pack(root_dir: &Path) -> Result<(), std::io::Error> {
             if folder_name.starts_with(&format!("{root_folder_name} ["))
                 && folder_name.ends_with(']')
             {
-                info!(" - {:?} <- {:?}", root_dir, folder_path);
+                println!(" - {} <- {}", root_dir.display(), folder_path.display());
                 pairs.push((folder_path, root_dir.to_path_buf()));
             }
         }
@@ -174,7 +178,11 @@ pub fn undo_split_pack(root_dir: &Path) -> Result<(), std::io::Error> {
         return Ok(());
     }
 
-    // Confirm with user (in Rust we just proceed)
+    // Confirm with user (matches Python behavior)
+    if !crate::options::input::input_confirm("Confirm?", false) {
+        return Ok(());
+    }
+
     for (from, to) in &pairs {
         move_elements_across_dir(from, to, MoveOptions::default(), ReplaceOptions::default())?;
     }
@@ -497,6 +505,10 @@ pub fn move_out_works(target_root_dir: &Path) -> Result<(), std::io::Error> {
 
 /// Move works with same name from one dir to another
 ///
+/// This matches Python's `move_works_with_same_name` behavior:
+/// - Shows pairs of directories to merge
+/// - Asks for user confirmation before proceeding
+///
 /// # Errors
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
@@ -529,22 +541,28 @@ pub fn move_works_with_same_name(
         for to_name in &to_subdirs {
             if to_name.starts_with(from_name) {
                 let to_path = root_dir_to.join(to_name);
-                info!(" -> {} => {}", from_name, to_name);
+                println!(" -> {from_name} => {to_name}");
                 pairs.push((from_path.clone(), to_path));
                 break;
             }
         }
     }
 
+    if pairs.is_empty() {
+        return Ok(());
+    }
+
+    // Confirm with user (matches Python behavior)
+    if !crate::options::input::input_confirm("是否合并？", false) {
+        return Ok(());
+    }
+
     // Execute moves
-    for (_, from_path, _, to_path) in pairs
-        .iter()
-        .map(|(f, t)| (f.clone(), f.clone(), t.clone(), t.clone()))
-    {
-        info!("合并: {:?} -> {:?}", from_path, to_path);
+    for (from_path, to_path) in &pairs {
+        println!("合并: {} -> {}", from_path.display(), to_path.display());
         move_elements_across_dir(
-            &from_path,
-            &to_path,
+            from_path,
+            to_path,
             MoveOptions::default(),
             REPLACE_OPTION_UPDATE_PACK.clone(),
         )?;
@@ -554,6 +572,10 @@ pub fn move_works_with_same_name(
 }
 
 /// Move works with same name to sibling directories
+///
+/// This matches Python's `move_works_with_same_name_to_siblings` behavior:
+/// - Shows pairs of directories to merge
+/// - Asks for user confirmation before proceeding
 ///
 /// # Errors
 ///
@@ -610,7 +632,7 @@ pub fn move_works_with_same_name_to_siblings(root_dir_from: &Path) -> Result<(),
                 for to_name in &to_subdirs {
                     if to_name.starts_with(from_name) {
                         let target_path = sibling_path.join(to_name);
-                        info!(" -> {} => {:?}", from_name, target_path);
+                        println!(" -> {from_name} => {}", target_path.display());
                         pairs.push((from_path.clone(), target_path));
                         break;
                     }
@@ -619,9 +641,18 @@ pub fn move_works_with_same_name_to_siblings(root_dir_from: &Path) -> Result<(),
         }
     }
 
+    if pairs.is_empty() {
+        return Ok(());
+    }
+
+    // Confirm with user (matches Python behavior)
+    if !crate::options::input::input_confirm("是否合并到各平级目录？", false) {
+        return Ok(());
+    }
+
     // Execute moves
     for (from_path, target_path) in &pairs {
-        info!("合并: {:?} -> {:?}", from_path, target_path);
+        println!("合并: {} -> {}", from_path.display(), target_path.display());
         move_elements_across_dir(
             from_path,
             target_path,

@@ -12,6 +12,29 @@ use std::process::Stdio;
 use tokio::process::Command;
 use tracing::info;
 
+/// Execute a shell command string cross-platform
+async fn execute_shell_command(cmd_str: &str) -> Result<bool, std::io::Error> {
+    let shell = if cfg!(target_os = "windows") {
+        "cmd"
+    } else {
+        "sh"
+    };
+    let shell_arg = if cfg!(target_os = "windows") {
+        "/C"
+    } else {
+        "-c"
+    };
+
+    let status = Command::new(shell)
+        .args([shell_arg, cmd_str])
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .status()
+        .await?;
+
+    Ok(status.success())
+}
+
 /// Convert audio file using preset
 pub async fn convert_audio(
     input: &Path,
@@ -27,14 +50,7 @@ pub async fn convert_audio(
     }
 
     info!("Running: {}", cmd_str);
-    let output = Command::new("cmd")
-        .args(["/C", &cmd_str])
-        .stdout(Stdio::null())
-        .stderr(Stdio::piped())
-        .status()
-        .await?;
-
-    if output.success() {
+    if execute_shell_command(&cmd_str).await? {
         Ok(())
     } else {
         Err(std::io::Error::other("Conversion failed"))
@@ -51,14 +67,7 @@ pub async fn convert_video(
     let cmd_str = get_video_process_cmd(input, output, preset);
     info!("Running: {}", cmd_str);
 
-    let output = Command::new("cmd")
-        .args(["/C", &cmd_str])
-        .stdout(Stdio::null())
-        .stderr(Stdio::piped())
-        .status()
-        .await?;
-
-    if output.success() {
+    if execute_shell_command(&cmd_str).await? {
         Ok(())
     } else {
         Err(std::io::Error::other("Conversion failed"))
@@ -66,19 +75,40 @@ pub async fn convert_video(
 }
 
 /// Transfer audio files in directory using presets (with fallback)
+///
+/// This matches Python's `transfer_audio_by_format_in_dir` behavior:
+/// - Supports preset fallback: when first preset fails, tries next one
+/// - Handles `remove_origin_on_success` and `remove_origin_on_failed`
+/// - Uses bounded concurrency based on disk type
 pub async fn transfer_audio_by_format_in_dir(
     dir: &Path,
     input_exts: &[&str],
     presets: &[AudioPreset],
-    _remove_origin_on_success: bool,
-    _remove_origin_on_failed: bool,
+    remove_origin_on_success: bool,
+    remove_origin_on_failed: bool,
 ) -> Result<(), std::io::Error> {
-    let hdd = !dir.to_string_lossy().starts_with("C:");
+    if presets.is_empty() {
+        return Ok(());
+    }
+
+    // Detect HDD vs SSD (simplified cross-platform check)
+    let hdd = {
+        #[cfg(target_os = "windows")]
+        {
+            !dir.to_string_lossy().starts_with("C:")
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            // On Linux, assume HDD if not /tmp or /home
+            let path_str = dir.to_string_lossy();
+            !path_str.starts_with("/tmp") && !path_str.starts_with("/home")
+        }
+    };
 
     let max_workers = if hdd { 4 } else { 8 };
 
     // Find files matching input extensions
-    let mut tasks: Vec<(PathBuf, PathBuf, usize)> = Vec::new();
+    let mut tasks: Vec<(PathBuf, usize)> = Vec::new();
 
     if let Ok(entries) = std::fs::read_dir(dir) {
         for entry in entries.flatten() {
@@ -88,10 +118,7 @@ pub async fn transfer_audio_by_format_in_dir(
             {
                 let ext_str = ext.to_string_lossy().to_lowercase();
                 if input_exts.iter().any(|e| e.to_lowercase() == ext_str) {
-                    let stem = path.file_stem().unwrap_or_default().to_string_lossy();
-                    let output_ext = &presets[0].output_format;
-                    let output = path.parent().unwrap().join(format!("{stem}.{output_ext}"));
-                    tasks.push((path, output, 0));
+                    tasks.push((path, 0));
                 }
             }
         }
@@ -99,32 +126,78 @@ pub async fn transfer_audio_by_format_in_dir(
 
     info!("Found {} files to convert in {:?}", tasks.len(), dir);
 
-    // Process with bounded concurrency
+    if tasks.is_empty() {
+        return Ok(());
+    }
+
+    // Process with bounded concurrency and preset fallback
     let mut handles = Vec::new();
-    for (input, output, preset_idx) in tasks {
-        if handles.len() >= max_workers {
-            // Wait for one to complete
-            if let Some(res) = handles.pop() {
-                let _ = res.await;
+    let mut task_iter = tasks.into_iter();
+
+    loop {
+        // Fill up to max_workers
+        while handles.len() < max_workers {
+            if let Some((input, preset_idx)) = task_iter.next() {
+                let preset = presets[preset_idx].clone();
+                let input_clone = input.clone();
+                let stem = input.file_stem().unwrap_or_default().to_string_lossy();
+                let output_ext = &preset.output_format;
+                let output = input.parent().unwrap().join(format!("{stem}.{output_ext}"));
+                let presets_vec = presets.to_vec();
+
+                let handle = tokio::spawn(async move {
+                    let result = convert_audio(&input_clone, &output, &preset).await;
+                    (input_clone, preset_idx, result, presets_vec)
+                });
+                handles.push(handle);
+            } else {
+                break;
             }
         }
 
-        let preset = &presets[preset_idx];
-        let input_clone = input.clone();
-        let output_clone = output.clone();
-        let preset_clone = preset.clone();
-        let _presets_clone = presets.to_vec();
+        if handles.is_empty() {
+            break;
+        }
 
-        let handle = tokio::spawn(async move {
-            let result = convert_audio(&input_clone, &output_clone, &preset_clone).await;
-            (input_clone, preset_idx, result)
-        });
-        handles.push(handle);
-    }
+        // Wait for first completion
+        let (result, _, remaining) = futures::future::select_all(handles).await;
+        handles = remaining;
 
-    // Wait for remaining
-    for handle in handles {
-        let _ = handle.await;
+        if let Ok((input, preset_idx, result, presets_vec)) = result {
+            match result {
+                Ok(()) => {
+                    if remove_origin_on_success && input.is_file()
+                        && let Err(e) = std::fs::remove_file(&input)
+                    {
+                        info!("Failed to remove origin file {:?}: {}", input, e);
+                    }
+                }
+                Err(e) => {
+                    info!("Conversion failed for {:?}: {}", input, e);
+                    // Try next preset (fallback)
+                    let next_idx = preset_idx + 1;
+                    if next_idx < presets_vec.len() {
+                        info!("Falling back to preset {} for {:?}", next_idx, input);
+                        let preset = presets_vec[next_idx].clone();
+                        let input_clone = input.clone();
+                        let stem = input.file_stem().unwrap_or_default().to_string_lossy();
+                        let output_ext = &preset.output_format;
+                        let output = input.parent().unwrap().join(format!("{stem}.{output_ext}"));
+                        let presets_clone = presets_vec.clone();
+
+                        let handle = tokio::spawn(async move {
+                            let result = convert_audio(&input_clone, &output, &preset).await;
+                            (input_clone, next_idx, result, presets_clone)
+                        });
+                        handles.push(handle);
+                    } else if remove_origin_on_failed && input.is_file()
+                        && let Err(e) = std::fs::remove_file(&input)
+                    {
+                        info!("Failed to remove failed origin file {:?}: {}", input, e);
+                    }
+                }
+            }
+        }
     }
 
     Ok(())

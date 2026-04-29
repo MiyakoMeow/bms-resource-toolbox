@@ -231,3 +231,14 @@ pub fn input_string(prompt: &str) -> String {
     io::stdin().read_line(&mut input).unwrap();
     input.trim().to_string()
 }
+
+/// Ask for confirmation with a prompt.
+///
+/// Returns `true` if the user confirms (y/Y/empty when `default_yes`),
+/// `false` otherwise.
+#[must_use]
+pub fn input_confirm(prompt: &str, default_yes: bool) -> bool {
+    let default_str = if default_yes { "[Y/n]" } else { "[y/N]" };
+    let result = input_string(&format!("{prompt} {default_str}"));
+    result.is_empty() || result.to_lowercase().starts_with('y')
+}
