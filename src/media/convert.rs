@@ -14,15 +14,10 @@ use tracing::info;
 
 /// Execute a shell command string cross-platform
 async fn execute_shell_command(cmd_str: &str) -> Result<bool, std::io::Error> {
-    let shell = if cfg!(target_os = "windows") {
-        "cmd"
+    let (shell, shell_arg) = if std::env::consts::OS == "windows" {
+        ("cmd", "/C")
     } else {
-        "sh"
-    };
-    let shell_arg = if cfg!(target_os = "windows") {
-        "/C"
-    } else {
-        "-c"
+        ("sh", "-c")
     };
 
     let status = Command::new(shell)
@@ -87,18 +82,6 @@ pub struct TransferOptions {
     pub stop_on_error: bool,
 }
 
-fn detect_hdd(dir: &Path) -> bool {
-    #[cfg(target_os = "windows")]
-    {
-        !dir.to_string_lossy().starts_with("C:")
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        let _ = dir;
-        true
-    }
-}
-
 async fn collect_tasks(dir: &Path, input_exts: &[&str]) -> Vec<(PathBuf, usize)> {
     let mut tasks: Vec<(PathBuf, usize)> = Vec::new();
     if let Ok(mut entries) = tokio::fs::read_dir(dir).await {
@@ -132,7 +115,6 @@ async fn remove_existing_target(output: &Path, remove: bool) {
 /// - Supports preset fallback: when first preset fails, tries next one
 /// - Handles `remove_origin_on_success` and `remove_origin_on_failed`
 /// - Uses bounded concurrency based on disk type
-#[expect(clippy::too_many_lines)]
 pub async fn transfer_audio_by_format_in_dir(
     dir: &Path,
     input_exts: &[&str],
@@ -146,11 +128,6 @@ pub async fn transfer_audio_by_format_in_dir(
     let cpu_count = std::thread::available_parallelism()
         .map(std::num::NonZero::get)
         .unwrap_or(4);
-    let max_workers = if detect_hdd(dir) {
-        std::cmp::min(cpu_count, 24)
-    } else {
-        cpu_count
-    };
 
     let tasks = collect_tasks(dir, input_exts).await;
     info!("Found {} files to convert in {:?}", tasks.len(), dir);
@@ -163,7 +140,7 @@ pub async fn transfer_audio_by_format_in_dir(
     let mut task_iter = tasks.into_iter();
 
     loop {
-        while handles.len() < max_workers {
+        while handles.len() < cpu_count {
             if let Some((input, preset_idx)) = task_iter.next() {
                 let preset = presets[preset_idx].clone();
                 let input_clone = input.clone();

@@ -334,15 +334,10 @@ pub async fn convert_video(
     let cmd_str = preset.get_video_process_cmd(input, output);
     info!("Running: {}", cmd_str);
 
-    let shell = if cfg!(target_os = "windows") {
-        "cmd"
+    let (shell, shell_arg) = if std::env::consts::OS == "windows" {
+        ("cmd", "/C")
     } else {
-        "sh"
-    };
-    let shell_arg = if cfg!(target_os = "windows") {
-        "/C"
-    } else {
-        "-c"
+        ("sh", "-c")
     };
 
     let status = Command::new(shell)
@@ -372,26 +367,9 @@ pub async fn transfer_video_by_format_in_dir(
     remove_origin_file: bool,
     remove_existing_target_file: bool,
 ) -> Result<(), std::io::Error> {
-    let hdd = {
-        #[cfg(target_os = "windows")]
-        {
-            !dir.to_string_lossy().to_uppercase().starts_with("C:")
-        }
-        #[cfg(not(target_os = "windows"))]
-        {
-            let _ = dir;
-            true
-        }
-    };
-
     let cpu_count = std::thread::available_parallelism()
         .map(std::num::NonZero::get)
         .unwrap_or(4);
-    let max_workers = if hdd {
-        std::cmp::min(cpu_count, 24)
-    } else {
-        cpu_count
-    };
 
     let mut files: Vec<PathBuf> = Vec::new();
     if let Ok(entries) = std::fs::read_dir(dir) {
@@ -417,7 +395,7 @@ pub async fn transfer_video_by_format_in_dir(
     let mut handles: Vec<tokio::task::JoinHandle<Result<(), std::io::Error>>> = Vec::new();
 
     for file_path in files {
-        while handles.len() >= max_workers {
+        while handles.len() >= cpu_count {
             if let Some(handle) = handles.pop() {
                 let _ = handle.await;
             }

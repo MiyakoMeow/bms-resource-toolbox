@@ -5,6 +5,7 @@
 use std::any::Any;
 
 use super::input::input_string;
+use webbrowser;
 
 /// BMS event types for work information pages.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -116,21 +117,5 @@ pub fn jump_to_work_info(_args: &[Box<dyn Any>]) {
 
 /// Open URL in browser.
 pub fn open_url(url: &str) {
-    #[cfg(target_os = "windows")]
-    {
-        std::process::Command::new("cmd")
-            .args(["/C", "start", "", url])
-            .spawn()
-            .ok();
-    }
-
-    #[cfg(target_os = "macos")]
-    {
-        std::process::Command::new("open").arg(url).spawn().ok();
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        std::process::Command::new("xdg-open").arg(url).spawn().ok();
-    }
+    let _ = webbrowser::open(url);
 }
