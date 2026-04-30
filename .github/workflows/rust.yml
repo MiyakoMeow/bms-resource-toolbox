@@ -68,7 +68,7 @@ jobs:
           workspaces: |
             . -> target
 
-      - run: cargo clippy --verbose --all-features -- -D warnings
+      - run: cargo clippy --verbose --all-features -- -D warnings 2>&1
 
   test:
     strategy:
