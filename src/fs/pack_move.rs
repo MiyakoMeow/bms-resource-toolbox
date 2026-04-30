@@ -292,12 +292,49 @@ fn move_dir_recursive(src: &Path, dst: &Path) -> Result<(), std::io::Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
+    use std::fs::File;
+    use std::io::Write;
+    use std::path::{Path, PathBuf};
+
+    fn create_test_dir() -> PathBuf {
+        let temp_dir = std::env::temp_dir();
+        let unique_name = format!(
+            "test_is_dir_having_file_{}_{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        );
+        let path = temp_dir.join(unique_name);
+        std::fs::create_dir_all(&path).unwrap();
+        path
+    }
+
+    fn cleanup_test_dir(path: &Path) {
+        let _ = std::fs::remove_dir_all(path);
+    }
 
     #[test]
     fn test_is_dir_having_file() {
-        let temp_dir = std::env::temp_dir();
-        assert!(is_dir_having_file(&temp_dir));
+        // Create a temp directory with a file
+        let dir = create_test_dir();
+        let file_path = dir.join("test.txt");
+        let mut file = File::create(&file_path).unwrap();
+        file.write_all(b"test content").unwrap();
+        drop(file);
+
+        assert!(is_dir_having_file(&dir));
+
+        // Test with non-existent path
         assert!(!is_dir_having_file(&PathBuf::from("/nonexistent")));
+
+        // Test with empty directory
+        let empty_dir = create_test_dir();
+        assert!(!is_dir_having_file(&empty_dir));
+
+        // Cleanup
+        cleanup_test_dir(&dir);
+        cleanup_test_dir(&empty_dir);
     }
 }
