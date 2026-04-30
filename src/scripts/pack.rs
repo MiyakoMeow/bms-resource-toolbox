@@ -381,7 +381,7 @@ pub async fn pack_setup_rawpack_to_hq(
         &[flac_preset, flac_ffmpeg_preset],
         &TransferOptions {
             remove_origin_on_success: true,
-            remove_origin_on_failed: false,
+            remove_origin_on_failed: true, // Match Python bms_folder_transfer_audio default
             remove_existing_target_file: true,
             stop_on_error: false,
         },
@@ -432,7 +432,7 @@ pub async fn pack_update_rawpack_to_hq(
         &[flac_preset, flac_ffmpeg_preset],
         &TransferOptions {
             remove_origin_on_success: true,
-            remove_origin_on_failed: false,
+            remove_origin_on_failed: true, // Match Python bms_folder_transfer_audio default
             remove_existing_target_file: true,
             stop_on_error: false,
         },
