@@ -9,6 +9,7 @@ use crate::bms::CHART_FILE_EXTS;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::Semaphore;
+use tracing::{info, warn};
 
 /// Walk through BMS directories (directories containing BMS files) - 异步版本
 #[must_use]
@@ -62,10 +63,7 @@ pub async fn has_chart_file(dir: &Path) -> bool {
             while let Ok(Some(entry)) = entries.next_entry().await {
                 let name = entry.file_name();
                 let name_str = name.to_string_lossy();
-                if CHART_FILE_EXTS
-                    .iter()
-                    .any(|ext| name_str.ends_with(&format!(".{ext}")))
-                {
+                if CHART_FILE_EXTS.iter().any(|ext| name_str.ends_with(*ext)) {
                     return true;
                 }
             }
@@ -75,35 +73,30 @@ pub async fn has_chart_file(dir: &Path) -> bool {
     }
 }
 
-/// Remove empty directories recursively - 异步版本
-pub async fn remove_empty_dirs(dir: &Path) -> Result<(), std::io::Error> {
-    if !dir.is_dir() {
+/// Remove empty child directories (non-recursive, matches Python's `remove_empty_folder`).
+pub fn remove_empty_dirs(dir: &Path) -> Result<(), std::io::Error> {
+    let Ok(entries) = std::fs::read_dir(dir) else {
         return Ok(());
-    }
+    };
 
-    if let Ok(mut entries) = tokio::fs::read_dir(dir).await {
-        while let Ok(Some(entry)) = entries.next_entry().await {
-            let path = entry.path();
-            if path.is_dir() {
-                Box::pin(remove_empty_dirs(&path)).await?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        if !super::is_dir_having_file(&path) {
+            info!("Remove empty dir: {:?}", path);
+            match std::fs::remove_dir_all(&path) {
+                Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+                    warn!(" x PermissionError!");
+                }
+                Err(e) => return Err(e),
+                Ok(()) => {}
             }
         }
     }
 
-    if is_dir_empty(dir).await {
-        tokio::fs::remove_dir(dir).await?;
-    }
-
     Ok(())
-}
-
-/// Check if a directory is empty - 异步版本
-#[must_use]
-pub async fn is_dir_empty(dir: &Path) -> bool {
-    match tokio::fs::read_dir(dir).await {
-        Ok(mut entries) => entries.next_entry().await.ok().flatten().is_none(),
-        Err(_) => false,
-    }
 }
 
 #[cfg(test)]

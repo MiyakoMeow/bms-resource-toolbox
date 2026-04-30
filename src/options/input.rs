@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use tokio::io::AsyncWriteExt;
 use tokio::runtime::Handle;
 
-static HISTORY_FILE: &str = "input_history.log";
+static HISTORY_FILE: &str = "history.log";
 
 /// Input type for interactive prompts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -190,7 +190,11 @@ pub fn input_path(_prompt: &str) -> PathBuf {
 pub fn input_confirm(prompt: &str, default_yes: bool) -> bool {
     let default_str = if default_yes { "[Y/n]" } else { "[y/N]" };
     let result = input_string(&format!("{prompt} {default_str}"));
-    result.is_empty() || result.to_lowercase().starts_with('y')
+    if default_yes {
+        result.is_empty() || result.to_lowercase().starts_with('y')
+    } else {
+        result.to_lowercase().starts_with('y')
+    }
 }
 
 async fn load_path_history() -> Vec<PathBuf> {

@@ -138,18 +138,18 @@ pub(crate) async fn read_file_with_priority<P: AsRef<Path>>(
 
 /// Get BMS file string with optional forced encoding
 #[must_use]
+#[allow(clippy::similar_names)]
 pub fn get_bms_file_str(file_bytes: &[u8], encoding: Option<&str>) -> String {
     let mut encodings: Vec<&str> = ENCODINGS.to_vec();
     if let Some(enc) = encoding {
         encodings.insert(0, enc);
     }
     let decoder = PriorityDecoder::new(&encodings);
-    match decoder.decode(file_bytes, "strict") {
-        Ok(s) => s,
-        Err(_) => {
-            // Fallback to UTF-8 ignoring errors
-            String::from_utf8_lossy(file_bytes).into_owned()
-        }
+    if let Ok(s) = decoder.decode(file_bytes, "strict") {
+        s
+    } else {
+        let (decoded, _) = encoding_rs::UTF_8.decode_without_bom_handling(file_bytes);
+        decoded.replace('\u{FFFD}', "")
     }
 }
 

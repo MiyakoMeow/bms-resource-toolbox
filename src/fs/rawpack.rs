@@ -9,7 +9,6 @@
     clippy::items_after_statements
 )]
 
-use regex::Regex;
 use std::collections::HashMap;
 use std::path::Path;
 #[cfg(test)]
@@ -64,19 +63,24 @@ async fn set_mtime(path: &Path, mtime: u32) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Get numbered file names from a directory
-/// Matches patterns like "001 filename.zip", "`001_filename.7z`"
+/// Get numbered file names from a directory.
+///
+/// Matches Python behavior: files whose first space-delimited token is all digits.
 #[must_use]
 pub fn get_num_set_file_names(dir: &Path) -> Vec<String> {
-    let re = Regex::new(r"^(\d+)[_\s]+(.+)$").unwrap();
     let mut names: Vec<String> = Vec::new();
 
     if let Ok(entries) = std::fs::read_dir(dir) {
         for entry in entries.flatten() {
-            let name = entry.file_name().to_string_lossy().to_string();
-            if re.is_match(&name) {
-                names.push(name);
+            if !entry.path().is_file() {
+                continue;
             }
+            let name = entry.file_name().to_string_lossy().to_string();
+            let id_str = name.split(' ').next().unwrap_or("");
+            if id_str.is_empty() || !id_str.chars().all(|c| c.is_ascii_digit()) {
+                continue;
+            }
+            names.push(name);
         }
     }
 
@@ -135,7 +139,12 @@ pub(crate) fn extract_numeric_to_bms_folder(
                 rt.block_on(async { extract_rar(&pack_path_buf, &cache_dir_buf).await })?;
             }
             _ => {
-                info!("Skipping non-archive file: {}", file_name);
+                let target_file_name = file_name
+                    .split_once(' ')
+                    .map_or(file_name.as_str(), |(_, rest)| rest);
+                let target_file_path = cache_dir.join(target_file_name);
+                info!("Copying {} to {}", file_name, target_file_path.display());
+                std::fs::copy(&pack_path, &target_file_path)?;
             }
         }
     }
@@ -507,7 +516,7 @@ pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
                     .extension()
                     .and_then(|e| e.to_str())
                     .unwrap_or("")
-                    .to_lowercase();
+                    .to_string();
                 file_ext_count
                     .entry(ext)
                     .or_default()
@@ -562,7 +571,7 @@ pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
                     " - Renaming inner inner dir name: {:?}",
                     inner_inner_dir_path
                 );
-                let new_path = inner_dir_path.with_file_name(format!("{inner_name}-rep"));
+                let new_path = inner_inner_dir_path.with_file_name(format!("{inner_name}-rep"));
                 if let Err(e) = std::fs::rename(&inner_inner_dir_path, &new_path) {
                     info!("Failed to rename inner inner dir: {}", e);
                 }
@@ -644,7 +653,7 @@ fn file_ext_count_at_path(dir: &Path) -> HashMap<String, Vec<String>> {
                     .extension()
                     .and_then(|e| e.to_str())
                     .unwrap_or("")
-                    .to_lowercase();
+                    .to_string();
                 ext_count.entry(ext).or_default().push(name);
             }
         }

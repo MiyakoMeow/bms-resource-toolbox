@@ -6,11 +6,11 @@
 use serde::{Deserialize, Serialize};
 
 /// BMS file extensions
-pub const BMS_FILE_EXTS: [&str; 4] = ["bms", "bme", "bml", "pms"];
+pub const BMS_FILE_EXTS: [&str; 4] = [".bms", ".bme", ".bml", ".pms"];
 /// BMSON file extensions
-pub const BMSON_FILE_EXTS: [&str; 1] = ["bmson"];
+pub const BMSON_FILE_EXTS: [&str; 1] = [".bmson"];
 /// Chart file extensions (BMS + BMSON)
-pub const CHART_FILE_EXTS: [&str; 5] = ["bms", "bme", "bml", "pms", "bmson"];
+pub const CHART_FILE_EXTS: [&str; 5] = [".bms", ".bme", ".bml", ".pms", ".bmson"];
 
 /// BMS difficulty levels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

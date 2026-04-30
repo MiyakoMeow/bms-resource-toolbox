@@ -418,7 +418,54 @@ pub fn scan_folder_similar_folders(
 /// Calculate similarity ratio between two strings.
 /// Returns a value between 0.0 and 1.0.
 fn similar_ratio(a: &str, b: &str) -> f64 {
-    strsim::normalized_levenshtein(a, b)
+    sequence_matcher_ratio(a, b)
+}
+
+fn sequence_matcher_ratio(a: &str, b: &str) -> f64 {
+    let a_chars: Vec<char> = a.chars().collect();
+    let b_chars: Vec<char> = b.chars().collect();
+    if a_chars.is_empty() && b_chars.is_empty() {
+        return 1.0;
+    }
+    if a_chars.is_empty() || b_chars.is_empty() {
+        return 0.0;
+    }
+    let total = a_chars.len() + b_chars.len();
+    let matches = find_longest_match(&a_chars, &b_chars);
+    #[expect(clippy::cast_precision_loss)]
+    {
+        (2 * matches) as f64 / total as f64
+    }
+}
+
+#[allow(clippy::similar_names)]
+fn find_longest_match(a: &[char], b: &[char]) -> usize {
+    let mut best_len = 0;
+    let mut best_ai = 0;
+    let mut best_bi = 0;
+
+    for ai in 0..a.len() {
+        for bi in 0..b.len() {
+            let mut k = 0;
+            while ai + k < a.len() && bi + k < b.len() && a[ai + k] == b[bi + k] {
+                k += 1;
+            }
+            if k > best_len {
+                best_len = k;
+                best_ai = ai;
+                best_bi = bi;
+            }
+        }
+    }
+
+    if best_len == 0 {
+        return 0;
+    }
+
+    let left_matches = find_longest_match(&a[..best_ai], &b[..best_bi]);
+    let right_matches = find_longest_match(&a[best_ai + best_len..], &b[best_bi + best_len..]);
+
+    best_len + left_matches + right_matches
 }
 
 /// Undo `set_name` by removing " \[artist\]" suffix
@@ -447,29 +494,25 @@ pub fn undo_set_name(root_dir: &Path) -> Result<(), std::io::Error> {
 
         let dir_name = dir_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
-        // Find first space and check if ends with "]"
-        if let Some(space_pos) = dir_name.find(' ') {
-            let suffix = &dir_name[space_pos..];
-            if suffix.ends_with(']') {
-                let new_dir_name = &dir_name[..space_pos];
-                let new_dir_path = root_dir.join(new_dir_name);
+        let parts: Vec<&str> = dir_name.splitn(2, ' ').collect();
+        let new_dir_name = parts[0];
 
-                if dir_name == new_dir_name {
-                    continue;
-                }
-
-                if new_dir_path.is_dir() {
-                    println!(
-                        "Warning: Target {} already exists! Skipping {dir_name}",
-                        new_dir_path.display()
-                    );
-                    continue;
-                }
-
-                println!("Rename {dir_name} to {new_dir_name}");
-                std::fs::rename(&dir_path, &new_dir_path)?;
-            }
+        if dir_name == new_dir_name {
+            continue;
         }
+
+        let new_dir_path = root_dir.join(new_dir_name);
+
+        if new_dir_path.is_dir() {
+            println!(
+                "Warning: Target {} already exists! Skipping {dir_name}",
+                new_dir_path.display()
+            );
+            continue;
+        }
+
+        println!("Rename {dir_name} to {new_dir_name}");
+        std::fs::rename(&dir_path, &new_dir_path)?;
     }
 
     Ok(())

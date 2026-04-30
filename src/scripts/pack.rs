@@ -419,6 +419,13 @@ pub async fn pack_update_rawpack_to_hq(
     );
 
     // Setup directories
+    // Match Python: mkdir(exist_ok=False) — fail if directory already exists
+    if root_dir.exists() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::AlreadyExists,
+            format!("Directory {} already exists", root_dir.display()),
+        ));
+    }
     tokio::fs::create_dir_all(root_dir).await?;
     let cache_dir = root_dir.join("CacheDir");
 
@@ -457,7 +464,7 @@ pub async fn pack_update_rawpack_to_hq(
 
     // Step 6: Remove empty folders
     info!("Removing empty folder in {:?}", root_dir);
-    remove_empty_dirs(root_dir).await?;
+    remove_empty_dirs(root_dir)?;
 
     Ok(())
 }

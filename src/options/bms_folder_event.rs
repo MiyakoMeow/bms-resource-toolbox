@@ -7,7 +7,7 @@ use tracing::info;
 
 use crate::bms::dir::get_dir_bms_info;
 use crate::bms::work::parse_work_dir_name;
-use rust_xlsxwriter::{Format, Workbook};
+use rust_xlsxwriter::Workbook;
 
 /// Check if numbered folders exist in a BMS event directory
 ///
@@ -83,11 +83,10 @@ pub fn create_num_folders(root_dir: &Path, folder_count: i32) -> Result<(), std:
 ///
 /// Panics if stdout flush fails.
 pub async fn generate_work_info_table(root_dir: &Path) -> anyhow::Result<()> {
-    use std::io::{self, Write};
-
     info!("Generating work info table for: {:?}", root_dir);
 
-    let mut work_entries: Vec<(u32, String, String, String, String)> = Vec::new();
+    let mut workbook = Workbook::new();
+    let worksheet = workbook.add_worksheet();
 
     let entries: Vec<_> = std::fs::read_dir(root_dir)?
         .filter_map(std::result::Result::ok)
@@ -99,70 +98,31 @@ pub async fn generate_work_info_table(root_dir: &Path) -> anyhow::Result<()> {
             continue;
         }
 
-        let work_name = work_path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("")
-            .to_string();
+        let work_name = work_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
-        let bms_info = get_dir_bms_info(&work_path).await;
-        let (title, artist, genre) = match bms_info {
-            Some(i) => (i.title, i.artist, i.genre),
-            None => (String::new(), String::new(), String::new()),
+        let Some(info) = get_dir_bms_info(&work_path).await else {
+            continue;
         };
 
-        let (num_str, _rest) = parse_work_dir_name(&work_name);
-        if let Some(id_str) = num_str
-            && let Ok(id) = id_str.parse::<u32>()
-        {
-            work_entries.push((id, work_name, title, artist, genre));
+        let (num_str, _rest) = parse_work_dir_name(work_name);
+        let Some(id_str) = num_str else { continue };
+        if !id_str.chars().all(|c| c.is_ascii_digit()) {
+            continue;
         }
+        let row: u32 = id_str.parse().unwrap_or(0);
+        if row == 0 {
+            continue;
+        }
+
+        worksheet.write_number(row, 0, f64::from(row))?;
+        worksheet.write_string(row, 1, &info.title)?;
+        worksheet.write_string(row, 2, &info.artist)?;
+        worksheet.write_string(row, 3, &info.genre)?;
     }
 
-    if work_entries.is_empty() {
-        info!("No works found in directory");
-        return Ok(());
-    }
-
-    work_entries.sort_by(|a, b| a.0.cmp(&b.0));
-
-    print!("Output filename (default: bms_list.xlsx): ");
-    io::stdout().flush().unwrap();
-
-    let mut input = String::new();
-    io::stdin().read_line(&mut input).unwrap();
-    let filename = input.trim();
-    let filename = if filename.is_empty() {
-        "bms_list.xlsx".to_string()
-    } else {
-        filename.to_string()
-    };
-
-    let output_path = root_dir.join(&filename);
-
-    info!("Writing to file: {:?}", output_path);
-
-    let mut workbook = Workbook::new();
-    let worksheet = workbook.add_worksheet();
-
-    let header_format = Format::new().set_bold();
-    worksheet.write_string_with_format(0, 0, "ID", &header_format)?;
-    worksheet.write_string_with_format(0, 1, "Title", &header_format)?;
-    worksheet.write_string_with_format(0, 2, "Artist", &header_format)?;
-    worksheet.write_string_with_format(0, 3, "Genre", &header_format)?;
-
-    for (row_idx, (id, _name, title, artist, genre)) in work_entries.iter().enumerate() {
-        #[allow(clippy::cast_possible_truncation)]
-        let row = (row_idx + 1) as u32;
-        worksheet.write_number(row, 0, f64::from(*id))?;
-        worksheet.write_string(row, 1, title)?;
-        worksheet.write_string(row, 2, artist)?;
-        worksheet.write_string(row, 3, genre)?;
-    }
-
-    workbook.save(&output_path)?;
-
-    println!("Saved table to {}", output_path.display());
+    let table_path = root_dir.join("bms_list.xlsx");
+    println!("Saving table to {}", table_path.display());
+    workbook.save(&table_path)?;
 
     Ok(())
 }

@@ -173,9 +173,7 @@ fn is_root_dir(paths: &[Box<dyn Any>]) -> bool {
             let p = entry.path();
             if p.is_file()
                 && let Some(name) = p.file_name().and_then(|n| n.to_str())
-                && bms_exts
-                    .iter()
-                    .any(|ext| name.to_lowercase().ends_with(ext))
+                && bms_exts.iter().any(|ext| name.ends_with(ext))
             {
                 return false;
             }
@@ -345,9 +343,8 @@ async fn main() {
 
     {
         use options::bms_folder_bigpack::{
-            merge_split_folders, move_out_works, move_works_in_pack, move_works_with_same_name,
-            move_works_with_same_name_to_siblings, remove_unneed_media_files,
-            split_folders_with_first_char, undo_split_pack,
+            move_out_works, move_works_in_pack, move_works_with_same_name,
+            move_works_with_same_name_to_siblings, split_folders_with_first_char, undo_split_pack,
         };
 
         let mut bigpack_opts: Vec<MenuOption> = Vec::new();
@@ -376,7 +373,13 @@ async fn main() {
                 input_type: InputType::Path,
                 description: "The target folder path.".to_string(),
             }],
-            check_func: Some(|args| !is_root_dir(args)),
+            check_func: Some(|args| {
+                let path = args
+                    .first()
+                    .and_then(|p| p.downcast_ref::<PathBuf>())
+                    .unwrap();
+                !path.is_dir()
+            }),
             confirm: ConfirmType::DefaultYes,
         });
 
@@ -439,34 +442,6 @@ async fn main() {
             inputs: vec![Input {
                 input_type: InputType::Path,
                 description: "Dir".to_string(),
-            }],
-            check_func: Some(is_root_dir),
-            confirm: ConfirmType::DefaultYes,
-        });
-
-        bigpack_opts.push(MenuOption {
-            name: "BMS大包目录：合并已分割的文件夹（撤销按首字符分割）".to_string(),
-            exec_func: |args| {
-                let path = args[0].downcast_ref::<PathBuf>().unwrap();
-                let _ = merge_split_folders(path);
-            },
-            inputs: vec![Input {
-                input_type: InputType::Path,
-                description: "Root Dir".to_string(),
-            }],
-            check_func: Some(is_root_dir),
-            confirm: ConfirmType::DefaultYes,
-        });
-
-        bigpack_opts.push(MenuOption {
-            name: "BMS大包目录：移除冗余媒体文件（按预设规则）".to_string(),
-            exec_func: |args| {
-                let path = args[0].downcast_ref::<PathBuf>().unwrap();
-                let _ = remove_unneed_media_files(path, None);
-            },
-            inputs: vec![Input {
-                input_type: InputType::Path,
-                description: "Root Dir".to_string(),
             }],
             check_func: Some(is_root_dir),
             confirm: ConfirmType::DefaultYes,

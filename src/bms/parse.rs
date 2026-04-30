@@ -9,7 +9,6 @@ use crate::bms::encoding::read_bms_file;
 use crate::bms::types::{BMSDifficulty, BMSInfo};
 use std::collections::HashMap;
 use std::path::Path;
-use tokio::fs;
 
 /// Parse a BMS file and extract metadata - 异步版本
 ///
@@ -101,9 +100,18 @@ pub fn parse_bms_content(content: &str) -> BMSInfo {
 ///
 /// # Errors
 pub async fn parse_bmson_file<P: AsRef<Path>>(path: P) -> Result<BMSInfo, std::io::Error> {
-    let content = fs::read_to_string(path).await?;
-    parse_bmson_content(&content)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+    let content = read_bms_file(path).await?;
+    match parse_bmson_content(&content) {
+        Ok(info) => Ok(info),
+        Err(e) => {
+            tracing::info!(" !_!: Json Decode Error! {:?}", e);
+            Ok(BMSInfo::new(
+                "Error".to_string(),
+                "Error".to_string(),
+                "Error".to_string(),
+            ))
+        }
+    }
 }
 
 /// Parse BMSON JSON content

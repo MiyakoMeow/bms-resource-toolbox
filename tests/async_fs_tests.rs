@@ -74,7 +74,7 @@ async fn test_remove_empty_dirs_removes_leaf() {
     let empty = dir.join("empty_sub");
     tokio::fs::create_dir_all(&empty).await.unwrap();
 
-    let result = remove_empty_dirs(&dir).await;
+    let result = remove_empty_dirs(&dir);
     assert!(result.is_ok());
     assert!(!empty.exists());
     let _ = tokio::fs::remove_dir_all(&dir).await;
@@ -86,7 +86,7 @@ async fn test_remove_empty_dirs_removes_nested_empty() {
     let nested = dir.join("a").join("b").join("c");
     tokio::fs::create_dir_all(&nested).await.unwrap();
 
-    let result = remove_empty_dirs(&dir).await;
+    let result = remove_empty_dirs(&dir);
     assert!(result.is_ok());
     assert!(!dir.join("a").exists());
     let _ = tokio::fs::remove_dir_all(&dir).await;
@@ -101,7 +101,7 @@ async fn test_remove_empty_dirs_preserves_non_empty() {
         .await
         .unwrap();
 
-    let result = remove_empty_dirs(&dir).await;
+    let result = remove_empty_dirs(&dir);
     assert!(result.is_ok());
     assert!(sub.exists());
     assert!(sub.join("data.txt").exists());
@@ -113,6 +113,6 @@ async fn test_remove_empty_dirs_on_nonexistent_path() {
     let path = std::env::temp_dir()
         .join("bms_toolbox_tests")
         .join("nonexistent_rm_7291");
-    let result = remove_empty_dirs(&path).await;
+    let result = remove_empty_dirs(&path);
     assert!(result.is_ok());
 }

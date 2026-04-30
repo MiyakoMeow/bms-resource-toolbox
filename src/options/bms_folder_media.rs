@@ -62,32 +62,25 @@ pub async fn transfer_audio(root_dir: &Path) -> Result<(), std::io::Error> {
         info!("  {}: {}", i, name);
     }
 
-    print!("Select mode (number, or space-separated for multiple): ");
+    let max_index = modes.len() - 1;
+    print!("输入数字选择目标格式（0-{max_index}）：");
     io::stdout().flush().unwrap();
 
     let mut input = String::new();
     io::stdin().read_line(&mut input).unwrap();
-    let input = input.trim();
+    let selection = input.trim().parse::<usize>();
 
-    let selections: Vec<usize> = input
-        .split_whitespace()
-        .filter_map(|s| s.parse::<usize>().ok())
-        .filter(|i| *i < modes.len())
-        .collect();
+    let idx = match selection {
+        Ok(i) if i < modes.len() => i,
+        _ => {
+            info!("No valid selection, aborting.");
+            return Ok(());
+        }
+    };
 
-    if selections.is_empty() {
-        info!("No valid selection, aborting.");
-        return Ok(());
-    }
-
-    // Build combined presets list from selections
-    let mut combined_exts: Vec<&str> = Vec::new();
-    let mut combined_presets: Vec<AudioPreset> = Vec::new();
-    for &idx in &selections {
-        let (_, exts, presets) = &modes[idx];
-        combined_exts.extend(exts.iter().copied());
-        combined_presets.extend(presets.iter().cloned());
-    }
+    let (_, exts, presets) = &modes[idx];
+    let combined_exts: Vec<&str> = exts.clone();
+    let combined_presets: Vec<AudioPreset> = presets.clone();
 
     // Process each work directory
     let entries: Vec<_> = std::fs::read_dir(root_dir)?
@@ -110,9 +103,9 @@ pub async fn transfer_audio(root_dir: &Path) -> Result<(), std::io::Error> {
             &combined_presets,
             &TransferOptions {
                 remove_origin_on_success: true,
-                remove_origin_on_failed: true,
+                remove_origin_on_failed: false,
                 remove_existing_target_file: true,
-                stop_on_error: false,
+                stop_on_error: true,
             },
         )
         .await?;
@@ -140,13 +133,13 @@ pub async fn transfer_video(root_dir: &Path) -> Result<(), std::io::Error> {
     // Video presets: (name, preset)
     let presets: [(&str, VideoPreset); 6] = [
         ("MP4 -> AVI 512x512", VIDEO_PRESET_AVI_512X512.clone()),
-        ("MP4 -> AVI 480p", VIDEO_PRESET_AVI_480P.clone()),
         ("MP4 -> WMV2 512x512", VIDEO_PRESET_WMV2_512X512.clone()),
-        ("MP4 -> WMV2 480p", VIDEO_PRESET_WMV2_480P.clone()),
         (
             "MP4 -> MPEG1VIDEO 512x512",
             VIDEO_PRESET_MPEG1VIDEO_512X512.clone(),
         ),
+        ("MP4 -> AVI 480p", VIDEO_PRESET_AVI_480P.clone()),
+        ("MP4 -> WMV2 480p", VIDEO_PRESET_WMV2_480P.clone()),
         (
             "MP4 -> MPEG1VIDEO 480p",
             VIDEO_PRESET_MPEG1VIDEO_480P.clone(),
@@ -158,30 +151,23 @@ pub async fn transfer_video(root_dir: &Path) -> Result<(), std::io::Error> {
         info!("  {}: {}", i, name);
     }
 
-    print!("Select modes (space-separated numbers): ");
+    let max_index = presets.len() - 1;
+    print!("输入数字选择目标格式（0-{max_index}）：");
     io::stdout().flush().unwrap();
 
     let mut input = String::new();
     io::stdin().read_line(&mut input).unwrap();
-    let input = input.trim();
+    let selection = input.trim().parse::<usize>();
 
-    let selections: Vec<usize> = input
-        .split_whitespace()
-        .filter_map(|s| s.parse::<usize>().ok())
-        .filter(|i| *i < presets.len())
-        .collect();
+    let idx = match selection {
+        Ok(i) if i < presets.len() => i,
+        _ => {
+            info!("No valid selection, aborting.");
+            return Ok(());
+        }
+    };
 
-    if selections.is_empty() {
-        info!("No valid selection, aborting.");
-        return Ok(());
-    }
-
-    // Build combined presets list
-    let mut combined_presets: Vec<VideoPreset> = Vec::new();
-    for &idx in &selections {
-        let (_, preset) = &presets[idx];
-        combined_presets.push(preset.clone());
-    }
+    let preset = presets[idx].1.clone();
 
     // Process each work directory
     let entries: Vec<_> = std::fs::read_dir(root_dir)?
@@ -198,7 +184,14 @@ pub async fn transfer_video(root_dir: &Path) -> Result<(), std::io::Error> {
 
         info!("Processing: {}", bms_dir_name);
 
-        transfer_video_by_format_in_dir(&bms_dir, &["mp4"], &combined_presets, true, true).await?;
+        transfer_video_by_format_in_dir(
+            &bms_dir,
+            &["mp4"],
+            std::slice::from_ref(&preset),
+            true,
+            true,
+        )
+        .await?;
     }
 
     Ok(())

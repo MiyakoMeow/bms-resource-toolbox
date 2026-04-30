@@ -133,6 +133,12 @@ pub fn move_elements_across_dir(
     options: MoveOptions,
     replace_options: ReplaceOptions,
 ) -> Result<(), std::io::Error> {
+    if let (Ok(src_canon), Ok(dst_canon)) = (src.canonicalize(), dst.canonicalize())
+        && src_canon == dst_canon
+    {
+        return Ok(());
+    }
+
     if !src.is_dir() {
         return Err(std::io::Error::new(
             std::io::ErrorKind::NotADirectory,

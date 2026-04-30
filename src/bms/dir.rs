@@ -87,15 +87,25 @@ pub async fn get_dir_bms_info(bms_dir_path: &Path) -> Option<BMSInfo> {
     let titles: Vec<String> = bms_list.iter().map(|b| b.title.clone()).collect();
     let title = extract_work_name(&titles, true, &[]);
 
-    let title =
-        if title.ends_with('-') && !title.matches('-').count().is_multiple_of(2) && title.len() > 1
-        {
-            title[..title.len() - 1].trim().to_string()
-        } else {
-            title
-        };
+    let title = {
+        let mut result = title;
+        let mut chars: Vec<char> = result.chars().collect();
+        if chars.last() == Some(&'-') {
+            let dash_count = chars.iter().filter(|&&c| c == '-').count();
+            if dash_count % 2 != 0 && chars.len() >= 2 {
+                let before_dash = chars[chars.len() - 2];
+                if before_dash.is_whitespace() {
+                    chars.pop();
+                    result = chars.into_iter().collect();
+                    result = result.trim().to_string();
+                }
+            }
+        }
+        result
+    };
 
-    let artist = extract_work_name_for_artist(&titles);
+    let artists: Vec<String> = bms_list.iter().map(|b| b.artist.clone()).collect();
+    let artist = extract_work_name_for_artist(&artists);
 
     let genres: Vec<String> = bms_list.iter().map(|b| b.genre.clone()).collect();
     let genre = extract_work_name(&genres, true, &[]);

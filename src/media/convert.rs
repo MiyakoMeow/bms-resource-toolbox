@@ -6,7 +6,7 @@
 #![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 
 use crate::media::audio::{AudioPreset, get_audio_process_cmd};
-use crate::media::video::{VideoPreset, get_video_process_cmd};
+use crate::media::video::VideoPreset;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use tokio::process::Command;
@@ -64,7 +64,7 @@ pub async fn convert_video(
     output: &Path,
     preset: &VideoPreset,
 ) -> Result<(), std::io::Error> {
-    let cmd_str = get_video_process_cmd(input, output, preset);
+    let cmd_str = preset.get_video_process_cmd(input, output);
     info!("Running: {}", cmd_str);
 
     if execute_shell_command(&cmd_str).await? {
@@ -94,8 +94,8 @@ fn detect_hdd(dir: &Path) -> bool {
     }
     #[cfg(not(target_os = "windows"))]
     {
-        let path_str = dir.to_string_lossy();
-        !path_str.starts_with("/tmp") && !path_str.starts_with("/home")
+        let _ = dir;
+        true
     }
 }
 
@@ -132,6 +132,7 @@ async fn remove_existing_target(output: &Path, remove: bool) {
 /// - Supports preset fallback: when first preset fails, tries next one
 /// - Handles `remove_origin_on_success` and `remove_origin_on_failed`
 /// - Uses bounded concurrency based on disk type
+#[expect(clippy::too_many_lines)]
 pub async fn transfer_audio_by_format_in_dir(
     dir: &Path,
     input_exts: &[&str],
@@ -142,7 +143,14 @@ pub async fn transfer_audio_by_format_in_dir(
         return Ok(());
     }
 
-    let max_workers = if detect_hdd(dir) { 4 } else { 8 };
+    let cpu_count = std::thread::available_parallelism()
+        .map(std::num::NonZero::get)
+        .unwrap_or(4);
+    let max_workers = if detect_hdd(dir) {
+        std::cmp::min(cpu_count, 24)
+    } else {
+        cpu_count
+    };
 
     let tasks = collect_tasks(dir, input_exts).await;
     info!("Found {} files to convert in {:?}", tasks.len(), dir);
@@ -163,6 +171,15 @@ pub async fn transfer_audio_by_format_in_dir(
                 let output_ext = &preset.output_format;
                 let output = input.parent().unwrap().join(format!("{stem}.{output_ext}"));
                 let presets_vec = presets.to_vec();
+
+                if output.is_file()
+                    && let Ok(metadata) = std::fs::metadata(&output)
+                    && metadata.len() > 0
+                    && !options.remove_existing_target_file
+                {
+                    info!("File {:?} exists! Skipping...", output);
+                    continue;
+                }
 
                 remove_existing_target(&output, options.remove_existing_target_file).await;
 
@@ -203,6 +220,14 @@ pub async fn transfer_audio_by_format_in_dir(
                         let stem = input.file_stem().unwrap_or_default().to_string_lossy();
                         let output_ext = &preset.output_format;
                         let output = input.parent().unwrap().join(format!("{stem}.{output_ext}"));
+
+                        if output.is_file()
+                            && let Ok(metadata) = std::fs::metadata(&output)
+                            && metadata.len() > 0
+                            && !options.remove_existing_target_file
+                        {
+                            continue;
+                        }
 
                         remove_existing_target(&output, options.remove_existing_target_file).await;
 

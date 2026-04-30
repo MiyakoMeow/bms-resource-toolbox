@@ -23,23 +23,26 @@ pub struct VideoInfo {
     pub bit_rate: u64,
 }
 
-/// Video conversion preset.
+/// Video conversion preset matching Python's `VideoPreset` field model.
 #[derive(Debug, Clone)]
 pub struct VideoPreset {
     /// Name of the preset
     #[allow(dead_code)]
     pub name: String,
-    /// Executable name (ffmpeg)
+    /// Executable name (e.g. "ffmpeg")
     #[allow(dead_code)]
     pub exec: String,
-    /// Output format (avi, mpg, wmv)
-    pub output_format: String,
-    /// Target width
-    pub width: u32,
-    /// Target height
-    pub height: u32,
-    /// Codec arguments
-    pub codec_args: String,
+    /// Input argument (e.g. "`-hide_banner` -i")
+    pub input_arg: String,
+    /// Filter argument (e.g. `FLITER_512X512`)
+    #[allow(dead_code)]
+    pub filter_arg: String,
+    /// Output file extension (e.g. "avi")
+    pub output_file_ext: String,
+    /// Output codec (e.g. "mpeg4")
+    pub output_codec: String,
+    /// Additional arguments (e.g. "-an -q:v 8")
+    pub arg: String,
 }
 
 impl VideoPreset {
@@ -48,18 +51,20 @@ impl VideoPreset {
     pub fn new(
         name: &str,
         exec: &str,
-        output_format: &str,
-        width: u32,
-        height: u32,
-        codec_args: &str,
+        input_arg: &str,
+        filter_arg: &str,
+        output_file_ext: &str,
+        output_codec: &str,
+        arg: &str,
     ) -> Self {
         Self {
             name: name.to_string(),
             exec: exec.to_string(),
-            output_format: output_format.to_string(),
-            width,
-            height,
-            codec_args: codec_args.to_string(),
+            input_arg: input_arg.to_string(),
+            filter_arg: filter_arg.to_string(),
+            output_file_ext: output_file_ext.to_string(),
+            output_codec: output_codec.to_string(),
+            arg: arg.to_string(),
         }
     }
 
@@ -71,33 +76,33 @@ impl VideoPreset {
         input_file_path
             .parent()
             .unwrap_or(Path::new("."))
-            .join(format!("{}.{}", stem.to_string_lossy(), self.output_format))
+            .join(format!(
+                "{}.{}",
+                stem.to_string_lossy(),
+                self.output_file_ext
+            ))
     }
 
-    /// Get ffmpeg filter complex for resizing (Python-style with boxblur overlay)
-    #[must_use]
-    pub fn filter_complex(&self) -> String {
-        if self.width == 512 && self.height == 512 {
-            FLITER_512X512.to_string()
-        } else {
-            FLITER_480P.to_string()
-        }
-    }
-
-    /// Get ffmpeg command string
+    /// Get ffmpeg command string matching Python's `get_video_process_cmd` exactly.
     #[must_use]
     #[allow(dead_code)]
     pub fn get_video_process_cmd(&self, input_file_path: &Path, output_file_path: &Path) -> String {
         let input = input_file_path.to_string_lossy();
         let output = output_file_path.to_string_lossy();
-        let filter = self.filter_complex();
-
+        let inner_arg = if self.exec == "ffmpeg" {
+            "-map_metadata 0"
+        } else {
+            ""
+        };
         format!(
-            "ffmpeg -hide_banner -i \"{}\" {} -map_metadata 0 -c:v {} {} \"{}\"",
+            "{} {} \"{}\" {} {} -c:v {} {} \"{}\"",
+            self.exec,
+            self.input_arg,
             input,
-            filter,
-            self.codec_args.split_whitespace().next().unwrap_or("mpeg4"),
-            self.codec_args,
+            self.filter_arg,
+            inner_arg,
+            self.output_codec,
+            self.arg,
             output
         )
     }
@@ -115,10 +120,11 @@ pub fn video_preset_avi_512x512() -> VideoPreset {
     VideoPreset::new(
         "AVI_512X512",
         "ffmpeg",
+        "-hide_banner -i",
+        FLITER_512X512,
         "avi",
-        512,
-        512,
-        "-c:v mpeg4 -q:v 8 -an",
+        "mpeg4",
+        "-an -q:v 8",
     )
 }
 
@@ -128,10 +134,11 @@ pub fn video_preset_mpeg1video_512x512() -> VideoPreset {
     VideoPreset::new(
         "MPEG1VIDEO_512X512",
         "ffmpeg",
+        "-hide_banner -i",
+        FLITER_512X512,
         "mpg",
-        512,
-        512,
-        "-c:v mpeg1video -b:v 1500k -an",
+        "mpeg1video",
+        "-an -b:v 1500k",
     )
 }
 
@@ -141,10 +148,11 @@ pub fn video_preset_wmv2_512x512() -> VideoPreset {
     VideoPreset::new(
         "WMV2_512X512",
         "ffmpeg",
+        "-hide_banner -i",
+        FLITER_512X512,
         "wmv",
-        512,
-        512,
-        "-c:v wmv2 -q:v 8 -an",
+        "wmv2",
+        "-an -q:v 8",
     )
 }
 
@@ -154,10 +162,11 @@ pub fn video_preset_avi_480p() -> VideoPreset {
     VideoPreset::new(
         "AVI_480P",
         "ffmpeg",
+        "-hide_banner -i",
+        FLITER_480P,
         "avi",
-        640,
-        480,
-        "-c:v mpeg4 -q:v 8 -an",
+        "mpeg4",
+        "-an -q:v 8",
     )
 }
 
@@ -167,10 +176,11 @@ pub fn video_preset_wmv2_480p() -> VideoPreset {
     VideoPreset::new(
         "WMV2_480P",
         "ffmpeg",
+        "-hide_banner -i",
+        FLITER_480P,
         "wmv",
-        640,
-        480,
-        "-c:v wmv2 -q:v 8 -an",
+        "wmv2",
+        "-an -q:v 8",
     )
 }
 
@@ -180,10 +190,11 @@ pub fn video_preset_mpeg1video_480p() -> VideoPreset {
     VideoPreset::new(
         "MPEG1VIDEO_480P",
         "ffmpeg",
+        "-hide_banner -i",
+        FLITER_480P,
         "mpg",
-        640,
-        480,
-        "-c:v mpeg1video -b:v 1500k -an",
+        "mpeg1video",
+        "-an -b:v 1500k",
     )
 }
 
@@ -287,7 +298,6 @@ pub fn get_prefered_preset_list(file_path: &Path) -> Vec<VideoPreset> {
         return Vec::new();
     };
 
-    // If width/height > 640/480, use 480p presets
     if f64::from(width) / f64::from(height) > 640.0 / 480.0 {
         vec![
             video_preset_mpeg1video_480p(),
@@ -314,23 +324,6 @@ pub fn video_presets() -> [VideoPreset; 3] {
     ]
 }
 
-/// Get video process command.
-#[must_use]
-pub fn get_video_process_cmd(
-    file_path: &Path,
-    output_file_path: &Path,
-    preset: &VideoPreset,
-) -> String {
-    let input = file_path.to_string_lossy();
-    let output = output_file_path.to_string_lossy();
-    let filter = preset.filter_complex();
-
-    format!(
-        "ffmpeg -hide_banner -loglevel panic -i \"{}\" -vf \"{}\" {} -c:a copy \"{}\"",
-        input, filter, preset.codec_args, output
-    )
-}
-
 /// Convert video file using preset
 #[allow(dead_code)]
 pub async fn convert_video(
@@ -338,7 +331,7 @@ pub async fn convert_video(
     output: &Path,
     preset: &VideoPreset,
 ) -> Result<(), std::io::Error> {
-    let cmd_str = get_video_process_cmd(input, output, preset);
+    let cmd_str = preset.get_video_process_cmd(input, output);
     info!("Running: {}", cmd_str);
 
     let shell = if cfg!(target_os = "windows") {
@@ -366,21 +359,41 @@ pub async fn convert_video(
     }
 }
 
-/// Transfer video files in directory using presets (with fallback)
+/// Transfer video files in directory using presets (with fallback).
+/// Matches Python's `process_video_in_dir` behavior:
+/// - For each file matching `input_exts`, try each preset in order
+/// - If conversion succeeds: delete original (if `remove_origin_file`), break
+/// - If conversion fails: delete failed output, try next preset
+/// - Only report error when last preset fails
 pub async fn transfer_video_by_format_in_dir(
     dir: &Path,
     input_exts: &[&str],
     presets: &[VideoPreset],
-    _remove_origin_on_success: bool,
-    _remove_origin_on_failed: bool,
+    remove_origin_file: bool,
+    remove_existing_target_file: bool,
 ) -> Result<(), std::io::Error> {
-    let hdd = !dir.to_string_lossy().contains(":\\C\\");
+    let hdd = {
+        #[cfg(target_os = "windows")]
+        {
+            !dir.to_string_lossy().to_uppercase().starts_with("C:")
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            let _ = dir;
+            true
+        }
+    };
 
-    let max_workers = if hdd { 4 } else { 8 };
+    let cpu_count = std::thread::available_parallelism()
+        .map(std::num::NonZero::get)
+        .unwrap_or(4);
+    let max_workers = if hdd {
+        std::cmp::min(cpu_count, 24)
+    } else {
+        cpu_count
+    };
 
-    // Find files matching input extensions
-    let mut tasks: Vec<(PathBuf, PathBuf, usize)> = Vec::new();
-
+    let mut files: Vec<PathBuf> = Vec::new();
     if let Ok(entries) = std::fs::read_dir(dir) {
         for entry in entries.flatten() {
             let path = entry.path();
@@ -390,38 +403,73 @@ pub async fn transfer_video_by_format_in_dir(
                     .iter()
                     .any(|e| e.to_lowercase() == ext.to_string_lossy().to_lowercase())
             {
-                let stem = path.file_stem().unwrap_or_default().to_string_lossy();
-                let output_ext = &presets[0].output_format;
-                let output = path.parent().unwrap().join(format!("{stem}.{output_ext}"));
-                tasks.push((path, output, 0));
+                files.push(path);
             }
         }
     }
 
-    info!("Found {} video files to convert in {:?}", tasks.len(), dir);
+    info!("Found {} video files to convert in {:?}", files.len(), dir);
 
-    // Process with bounded concurrency
-    let mut handles = Vec::new();
-    for (input, output, preset_idx) in tasks {
-        if handles.len() >= max_workers
-            && let Some(res) = handles.pop()
-        {
-            let _ = res.await;
+    if files.is_empty() {
+        return Ok(());
+    }
+
+    let mut handles: Vec<tokio::task::JoinHandle<Result<(), std::io::Error>>> = Vec::new();
+
+    for file_path in files {
+        while handles.len() >= max_workers {
+            if let Some(handle) = handles.pop() {
+                let _ = handle.await;
+            }
         }
 
-        let preset = &presets[preset_idx];
-        let input_clone = input.clone();
-        let output_clone = output.clone();
-        let preset_clone = preset.clone();
-
+        let presets_clone = presets.to_vec();
         let handle = tokio::spawn(async move {
-            let result = convert_video(&input_clone, &output_clone, &preset_clone).await;
-            (input_clone, preset_idx, result)
+            let mut last_error = false;
+
+            for (i, preset) in presets_clone.iter().enumerate() {
+                let output = preset.get_output_file_path(&file_path);
+
+                if file_path == output {
+                    break;
+                }
+
+                if output.is_file() {
+                    if remove_existing_target_file {
+                        let _ = std::fs::remove_file(&output);
+                    } else {
+                        continue;
+                    }
+                }
+
+                let result = convert_video(&file_path, &output, preset).await;
+
+                if result.is_ok() {
+                    if remove_origin_file && file_path.is_file() {
+                        let _ = std::fs::remove_file(&file_path);
+                    }
+                    break;
+                }
+                if output.is_file() {
+                    let _ = std::fs::remove_file(&output);
+                }
+                if i == presets_clone.len() - 1 {
+                    last_error = true;
+                }
+            }
+
+            if last_error {
+                Err(std::io::Error::other(format!(
+                    "All presets failed for {}",
+                    file_path.display()
+                )))
+            } else {
+                Ok(())
+            }
         });
         handles.push(handle);
     }
 
-    // Wait for remaining
     for handle in handles {
         let _ = handle.await;
     }
@@ -446,35 +494,42 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_video_preset_filter() {
-        let preset = video_preset_mpeg1video_512x512();
-        let filter = preset.filter_complex();
-        assert!(filter.contains("512"));
-        assert!(filter.contains("scale"));
-    }
-
-    #[test]
-    fn test_get_video_process_cmd() {
+    fn test_video_preset_cmd_matches_python() {
+        let preset = video_preset_avi_512x512();
         let input = Path::new("/path/to/input.mp4");
         let output = Path::new("/path/to/output.avi");
-        let preset = video_preset_avi_512x512();
-        let cmd = get_video_process_cmd(input, output, &preset);
-        assert!(cmd.contains("ffmpeg"));
+        let cmd = preset.get_video_process_cmd(input, output);
+        assert!(cmd.contains("ffmpeg -hide_banner -i"));
         assert!(cmd.contains("input.mp4"));
         assert!(cmd.contains("output.avi"));
+        assert!(cmd.contains("-c:v mpeg4"));
+        assert!(cmd.contains("-an -q:v 8"));
+        assert!(cmd.contains("-map_metadata 0"));
+        assert!(cmd.contains("-filter_complex"));
+        assert!(!cmd.contains("-vf"));
     }
 
     #[test]
     fn test_video_preset_avi() {
         let preset = VIDEO_PRESET_AVI_512X512.clone();
         assert_eq!(preset.name, "AVI_512X512");
-        assert!(preset.output_format.ends_with("avi"));
+        assert_eq!(preset.output_file_ext, "avi");
+        assert_eq!(preset.output_codec, "mpeg4");
     }
 
     #[test]
     fn test_video_preset_wmv() {
         let preset = VIDEO_PRESET_WMV2_480P.clone();
         assert_eq!(preset.name, "WMV2_480P");
-        assert!(preset.output_format.ends_with("wmv"));
+        assert_eq!(preset.output_file_ext, "wmv");
+        assert_eq!(preset.output_codec, "wmv2");
+    }
+
+    #[test]
+    fn test_output_file_path() {
+        let preset = video_preset_avi_512x512();
+        let input = Path::new("/some/dir/video.mp4");
+        let output = preset.get_output_file_path(input);
+        assert_eq!(output, PathBuf::from("/some/dir/video.avi"));
     }
 }

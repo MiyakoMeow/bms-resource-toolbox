@@ -32,8 +32,9 @@ pub fn extract_work_name(
     // Count prefix occurrences
     let mut prefix_counts: HashMap<String, usize> = HashMap::new();
     for title in titles {
-        for i in 1..=title.len() {
-            let prefix = title[..i].to_string();
+        let chars: Vec<char> = title.chars().collect();
+        for i in 1..=chars.len() {
+            let prefix: String = chars[..i].iter().collect();
             *prefix_counts.entry(prefix).or_insert(0) += 1;
         }
     }
@@ -45,21 +46,22 @@ pub fn extract_work_name(
     let max_count = *prefix_counts.values().max().unwrap_or(&0);
 
     // Find candidates with >= 67% of max count
-    #[expect(
-        clippy::cast_precision_loss,
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss
-    )]
-    let threshold = (max_count as f64 * 0.67) as usize;
+    #[expect(clippy::cast_precision_loss)]
+    let threshold = max_count as f64 * 0.67;
     let mut candidates: Vec<(String, usize)> = prefix_counts
         .iter()
-        .filter(|&(_, count)| *count >= threshold)
+        .filter(|&(_, count)| {
+            #[expect(clippy::cast_precision_loss)]
+            {
+                (*count as f64) >= threshold
+            }
+        })
         .map(|(k, &v)| (k.clone(), v))
         .collect();
 
     // Sort: length desc, count desc, alphabetical asc
     candidates.sort_by(|a, b| {
-        let len_cmp = b.0.len().cmp(&a.0.len());
+        let len_cmp = b.0.chars().count().cmp(&a.0.chars().count());
         if len_cmp != std::cmp::Ordering::Equal {
             return len_cmp;
         }
@@ -126,7 +128,13 @@ fn post_process(s: &str, remove_unclosed_pair: bool, remove_tailing_sign_list: &
 
         for sign in remove_tailing_sign_list {
             if result.ends_with(sign) {
-                result = result[..result.len() - sign.len()].trim_end().to_string();
+                let char_count = result.chars().count();
+                let sign_char_count = sign.chars().count();
+                result = result
+                    .chars()
+                    .take(char_count - sign_char_count)
+                    .collect::<String>();
+                result = result.trim_end().to_string();
                 triggered = true;
             }
         }

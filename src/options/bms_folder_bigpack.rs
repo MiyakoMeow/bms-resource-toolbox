@@ -11,7 +11,7 @@ use std::sync::LazyLock;
 use tracing::info;
 
 use crate::fs::pack_move::{
-    MoveOptions, REPLACE_OPTION_UPDATE_PACK, ReplaceAction, ReplaceOptions, is_dir_having_file,
+    MoveOptions, REPLACE_OPTION_UPDATE_PACK, ReplaceOptions, is_dir_having_file,
     move_elements_across_dir,
 };
 
@@ -108,9 +108,6 @@ pub fn split_folders_with_first_char(root_dir: &Path) -> Result<(), std::io::Err
 
     for entry in entries {
         let element_path = entry.path();
-        if !element_path.is_dir() {
-            continue;
-        }
 
         let element_name = element_path
             .file_name()
@@ -242,9 +239,11 @@ pub fn move_works_in_pack(root_dir_from: &Path, root_dir_to: &Path) -> Result<()
 }
 
 /// Media file removal rule
+#[allow(dead_code)]
 pub type RemoveMediaRule = Vec<(Vec<&'static str>, Vec<&'static str>)>;
 
 /// ORAJA removal rule - remove redundant video files and prefer specific formats
+#[allow(dead_code)]
 #[must_use]
 pub fn get_remove_media_rule_oraja() -> RemoveMediaRule {
     vec![
@@ -256,11 +255,14 @@ pub fn get_remove_media_rule_oraja() -> RemoveMediaRule {
     ]
 }
 
+#[allow(dead_code)]
 static REMOVE_MEDIA_RULE_WAV_FILL_FLAC: LazyLock<RemoveMediaRule> =
     LazyLock::new(|| vec![(vec!["wav"], vec!["flac"])]);
+#[allow(dead_code)]
 static REMOVE_MEDIA_RULE_MPG_FILL_WMV: LazyLock<RemoveMediaRule> =
     LazyLock::new(|| vec![(vec!["mpg"], vec!["wmv"])]);
 
+#[allow(dead_code)]
 static REMOVE_MEDIA_FILE_RULES: LazyLock<Vec<RemoveMediaRule>> = LazyLock::new(|| {
     vec![
         get_remove_media_rule_oraja(),
@@ -269,6 +271,7 @@ static REMOVE_MEDIA_FILE_RULES: LazyLock<Vec<RemoveMediaRule>> = LazyLock::new(|
     ]
 });
 
+#[allow(dead_code)]
 fn workdir_remove_unneed_media_files(
     work_dir: &Path,
     rule: &RemoveMediaRule,
@@ -373,6 +376,7 @@ fn workdir_remove_unneed_media_files(
 /// # Errors
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
+#[allow(dead_code)]
 pub fn remove_unneed_media_files(
     root_dir: &Path,
     rule: Option<RemoveMediaRule>,
@@ -415,6 +419,7 @@ pub fn remove_unneed_media_files(
 /// # Errors
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
+#[allow(dead_code)]
 pub fn remove_zero_sized_media_files(current_dir: &Path) -> Result<(), std::io::Error> {
     const TEMP_FILES: &[&str] = &["desktop.ini", "thumbs.db", ".ds_store"];
     const MEDIA_EXTS: &[&str] = &[
@@ -697,6 +702,7 @@ pub fn move_works_with_same_name_to_siblings(root_dir_from: &Path) -> Result<(),
 /// # Errors
 ///
 /// Returns [`anyhow::Error`] if directory operations fail.
+#[allow(dead_code)]
 pub fn merge_split_folders(root_dir: &Path) -> Result<(), anyhow::Error> {
     let entries: Vec<_> = std::fs::read_dir(root_dir)?
         .filter_map(std::result::Result::ok)
@@ -784,10 +790,7 @@ pub fn merge_split_folders(root_dir: &Path) -> Result<(), anyhow::Error> {
             &from_dir_path,
             &target_dir_path,
             MoveOptions::default(),
-            ReplaceOptions {
-                default: ReplaceAction::CheckReplace,
-                ..Default::default()
-            },
+            ReplaceOptions::default(),
         )?;
     }
 
