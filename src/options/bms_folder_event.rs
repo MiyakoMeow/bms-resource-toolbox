@@ -40,16 +40,32 @@ pub fn create_num_folders(root_dir: &Path, folder_count: i32) -> Result<(), std:
         folder_count, root_dir
     );
 
+    // Get existing elements to check for conflicts
+    let existing_elements: Vec<String> = std::fs::read_dir(root_dir)?
+        .filter_map(std::result::Result::ok)
+        .filter_map(|entry| entry.file_name().into_string().ok())
+        .collect();
+
     for i in 1..=folder_count {
         let folder_name = format!("{i}");
         let folder_path = root_dir.join(&folder_name);
 
-        if folder_path.is_dir() {
-            info!("  Folder {} already exists, skipping", i);
-        } else {
-            std::fs::create_dir_all(&folder_path)?;
-            info!("  Created folder {}", i);
+        // Check if folder exists or conflicts with similar names
+        // Python logic: exact match OR starts with "{id}." OR starts with "{id} "
+        // This prevents "1" from matching "10" while catching "1.txt" or "1 backup"
+        let id_exists = existing_elements.iter().any(|element_name| {
+            element_name == &folder_name
+                || element_name.starts_with(&format!("{folder_name}."))
+                || element_name.starts_with(&format!("{folder_name} "))
+        });
+
+        if id_exists {
+            info!("  Folder {} conflicts with existing entry, skipping", i);
+            continue;
         }
+
+        std::fs::create_dir_all(&folder_path)?;
+        info!("  Created folder {}", i);
     }
 
     Ok(())

@@ -11,7 +11,7 @@ use crate::bms::types::MEDIA_FILE_EXTS;
 ///
 /// This replicates Python's `append_name_by_bms(root_dir)`:
 /// - Iterates through subdirectories
-/// - Renames folders that are purely numeric to "num. title [artist]" format
+/// - Renames folders that are purely numeric to "num. title \[artist\]" format
 ///
 /// # Errors
 ///
@@ -91,7 +91,7 @@ async fn rename_folder_by_bms(work_dir: &Path) -> Option<String> {
 /// Copy folder names from source to destination based on numeric prefix
 ///
 /// This replicates Python's `copy_numbered_workdir_names(root_dir_from, root_dir_to)`:
-/// - Source folders have format "num. title [artist]"
+/// - Source folders have format "num. title \[artist\]"
 /// - Destination folders have format "num"
 /// - Copies source names to destination based on numeric prefix match
 ///
@@ -153,7 +153,7 @@ pub fn copy_numbered_workdir_names(
 /// Append artist name to folder names based on BMS files
 ///
 /// This replicates Python's `append_artist_name_by_bms(root_dir)`:
-/// - Adds " [artist]" suffix to folders not already ending with "]"
+/// - Adds " \[artist\]" suffix to folders not already ending with "\]"
 /// - Shows confirmation before renaming
 ///
 /// # Errors
@@ -225,10 +225,10 @@ pub async fn append_artist_name_by_bms(root_dir: &Path) -> Result<(), std::io::E
     Ok(())
 }
 
-/// Set folder names based on BMS info (title [artist] format)
+/// Set folder names based on BMS info (title \[artist\] format)
 ///
 /// This replicates Python's `set_name_by_bms(root_dir)`:
-/// - Renames folders to "title [artist]" format
+/// - Renames folders to "title \[artist\]" format
 /// - Handles merging if target already exists (with similarity check)
 ///
 /// # Errors
@@ -421,10 +421,10 @@ fn similar_ratio(a: &str, b: &str) -> f64 {
     strsim::normalized_levenshtein(a, b)
 }
 
-/// Undo `set_name` by removing " [artist]" suffix
+/// Undo `set_name` by removing " \[artist\]" suffix
 ///
 /// This replicates Python's `undo_set_name(root_dir)`:
-/// - Removes " [artist]" part from folder names
+/// - Removes " \[artist\]" part from folder names
 /// - Restores the original numeric prefix
 ///
 /// # Errors

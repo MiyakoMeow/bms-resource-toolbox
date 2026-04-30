@@ -355,6 +355,14 @@ pub async fn pack_setup_rawpack_to_hq(
     info!("Pack Setup RAW -> HQ: {:?} -> {:?}", pack_dir, root_dir);
 
     // Setup directories
+    // Match Python behavior: mkdir(parents=True, exist_ok=False)
+    // If directory already exists, this should fail
+    if root_dir.exists() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::AlreadyExists,
+            format!("Directory {} already exists", root_dir.display()),
+        ));
+    }
     tokio::fs::create_dir_all(root_dir).await?;
     let cache_dir = root_dir.join("CacheDir");
 
