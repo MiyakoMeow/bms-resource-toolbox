@@ -97,13 +97,11 @@ pub fn is_dir_having_file(dir: &Path) -> bool {
 
         for entry in entries.flatten() {
             let path = entry.path();
-            if path.is_file() {
-                // Check if file is non-empty (matches Python behavior)
-                if let Ok(metadata) = path.metadata()
-                    && metadata.len() > 0
-                {
-                    return true;
-                }
+            if path.is_file()
+                && let Ok(metadata) = path.metadata()
+                && metadata.len() > 0
+            {
+                return true;
             } else if path.is_dir() && check_recursive(&path) {
                 return true;
             }

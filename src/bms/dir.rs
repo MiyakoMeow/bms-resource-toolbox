@@ -8,7 +8,7 @@ use std::path::Path;
 use crate::bms::encoding::{get_bms_file_str, get_boftt_encoding};
 use crate::bms::parse::{parse_bms_content, parse_bms_file, parse_bmson_file};
 use crate::bms::types::{BMS_FILE_EXTS, BMSInfo, BMSON_FILE_EXTS};
-use crate::bms::work::extract_work_name;
+use crate::bms::work::{extract_work_name, extract_work_name_for_artist};
 use tokio::fs;
 
 /// Get list of `BMSInfo` from all BMS files in a directory - 异步版本
@@ -43,12 +43,13 @@ pub async fn get_dir_bms_list(dir_path: &Path) -> Vec<BMSInfo> {
 
             if is_bms_file {
                 let info = parse_bms_file_with_encoding(&file_path, boftt_encoding).await;
-                if info.title.is_empty() && info.artist.is_empty() && info.genre.is_empty() {
-                    if let Ok(fallback_info) = parse_bms_file(&file_path).await
-                        && (!fallback_info.title.is_empty() || !fallback_info.artist.is_empty())
-                    {
-                        info_list.push(fallback_info);
-                    }
+                if info.title.is_empty()
+                    && info.artist.is_empty()
+                    && info.genre.is_empty()
+                    && let Ok(fallback_info) = parse_bms_file(&file_path).await
+                    && (!fallback_info.title.is_empty() || !fallback_info.artist.is_empty())
+                {
+                    info_list.push(fallback_info);
                 } else {
                     info_list.push(info);
                 }
@@ -101,5 +102,3 @@ pub async fn get_dir_bms_info(bms_dir_path: &Path) -> Option<BMSInfo> {
 
     Some(BMSInfo::new(title, artist, genre))
 }
-
-pub use crate::bms::work::extract_work_name_for_artist;

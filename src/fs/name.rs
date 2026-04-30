@@ -30,9 +30,8 @@ pub fn get_valid_fs_name(name: &str) -> String {
 }
 
 /// Get a valid folder name for a BMS work.
-/// Combines title and artist information.
-#[must_use]
 #[allow(dead_code)]
+#[must_use]
 pub fn get_work_folder_name(title: &str, artist: &str) -> String {
     let mut name = title.to_string();
     if !artist.is_empty() {

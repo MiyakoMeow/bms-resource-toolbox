@@ -90,11 +90,11 @@ pub(crate) fn is_work_dir(args: &[Box<dyn Any>]) -> bool {
             let p = entry.path();
             if p.is_file()
                 && let Some(name) = p.file_name().and_then(|n| n.to_str())
+                && bms_exts
+                    .iter()
+                    .any(|ext| name.to_lowercase().ends_with(ext))
             {
-                let lower = name.to_lowercase();
-                if bms_exts.iter().any(|ext| lower.ends_with(ext)) {
-                    return true;
-                }
+                return true;
             }
         }
     }

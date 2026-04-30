@@ -106,11 +106,11 @@ async fn collect_tasks(dir: &Path, input_exts: &[&str]) -> Vec<(PathBuf, usize)>
             let path = entry.path();
             if path.is_file()
                 && let Some(ext) = path.extension()
+                && input_exts
+                    .iter()
+                    .any(|e| e.to_lowercase() == ext.to_string_lossy().to_lowercase())
             {
-                let ext_str = ext.to_string_lossy().to_lowercase();
-                if input_exts.iter().any(|e| e.to_lowercase() == ext_str) {
-                    tasks.push((path, 0));
-                }
+                tasks.push((path, 0));
             }
         }
     }

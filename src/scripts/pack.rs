@@ -18,32 +18,18 @@ use crate::options::rawpack::unzip_numeric_to_bms_folder;
 use std::path::Path;
 use tracing::info;
 
-/// Remove media files according to rule
+/// Remove unneeded media files from all works in a directory.
 ///
-/// This matches Python's `_workdir_remove_unneed_media_files` behavior:
-/// - When a higher-quality format exists, remove lower-quality ones
-/// - Rule format: list of (`upper_exts`, `lower_exts`) pairs
-///   - If any file with `upper_ext` exists, remove files with `lower_ext`
+/// Processes each subdirectory in `root_dir` and removes media files
+/// according to the provided rule.
 ///
 /// # Errors
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
-pub fn remove_unneed_media_files(root_dir: &Path, rule: &str) -> Result<(), std::io::Error> {
-    // Define rules matching Python's REMOVE_MEDIA_RULE_ORAJA
-    // (upper_exts, lower_exts): if upper exists, remove lower
-    let rules: Vec<(Vec<&str>, Vec<&str>)> = if rule == "oraja" {
-        vec![
-            (vec!["mp4"], vec!["avi", "wmv", "mpg", "mpeg"]),
-            (vec!["avi"], vec!["wmv", "mpg", "mpeg"]),
-            (vec!["flac", "wav"], vec!["ogg"]),
-            (vec!["flac"], vec!["wav"]),
-            (vec!["mpg"], vec!["wmv"]),
-        ]
-    } else {
-        return Ok(());
-    };
-
-    // Process each BMS directory
+pub fn remove_unneed_media_files(
+    root_dir: &Path,
+    rule: &[(&[&str], &[&str])],
+) -> Result<(), std::io::Error> {
     for entry in walkdir::WalkDir::new(root_dir)
         .min_depth(1)
         .max_depth(1)
@@ -55,7 +41,7 @@ pub fn remove_unneed_media_files(root_dir: &Path, rule: &str) -> Result<(), std:
             continue;
         }
 
-        workdir_remove_unneed_media_files(work_dir, &rules)?;
+        workdir_remove_unneed_media_files(work_dir, rule)?;
     }
 
     Ok(())
@@ -66,7 +52,7 @@ pub fn remove_unneed_media_files(root_dir: &Path, rule: &str) -> Result<(), std:
 /// This matches Python's `_workdir_remove_unneed_media_files` behavior.
 fn workdir_remove_unneed_media_files(
     work_dir: &Path,
-    rules: &[(Vec<&str>, Vec<&str>)],
+    rules: &[(&[&str], &[&str])],
 ) -> Result<(), std::io::Error> {
     use std::collections::HashSet;
 
@@ -90,7 +76,8 @@ fn workdir_remove_unneed_media_files(
             .map(|e| e.to_string_lossy().to_lowercase())
             .unwrap_or_default();
 
-        for (upper_exts, lower_exts) in rules {
+        for rule in rules {
+            let (upper_exts, lower_exts) = *rule;
             if !upper_exts.contains(&file_ext.as_str()) {
                 continue;
             }
@@ -105,7 +92,7 @@ fn workdir_remove_unneed_media_files(
 
             // Search for lower quality files to remove
             for lower_ext in lower_exts {
-                let replacing_file_path = check_file_path.with_extension(lower_ext);
+                let replacing_file_path = check_file_path.with_extension(*lower_ext);
                 if replacing_file_path.is_file() && !removed_files.contains(&replacing_file_path) {
                     remove_pairs.push((check_file_path.clone(), replacing_file_path.clone()));
                     removed_files.insert(replacing_file_path);
@@ -164,8 +151,21 @@ fn workdir_remove_unneed_media_files(
     Ok(())
 }
 
-/// Rule for removing media files (`ORaja` style)
-pub const REMOVE_MEDIA_RULE_ORAJA: &str = "oraja";
+/// Media file removal rule for ORAJA standard.
+///
+/// Removes redundant video files preferring specific formats:
+/// - mp4 > avi/wmv/mpg/mpeg
+/// - avi > wmv/mpg/mpeg
+/// - flac/wav > ogg
+/// - flac > wav
+/// - mpg > wmv
+pub const REMOVE_MEDIA_RULE_ORAJA: &[(&[&str], &[&str])] = &[
+    (&["mp4"], &["avi", "wmv", "mpg", "mpeg"]),
+    (&["avi"], &["wmv", "mpg", "mpeg"]),
+    (&["flac", "wav"], &["ogg"]),
+    (&["flac"], &["wav"]),
+    (&["mpg"], &["wmv"]),
+];
 
 /// Pack raw BMS to HQ version (for beatoraja/Qwilight)
 ///
@@ -360,7 +360,7 @@ pub async fn pack_setup_rawpack_to_hq(
 
     // Step 1: Unzip packs
     info!("Unzipping packs from {:?} to {:?}", pack_dir, root_dir);
-    unzip_numeric_to_bms_folder(pack_dir, &cache_dir, root_dir)?;
+    unzip_numeric_to_bms_folder(pack_dir, &cache_dir, root_dir, false)?;
 
     // Remove cache dir if empty
     if !is_dir_having_file(&cache_dir) {
@@ -416,7 +416,7 @@ pub async fn pack_update_rawpack_to_hq(
 
     // Step 1: Unzip packs
     info!("Unzipping packs from {:?} to {:?}", pack_dir, root_dir);
-    unzip_numeric_to_bms_folder(pack_dir, &cache_dir, root_dir)?;
+    unzip_numeric_to_bms_folder(pack_dir, &cache_dir, root_dir, false)?;
 
     // Step 2: Sync dir names from sync_dir
     info!("Syncing dir name from {:?} to {:?}", sync_dir, root_dir);

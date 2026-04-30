@@ -173,11 +173,11 @@ fn is_root_dir(paths: &[Box<dyn Any>]) -> bool {
             let p = entry.path();
             if p.is_file()
                 && let Some(name) = p.file_name().and_then(|n| n.to_str())
+                && bms_exts
+                    .iter()
+                    .any(|ext| name.to_lowercase().ends_with(ext))
             {
-                let lower = name.to_lowercase();
-                if bms_exts.iter().any(|ext| lower.ends_with(ext)) {
-                    return false;
-                }
+                return false;
             }
         }
     }
@@ -229,7 +229,8 @@ async fn main() {
     {
         use options::bms_folder::{
             append_artist_name_by_bms, append_name_by_bms, copy_numbered_workdir_names,
-            scan_folder_similar_folders, set_name_by_bms, undo_set_name,
+            remove_zero_sized_media_files, scan_folder_similar_folders, set_name_by_bms,
+            undo_set_name,
         };
 
         let mut bms_folder_opts: Vec<MenuOption> = Vec::new();
@@ -329,7 +330,7 @@ async fn main() {
             name: "BMS根目录：移除大小为0的媒体文件和临时文件".to_string(),
             exec_func: |args| {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
-                let _ = options::bms_folder_bigpack::remove_zero_sized_media_files(path);
+                let _ = remove_zero_sized_media_files(path, false);
             },
             inputs: vec![Input {
                 input_type: InputType::Path,
@@ -344,8 +345,9 @@ async fn main() {
 
     {
         use options::bms_folder_bigpack::{
-            move_out_works, move_works_in_pack, move_works_with_same_name,
-            move_works_with_same_name_to_siblings, split_folders_with_first_char, undo_split_pack,
+            merge_split_folders, move_out_works, move_works_in_pack, move_works_with_same_name,
+            move_works_with_same_name_to_siblings, remove_unneed_media_files,
+            split_folders_with_first_char, undo_split_pack,
         };
 
         let mut bigpack_opts: Vec<MenuOption> = Vec::new();
@@ -437,6 +439,34 @@ async fn main() {
             inputs: vec![Input {
                 input_type: InputType::Path,
                 description: "Dir".to_string(),
+            }],
+            check_func: Some(is_root_dir),
+            confirm: ConfirmType::DefaultYes,
+        });
+
+        bigpack_opts.push(MenuOption {
+            name: "BMS大包目录：合并已分割的文件夹（撤销按首字符分割）".to_string(),
+            exec_func: |args| {
+                let path = args[0].downcast_ref::<PathBuf>().unwrap();
+                let _ = merge_split_folders(path);
+            },
+            inputs: vec![Input {
+                input_type: InputType::Path,
+                description: "Root Dir".to_string(),
+            }],
+            check_func: Some(is_root_dir),
+            confirm: ConfirmType::DefaultYes,
+        });
+
+        bigpack_opts.push(MenuOption {
+            name: "BMS大包目录：移除冗余媒体文件（按预设规则）".to_string(),
+            exec_func: |args| {
+                let path = args[0].downcast_ref::<PathBuf>().unwrap();
+                let _ = remove_unneed_media_files(path, None);
+            },
+            inputs: vec![Input {
+                input_type: InputType::Path,
+                description: "Root Dir".to_string(),
             }],
             check_func: Some(is_root_dir),
             confirm: ConfirmType::DefaultYes,
@@ -562,7 +592,7 @@ async fn main() {
                 let pack = args[0].downcast_ref::<PathBuf>().unwrap();
                 let cache = args[1].downcast_ref::<PathBuf>().unwrap();
                 let root = args[2].downcast_ref::<PathBuf>().unwrap();
-                let _ = unzip_numeric_to_bms_folder(pack, cache, root);
+                let _ = unzip_numeric_to_bms_folder(pack, cache, root, false);
             },
             inputs: vec![
                 Input { input_type: InputType::Path, description: "Pack Dir".to_string() },
@@ -579,7 +609,7 @@ async fn main() {
                 let pack = args[0].downcast_ref::<PathBuf>().unwrap();
                 let cache = args[1].downcast_ref::<PathBuf>().unwrap();
                 let root = args[2].downcast_ref::<PathBuf>().unwrap();
-                let _ = unzip_with_name_to_bms_folder(pack, cache, root);
+                let _ = unzip_with_name_to_bms_folder(pack, cache, root, false);
             },
             inputs: vec![
                 Input { input_type: InputType::Path, description: "Pack Dir".to_string() },

@@ -7,6 +7,8 @@
 
 use std::collections::HashMap;
 
+use regex::Regex;
+
 /// Extract work name from multiple BMS titles (longest common prefix algorithm)
 ///
 /// This replicates the Python `extract_work_name(titles: list[str])` behavior:
@@ -138,23 +140,24 @@ fn post_process(s: &str, remove_unclosed_pair: bool, remove_tailing_sign_list: &
 }
 
 /// Extract work name from a single title string (legacy single-title version)
-#[must_use]
 #[allow(dead_code)]
-pub fn extract_work_name_single(title: &str) -> String {
+#[must_use]
+pub(crate) fn extract_work_name_single(title: &str) -> String {
     extract_work_name(&[title.to_string()], true, &[])
 }
 
 /// Extract work name from multiple titles (convenience wrapper)
-#[must_use]
 #[allow(dead_code)]
-pub fn extract_work_name_default(titles: &[String]) -> String {
+#[must_use]
+pub(crate) fn extract_work_name_default(titles: &[String]) -> String {
     extract_work_name(titles, true, &[])
 }
 
 /// Extract work name for artist extraction (with trailing sign removal)
 /// Replicates Python's artist extraction with signs: /, :, :, -, obj, obj., Obj, Obj., OBJ, OBJ.
+#[allow(dead_code)]
 #[must_use]
-pub fn extract_work_name_for_artist(titles: &[String]) -> String {
+pub(crate) fn extract_work_name_for_artist(titles: &[String]) -> String {
     extract_work_name(
         titles,
         true,
@@ -164,26 +167,15 @@ pub fn extract_work_name_for_artist(titles: &[String]) -> String {
     )
 }
 
-/// Count prefix occurrences of a character (deprecated - kept for compatibility)
-#[deprecated(since = "0.1.0", note = "Use extract_work_name() instead")]
-#[expect(dead_code)]
-fn count_prefix(_s: &str, _c: char) -> usize {
-    0 // Deprecated, kept for API compatibility
-}
-
 /// Extract work name from path using the original Python algorithm
-#[must_use]
 #[allow(dead_code)]
-pub fn extract_work_name_from_path(path: &str) -> String {
-    use regex::Regex;
-
+#[must_use]
+pub(crate) fn extract_work_name_from_path(path: &str) -> String {
     let filename = std::path::Path::new(path)
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or(path);
 
-    // Find the first space followed by a digit sequence followed by space and content
-    // e.g., "001 Artist - Title" or "001_Artist - Title"
     let re = Regex::new(r"^[\d_]+(?:\s+)(.+)$").unwrap();
     if let Some(caps) = re.captures(filename)
         && let Some(matched) = caps.get(1)
@@ -195,9 +187,9 @@ pub fn extract_work_name_from_path(path: &str) -> String {
 }
 
 /// Parse work directory name into components
-#[must_use]
 #[allow(dead_code)]
-pub fn parse_work_dir_name(name: &str) -> (Option<String>, String) {
+#[must_use]
+pub(crate) fn parse_work_dir_name(name: &str) -> (Option<String>, String) {
     use regex::Regex;
 
     let re = Regex::new(r"^(\d+)[_\s]+(.+)$").unwrap();

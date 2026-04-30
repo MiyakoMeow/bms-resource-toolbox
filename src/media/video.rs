@@ -386,14 +386,14 @@ pub async fn transfer_video_by_format_in_dir(
             let path = entry.path();
             if path.is_file()
                 && let Some(ext) = path.extension()
+                && input_exts
+                    .iter()
+                    .any(|e| e.to_lowercase() == ext.to_string_lossy().to_lowercase())
             {
-                let ext_str = ext.to_string_lossy().to_lowercase();
-                if input_exts.iter().any(|e| e.to_lowercase() == ext_str) {
-                    let stem = path.file_stem().unwrap_or_default().to_string_lossy();
-                    let output_ext = &presets[0].output_format;
-                    let output = path.parent().unwrap().join(format!("{stem}.{output_ext}"));
-                    tasks.push((path, output, 0));
-                }
+                let stem = path.file_stem().unwrap_or_default().to_string_lossy();
+                let output_ext = &presets[0].output_format;
+                let output = path.parent().unwrap().join(format!("{stem}.{output_ext}"));
+                tasks.push((path, output, 0));
             }
         }
     }

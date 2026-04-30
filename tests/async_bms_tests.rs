@@ -1,4 +1,4 @@
-//! Async tests for bms::encoding and bms::parse modules.
+//! Async tests for `bms::encoding` and `bms::parse` modules.
 
 use bms_resource_toolbox::bms::encoding::read_bms_file;
 use bms_resource_toolbox::bms::parse::parse_bms_file;

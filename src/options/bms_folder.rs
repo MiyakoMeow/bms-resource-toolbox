@@ -5,6 +5,8 @@
 use std::path::Path;
 use tracing::info;
 
+use crate::bms::types::MEDIA_FILE_EXTS;
+
 /// Append title and artist info to folder names based on BMS files.
 ///
 /// This replicates Python's `append_name_by_bms(root_dir)`:
@@ -468,6 +470,89 @@ pub fn undo_set_name(root_dir: &Path) -> Result<(), std::io::Error> {
                 std::fs::rename(&dir_path, &new_dir_path)?;
             }
         }
+    }
+
+    Ok(())
+}
+
+/// Remove zero-sized media files and temp files
+///
+/// This replicates Python's `remove_zero_sized_media_files(current_dir, print_dir)`:
+///
+/// # Errors
+///
+/// Returns [`std::io::Error`] if directory operations fail.
+pub fn remove_zero_sized_media_files(
+    current_dir: &Path,
+    print_dir: bool,
+) -> Result<(), std::io::Error> {
+    if print_dir {
+        println!("Entering dir: {}", current_dir.display());
+    }
+
+    if !current_dir.is_dir() {
+        println!("Not a vaild dir! Aborting...");
+        return Ok(());
+    }
+
+    let mut next_dirs: Vec<PathBuf> = Vec::new();
+
+    let entries: Vec<_> = std::fs::read_dir(current_dir)?
+        .filter_map(std::result::Result::ok)
+        .collect();
+
+    for entry in &entries {
+        let element_path = entry.path();
+        let element_name = element_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("");
+
+        if element_path.is_file() {
+            let is_temp_file = element_name.to_lowercase() == "desktop.ini"
+                || element_name.to_lowercase() == "thumbs.db"
+                || element_name.to_lowercase() == ".ds_store"
+                || element_name.starts_with(".trash-")
+                || element_name.starts_with("._");
+
+            if is_temp_file {
+                match std::fs::remove_file(&element_path) {
+                    Ok(()) => println!(" - Remove temp file: {}", element_path.display()),
+                    Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+                        println!(" x PermissionError!");
+                    }
+                    Err(_) => {}
+                }
+                continue;
+            }
+
+            let element_lower = element_name.to_lowercase();
+            if !MEDIA_FILE_EXTS
+                .iter()
+                .any(|ext| element_lower.ends_with(*ext))
+            {
+                continue;
+            }
+
+            match element_path.metadata() {
+                Ok(metadata) if metadata.len() == 0 => match std::fs::remove_file(&element_path) {
+                    Ok(()) => {
+                        println!(" - Remove empty file: {}", element_path.display());
+                    }
+                    Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+                        println!(" x PermissionError!");
+                    }
+                    Err(_) => {}
+                },
+                _ => {}
+            }
+        } else if element_path.is_dir() {
+            next_dirs.push(element_path);
+        }
+    }
+
+    for next_dir in next_dirs {
+        remove_zero_sized_media_files(&next_dir, print_dir)?;
     }
 
     Ok(())

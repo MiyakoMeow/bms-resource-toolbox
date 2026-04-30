@@ -227,7 +227,6 @@ fn detect_cp932_encoding(archive: &mut zip::ZipArchive<std::fs::File>) -> bool {
             return true;
         }
 
-        // Also try the current decoded name
         if let Some(sjis_name) = decode_cp932_filename(name)
             && contains_japanese_or_cjk(&sjis_name)
         {
@@ -527,12 +526,12 @@ pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
                 let path = entry.path();
                 if path.is_file()
                     && let Some(name) = path.file_name().and_then(|n| n.to_str())
+                    && CHART_FILE_EXTS
+                        .iter()
+                        .any(|ext| name.to_lowercase().ends_with(ext))
                 {
-                    let lower_name = name.to_lowercase();
-                    if CHART_FILE_EXTS.iter().any(|ext| lower_name.ends_with(ext)) {
-                        has_bms = true;
-                        break;
-                    }
+                    has_bms = true;
+                    break;
                 }
             }
             if has_bms {

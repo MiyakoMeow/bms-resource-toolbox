@@ -242,12 +242,10 @@ pub fn move_works_in_pack(root_dir_from: &Path, root_dir_to: &Path) -> Result<()
 }
 
 /// Media file removal rule
-#[allow(dead_code)]
 pub type RemoveMediaRule = Vec<(Vec<&'static str>, Vec<&'static str>)>;
 
 /// ORAJA removal rule - remove redundant video files and prefer specific formats
 #[must_use]
-#[allow(dead_code)]
 pub fn get_remove_media_rule_oraja() -> RemoveMediaRule {
     vec![
         (vec!["mp4"], vec!["avi", "wmv", "mpg", "mpeg"]),
@@ -258,8 +256,19 @@ pub fn get_remove_media_rule_oraja() -> RemoveMediaRule {
     ]
 }
 
-/// Remove unneeded media files according to rule in a work directory
-#[allow(dead_code)]
+static REMOVE_MEDIA_RULE_WAV_FILL_FLAC: LazyLock<RemoveMediaRule> =
+    LazyLock::new(|| vec![(vec!["wav"], vec!["flac"])]);
+static REMOVE_MEDIA_RULE_MPG_FILL_WMV: LazyLock<RemoveMediaRule> =
+    LazyLock::new(|| vec![(vec!["mpg"], vec!["wmv"])]);
+
+static REMOVE_MEDIA_FILE_RULES: LazyLock<Vec<RemoveMediaRule>> = LazyLock::new(|| {
+    vec![
+        get_remove_media_rule_oraja(),
+        REMOVE_MEDIA_RULE_WAV_FILL_FLAC.clone(),
+        REMOVE_MEDIA_RULE_MPG_FILL_WMV.clone(),
+    ]
+});
+
 fn workdir_remove_unneed_media_files(
     work_dir: &Path,
     rule: &RemoveMediaRule,
@@ -364,12 +373,27 @@ fn workdir_remove_unneed_media_files(
 /// # Errors
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
-#[allow(dead_code)]
 pub fn remove_unneed_media_files(
     root_dir: &Path,
     rule: Option<RemoveMediaRule>,
 ) -> Result<(), std::io::Error> {
-    let rule = rule.unwrap_or_else(get_remove_media_rule_oraja);
+    let rule = match rule {
+        Some(r) if !r.is_empty() => r,
+        _ => {
+            for (i, r) in REMOVE_MEDIA_FILE_RULES.iter().enumerate() {
+                println!("- {i}: {r:?}");
+            }
+            let selection_str = crate::options::input::input_string("Select Preset (Default: 0):");
+            let selection = if selection_str.is_empty() {
+                0
+            } else {
+                selection_str.parse::<usize>().unwrap_or(0)
+            };
+            REMOVE_MEDIA_FILE_RULES[selection].clone()
+        }
+    };
+
+    println!("Selected: {rule:?}");
 
     let entries: Vec<_> = std::fs::read_dir(root_dir)?
         .filter_map(std::result::Result::ok)
@@ -673,47 +697,98 @@ pub fn move_works_with_same_name_to_siblings(root_dir_from: &Path) -> Result<(),
 /// # Errors
 ///
 /// Returns [`anyhow::Error`] if directory operations fail.
-#[allow(dead_code)]
-pub async fn merge_split_folders(path: &Path) -> Result<()> {
-    let mut entries = tokio::fs::read_dir(path).await?;
-    let mut folders = Vec::new();
+pub fn merge_split_folders(root_dir: &Path) -> Result<(), anyhow::Error> {
+    let entries: Vec<_> = std::fs::read_dir(root_dir)?
+        .filter_map(std::result::Result::ok)
+        .filter(|e| e.path().is_dir())
+        .collect();
 
-    while let Some(entry) = entries.next_entry().await? {
-        if entry.file_type().await?.is_dir() {
-            folders.push(entry.path());
-        }
-    }
+    let dir_names: Vec<String> = entries
+        .iter()
+        .filter_map(|e| e.file_name().to_str().map(String::from))
+        .collect();
 
-    for folder in folders {
-        let folder_name = folder.file_name().unwrap_or_default().to_string_lossy();
+    let mut pairs: Vec<(String, String)> = Vec::new();
 
-        if folder_name.len() != 1 {
+    for dir_name in &dir_names {
+        let dir_path = root_dir.join(dir_name);
+        if !dir_path.is_dir() {
             continue;
         }
 
-        let mut sub_entries = tokio::fs::read_dir(&folder).await?;
-        while let Some(entry) = sub_entries.next_entry().await? {
-            let source = entry.path();
-            let target = path.join(entry.file_name());
-
-            if target.exists() {
-                if source.is_dir() {
-                    move_elements_across_dir(
-                        &source,
-                        &target,
-                        MoveOptions::default(),
-                        ReplaceOptions {
-                            default: ReplaceAction::CheckReplace,
-                            ..Default::default()
-                        },
-                    )?;
-                }
-            } else {
-                tokio::fs::rename(&source, &target).await?;
+        if dir_name.ends_with(']') {
+            let Some(dir_name_mps_i) = dir_name.rfind('[') else {
+                continue;
+            };
+            let dir_name_without_artist = &dir_name[..dir_name_mps_i - 1];
+            if dir_name_without_artist.is_empty() {
+                continue;
             }
-        }
 
-        tokio::fs::remove_dir(&folder).await?;
+            let dir_path_without_artist = root_dir.join(dir_name_without_artist);
+            if !dir_path_without_artist.is_dir() {
+                continue;
+            }
+
+            let dir_names_with_starter: Vec<&String> = dir_names
+                .iter()
+                .filter(|d| d.starts_with(&format!("{dir_name_without_artist} [")))
+                .collect();
+
+            if dir_names_with_starter.len() > 2 {
+                println!(
+                    " !_! {dir_name_without_artist} have more then 2 folders! {dir_names_with_starter:?}"
+                );
+                continue;
+            }
+
+            pairs.push((dir_name.clone(), dir_name_without_artist.to_string()));
+        }
+    }
+
+    let mut last_from_dir_name = String::new();
+    let mut duplicate_list: Vec<String> = Vec::new();
+    for (_target_dir_name, from_dir_name) in &pairs {
+        if last_from_dir_name == *from_dir_name {
+            duplicate_list.push(from_dir_name.clone());
+        }
+        last_from_dir_name.clone_from(from_dir_name);
+    }
+
+    if !duplicate_list.is_empty() {
+        println!("Duplicate!");
+        for name in &duplicate_list {
+            println!(" -> {name}");
+        }
+        anyhow::bail!("Found duplicate target directories: {duplicate_list:?}");
+    }
+
+    for (target_dir_name, from_dir_name) in &pairs {
+        println!("- Find Dir pair: {target_dir_name} <- {from_dir_name}");
+    }
+
+    let selection_str = crate::options::input::input_string(&format!(
+        "There are {} actions. Do transferring? [y/N]:",
+        pairs.len()
+    ));
+    if !selection_str.to_lowercase().starts_with('y') {
+        println!("Aborted.");
+        return Ok(());
+    }
+
+    for (target_dir_name, from_dir_name) in &pairs {
+        let from_dir_path = root_dir.join(from_dir_name);
+        let target_dir_path = root_dir.join(target_dir_name);
+        println!(" - Moving: {target_dir_name} <- {from_dir_name}");
+        move_elements_across_dir(
+            &from_dir_path,
+            &target_dir_path,
+            MoveOptions::default(),
+            ReplaceOptions {
+                default: ReplaceAction::CheckReplace,
+                ..Default::default()
+            },
+        )?;
     }
 
     Ok(())

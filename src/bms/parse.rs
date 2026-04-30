@@ -73,11 +73,10 @@ pub fn parse_bms_content(content: &str) -> BMSInfo {
     // Handle #BMP line itself (no numeric suffix)
     if let Some(value) = header_map.get("BMP")
         && let Some(ext) = Path::new(value).extension()
+        && !format!(".{}", ext.to_string_lossy()).is_empty()
+        && !bmp_formats.contains(&format!(".{}", ext.to_string_lossy()))
     {
-        let ext_str = format!(".{}", ext.to_string_lossy());
-        if !ext_str.is_empty() && !bmp_formats.contains(&ext_str) {
-            bmp_formats.push(ext_str);
-        }
+        bmp_formats.push(format!(".{}", ext.to_string_lossy()));
     }
 
     // Handle #BMP01, #BMP02, etc. (channel keys - skip if value looks like a number)
@@ -151,11 +150,10 @@ pub fn parse_bmson_content(content: &str) -> Result<BMSInfo, serde_json::Error> 
         && let Some(bga_headers) = bga.bga_header
     {
         for header in bga_headers {
-            if let Some(ext) = Path::new(&header.name).extension() {
-                let ext_str = format!(".{}", ext.to_string_lossy());
-                if !bmp_formats.contains(&ext_str) {
-                    bmp_formats.push(ext_str);
-                }
+            if let Some(ext) = Path::new(&header.name).extension()
+                && !bmp_formats.contains(&format!(".{}", ext.to_string_lossy()))
+            {
+                bmp_formats.push(format!(".{}", ext.to_string_lossy()));
             }
         }
     }

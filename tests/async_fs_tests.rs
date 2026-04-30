@@ -1,4 +1,4 @@
-//! Async tests for fs::walk module.
+//! Async tests for `fs::walk` module.
 
 use bms_resource_toolbox::fs::{has_chart_file, remove_empty_dirs};
 use std::path::PathBuf;
