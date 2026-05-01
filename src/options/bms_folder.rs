@@ -316,7 +316,7 @@ async fn set_single_folder_name_by_bms(work_dir: &Path) -> Result<bool, std::io:
             inner_path,
             work_dir,
             MoveOptions::default(),
-            ReplaceOptions::default(),
+            &ReplaceOptions::default(),
         )?;
         info = get_dir_bms_info(work_dir).await;
     }
@@ -369,7 +369,7 @@ async fn set_single_folder_name_by_bms(work_dir: &Path) -> Result<bool, std::io:
         work_dir,
         &new_dir_path,
         MoveOptions::default(),
-        REPLACE_OPTION_UPDATE_PACK.clone(),
+        &REPLACE_OPTION_UPDATE_PACK,
     )?;
     Ok(true)
 }

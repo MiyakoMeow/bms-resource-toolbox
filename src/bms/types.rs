@@ -108,7 +108,7 @@ pub const VIDEO_FILE_EXTS: &[&str] = &[".mp4", ".mkv", ".avi", ".wmv", ".mpg", "
 pub const IMAGE_FILE_EXTS: &[&str] = &[".jpg", ".png", ".bmp", ".svg"];
 /// All media file extensions (audio + video + image) - matches Python `MEDIA_FILE_EXTS`
 pub const MEDIA_FILE_EXTS: &[&str] = &[
-    ".wav", ".flac", ".ogg", // audio
+    ".flac", ".ogg", ".wav", // audio
     ".mp4", ".mkv", ".avi", ".wmv", ".mpg", ".mpeg", // video
-    ".jpg", ".png", ".bmp", ".svg", // image (no .gif, no .jpeg)
+    ".jpg", ".png", ".bmp", ".svg", // image
 ];

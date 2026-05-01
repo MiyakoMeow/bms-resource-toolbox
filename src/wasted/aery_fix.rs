@@ -38,8 +38,7 @@ pub fn aery_fix(src_dir: &Path) -> Result<(), std::io::Error> {
     let mut aery_pairs: Vec<(PathBuf, PathBuf, f64)> = Vec::new();
 
     for dir in &dirs {
-        let dir_lc = dir.to_lowercase();
-        if !dir_lc.contains("aery") {
+        if !dir.contains("Aery") && !dir.contains("AERY") {
             continue;
         }
 
@@ -94,7 +93,7 @@ pub fn aery_fix(src_dir: &Path) -> Result<(), std::io::Error> {
             &p_from,
             &p_to,
             MoveOptions::default(),
-            REPLACE_OPTION_UPDATE_PACK.clone(),
+            &REPLACE_OPTION_UPDATE_PACK,
         )?;
     }
 

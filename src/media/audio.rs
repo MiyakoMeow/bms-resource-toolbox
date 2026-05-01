@@ -40,7 +40,7 @@ pub fn audio_preset_ogg_q10() -> AudioPreset {
 #[must_use]
 #[expect(dead_code)]
 pub(crate) fn audio_preset_ogg_ffmpeg() -> AudioPreset {
-    AudioPreset::new("ffmpeg", "ogg", None)
+    AudioPreset::new("ffmpeg", "ogg", Some(""))
 }
 
 /// Audio preset for WAV encoding using `FFmpeg`.

@@ -190,6 +190,7 @@ pub async fn transfer_video(root_dir: &Path) -> Result<(), std::io::Error> {
             std::slice::from_ref(&preset),
             true,
             true,
+            false,
         )
         .await?;
     }

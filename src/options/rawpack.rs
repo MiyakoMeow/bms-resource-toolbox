@@ -135,6 +135,7 @@ fn process_single_archive(
     let target_dir_path = root_dir.join(&file_stem);
     move_cache_to_bms_dir(&cache_dir_path, &target_dir_path)?;
     let _ = std::fs::remove_dir(&cache_dir_path);
+    // Intentionally ignored: directory may not be empty
     move_original_to_bofttpacks(&file_path, pack_dir, file_name);
 
     info!("Finished processing: {}", file_name);
@@ -189,9 +190,11 @@ fn move_cache_to_bms_dir(
 fn move_original_to_bofttpacks(file_path: &Path, pack_dir: &Path, file_name: &str) {
     let used_pack_dir = pack_dir.join("BOFTTPacks");
     if !used_pack_dir.is_dir() {
+        // Intentionally ignored: directory may already exist
         let _ = std::fs::create_dir_all(&used_pack_dir);
     }
     let target_file_path = used_pack_dir.join(file_name);
+    // Intentionally ignored: cross-device rename may fail, best-effort move
     let _ = std::fs::rename(file_path, &target_file_path);
 }
 
@@ -340,7 +343,7 @@ pub fn unzip_numeric_to_bms_folder(
             })?;
         }
 
-        // Try to remove empty cache dir
+        // Intentionally ignored: directory may not be empty
         let _ = std::fs::remove_dir(&cache_dir_path);
 
         // Move original file to BOFTTPacks subdirectory
@@ -371,108 +374,110 @@ pub fn set_file_num(dir: &Path) -> Result<(), std::io::Error> {
 
     info!("Setting file numbers in: {:?}", dir);
 
-    // Get files to number
-    let mut file_names: Vec<String> = Vec::new();
+    loop {
+        // Get files to number
+        let mut file_names: Vec<String> = Vec::new();
 
-    if let Ok(entries) = std::fs::read_dir(dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if !path.is_file() {
-                continue;
+        if let Ok(entries) = std::fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if !path.is_file() {
+                    continue;
+                }
+
+                let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+
+                // Skip if already numbered
+                if name
+                    .split_whitespace()
+                    .next()
+                    .is_some_and(|s| s.chars().all(|c| c.is_ascii_digit()))
+                {
+                    continue;
+                }
+
+                // Skip if companion .part file exists (e.g., foo.zip has foo.zip.part)
+                let part_file_path = path.with_file_name(format!("{name}.part"));
+                if part_file_path.is_file() {
+                    continue;
+                }
+
+                // Skip empty files
+                if path.metadata().map_or(true, |m| m.len() == 0) {
+                    continue;
+                }
+
+                // Check extension
+                let ext = name.rsplit('.').next().unwrap_or("");
+                if !ALLOWED_EXTS.contains(&ext.to_lowercase().as_str()) {
+                    continue;
+                }
+
+                file_names.push(name.to_string());
             }
-
-            let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-
-            // Skip if already numbered
-            if name
-                .split_whitespace()
-                .next()
-                .is_some_and(|s| s.chars().all(|c| c.is_ascii_digit()))
-            {
-                continue;
-            }
-
-            // Skip part files
-            if name.to_lowercase().ends_with(".part") {
-                continue;
-            }
-
-            // Skip empty files
-            if path.metadata().map_or(true, |m| m.len() == 0) {
-                continue;
-            }
-
-            // Check extension
-            let ext = name.rsplit('.').next().unwrap_or("");
-            if !ALLOWED_EXTS.contains(&ext.to_lowercase().as_str()) {
-                continue;
-            }
-
-            file_names.push(name.to_string());
         }
-    }
 
-    if file_names.is_empty() {
-        info!("No files to number");
-        return Ok(());
-    }
+        if file_names.is_empty() {
+            info!("No files to number");
+            return Ok(());
+        }
 
-    // Sort files
-    file_names.sort();
+        // Print selections
+        println!("Here are files in {}:", dir.display());
+        for (i, name) in file_names.iter().enumerate() {
+            println!("  - {i}: {name}");
+        }
 
-    // Print selections
-    println!("Here are files in {}:", dir.display());
-    for (i, name) in file_names.iter().enumerate() {
-        println!("  - {i}: {name}");
-    }
+        // Prompt for input
+        println!("Input a number: to set num [0] to the first selection.");
+        println!("Input two numbers: to set num [1] to the selection in index [0].");
+        print!("Input: ");
+        io::stdout().flush().unwrap();
 
-    // Prompt for input
-    println!("Input a number: to set num [0] to the first selection.");
-    println!("Input two numbers: to set num [1] to the selection in index [0].");
-    print!("Input: ");
-    io::stdout().flush().unwrap();
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).unwrap();
+        let input = input.trim();
 
-    let mut input = String::new();
-    io::stdin().read_line(&mut input).unwrap();
-    let input = input.trim();
+        let parts: Vec<&str> = input.split_whitespace().collect();
 
-    let parts: Vec<&str> = input.split_whitespace().collect();
+        if parts.is_empty() {
+            info!("Invalid input");
+            println!();
+            continue;
+        }
 
-    if parts.is_empty() {
-        info!("Invalid input");
-        return Ok(());
-    }
+        let (file_idx, num) = if parts.len() == 1 {
+            (0, parts[0].parse::<i32>().unwrap_or(0))
+        } else {
+            (
+                parts[0].parse::<usize>().unwrap_or(0),
+                parts[1].parse::<i32>().unwrap_or(0),
+            )
+        };
 
-    let (file_idx, num) = if parts.len() == 1 {
-        (0, parts[0].parse::<i32>().unwrap_or(0))
-    } else {
-        (
-            parts[0].parse::<usize>().unwrap_or(0),
-            parts[1].parse::<i32>().unwrap_or(0),
-        )
-    };
+        if file_idx >= file_names.len() {
+            info!("Invalid file index");
+            println!();
+            continue;
+        }
 
-    if file_idx >= file_names.len() {
-        info!("Invalid file index");
-        return Ok(());
-    }
+        let file_name = &file_names[file_idx];
+        let file_path = dir.join(file_name);
+        let new_file_name = format!("{num} {file_name}");
+        let new_file_path = dir.join(&new_file_name);
 
-    let file_name = &file_names[file_idx];
-    let file_path = dir.join(file_name);
-    let new_file_name = format!("{num} {file_name}");
-    let new_file_path = dir.join(&new_file_name);
+        info!("Rename {} to {}", file_name, new_file_name);
+        std::fs::rename(&file_path, &new_file_path)?;
 
-    info!("Rename {} to {}", file_name, new_file_name);
-    std::fs::rename(&file_path, &new_file_path)?;
+        // Ask if continue
+        print!("继续处理其他文件? [y/N]: ");
+        io::stdout().flush().unwrap();
 
-    // Ask if continue
-    print!("Continue processing other files? [y/N]: ");
-    io::stdout().flush().unwrap();
-
-    let mut cont = String::new();
-    io::stdin().read_line(&mut cont).unwrap();
-    if cont.trim().to_lowercase().starts_with('y') {
-        set_file_num(dir)?;
+        let mut cont = String::new();
+        io::stdin().read_line(&mut cont).unwrap();
+        if !cont.trim().to_lowercase().starts_with('y') {
+            break;
+        }
     }
 
     Ok(())

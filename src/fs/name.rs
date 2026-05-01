@@ -32,9 +32,11 @@ pub fn get_valid_fs_name(name: &str) -> String {
 /// Get a valid folder name for a BMS work.
 #[allow(dead_code)]
 #[must_use]
-pub fn get_work_folder_name(title: &str, artist: &str) -> String {
-    let mut name = title.to_string();
+pub fn get_work_folder_name(id: &str, title: &str, artist: &str) -> String {
+    let raw = format!("{id}. {title}");
+    let mut name = raw;
     if !artist.is_empty() {
+        // Intentionally ignored: write to String never fails
         let _ = write!(name, " [{artist}]");
     }
     get_valid_fs_name(&name)
@@ -137,11 +139,14 @@ mod tests {
 
     #[test]
     fn test_get_work_folder_name() {
-        assert_eq!(get_work_folder_name("Title", "Artist"), "Title [Artist]");
-        assert_eq!(get_work_folder_name("Title", ""), "Title");
         assert_eq!(
-            get_work_folder_name("Title: Part 1", "Artist"),
-            "Title： Part 1 [Artist]"
+            get_work_folder_name("1", "Title", "Artist"),
+            "1. Title [Artist]"
+        );
+        assert_eq!(get_work_folder_name("1", "Title", ""), "1. Title");
+        assert_eq!(
+            get_work_folder_name("1", "Title: Part 1", "Artist"),
+            "1. Title： Part 1 [Artist]"
         );
     }
 }

@@ -90,6 +90,7 @@ pub async fn get_file_sha512(file_path: &Path) -> String {
             let mut hex_string = String::with_capacity(result.len() * 2);
             for byte in result {
                 use std::fmt::Write;
+                // Intentionally ignored: write to String never fails
                 let _ = write!(hex_string, "{byte:02x}");
             }
             hex_string
@@ -221,11 +222,7 @@ pub async fn sync_folder(
             let _permit = sem.acquire().await.unwrap();
 
             // Check extension
-            let ext = src_path_clone
-                .extension()
-                .and_then(|e| e.to_str())
-                .unwrap_or("")
-                .to_lowercase();
+            let ext = crate::fs::utils::get_ext(&src_path_clone).to_lowercase();
 
             let mut ext_check_passed = preset_clone.allow_other_exts;
             if preset_clone.allow_src_exts.iter().any(|e| e == &ext) {
@@ -288,7 +285,7 @@ pub async fn sync_folder(
             if preset_clone.check_file_sha512 && is_same_file && dst_file_exists {
                 let src_value = get_file_sha512(&src_path_clone).await;
                 let dst_value = get_file_sha512(&dst_path).await;
-                is_same_file = is_same_file && src_value == dst_value && !src_value.is_empty();
+                is_same_file = is_same_file && src_value == dst_value;
             }
 
             let mut copy_files = Vec::new();
@@ -304,6 +301,7 @@ pub async fn sync_folder(
                         copy_files.push(src_path_clone.clone());
                         tokio::fs::copy(&src_path_clone, &dst_path).await?;
                         if let Ok(mtime) = src_mtime {
+                            // Intentionally ignored: mtime is best-effort metadata
                             let _ = filetime::set_file_mtime(
                                 &dst_path,
                                 filetime::FileTime::from_system_time(mtime),
@@ -317,6 +315,7 @@ pub async fn sync_folder(
                             tokio::fs::remove_file(&src_path_clone).await?;
                         }
                         if let Ok(mtime) = src_mtime {
+                            // Intentionally ignored: mtime is best-effort metadata
                             let _ = filetime::set_file_mtime(
                                 &dst_path,
                                 filetime::FileTime::from_system_time(mtime),
@@ -335,6 +334,7 @@ pub async fn sync_folder(
                     .is_ok_and(|m| m.is_file())
             {
                 remove_files.push(src_path_clone.clone());
+                // Intentionally ignored: file removal is best-effort in sync
                 let _ = tokio::fs::remove_file(&src_path_clone).await;
             }
 
@@ -368,10 +368,12 @@ pub async fn sync_folder(
             if dst_path.is_dir() {
                 if !src_path.is_dir() {
                     dst_remove_dirs.push(dst_path.clone());
+                    // Intentionally ignored: cleanup of extra destination directories
                     let _ = tokio::fs::remove_dir_all(dst_path).await;
                 }
             } else if dst_path.is_file() && !src_path.is_file() {
                 dst_remove_files.push(dst_path.clone());
+                // Intentionally ignored: cleanup of extra destination files
                 let _ = tokio::fs::remove_file(dst_path).await;
             }
         }
@@ -472,7 +474,7 @@ mod tests {
         let result = sync_folder(&src_dir, &dst_dir, &preset, 8).await;
         assert!(result.is_ok());
 
-        // Cleanup
+        // Cleanup (intentionally ignored: test teardown)
         let _ = tokio::fs::remove_dir_all(&src_dir).await;
         let _ = tokio::fs::remove_dir_all(&dst_dir).await;
     }

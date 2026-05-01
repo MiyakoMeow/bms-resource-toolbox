@@ -129,6 +129,7 @@ pub fn split_folders_with_first_char(root_dir: &Path) -> Result<(), std::io::Err
     // Remove the original folder if empty
     if !is_dir_having_file(root_dir) {
         let _ = std::fs::remove_dir(root_dir);
+        // Intentionally ignored: directory may already be removed by rename
     }
 
     Ok(())
@@ -182,7 +183,7 @@ pub fn undo_split_pack(root_dir: &Path) -> Result<(), std::io::Error> {
     }
 
     for (from, to) in &pairs {
-        move_elements_across_dir(from, to, MoveOptions::default(), ReplaceOptions::default())?;
+        move_elements_across_dir(from, to, MoveOptions::default(), &ReplaceOptions::default())?;
     }
 
     Ok(())
@@ -216,7 +217,7 @@ pub fn move_works_in_pack(root_dir_from: &Path, root_dir_to: &Path) -> Result<()
                 &bms_dir,
                 &dst_bms_dir,
                 MoveOptions::default(),
-                REPLACE_OPTION_UPDATE_PACK.clone(),
+                &REPLACE_OPTION_UPDATE_PACK,
             )?;
             move_count += 1;
         }
@@ -227,12 +228,11 @@ pub fn move_works_in_pack(root_dir_from: &Path, root_dir_to: &Path) -> Result<()
         return Ok(());
     }
 
-    // Deal with song dir if no subdirs
     move_elements_across_dir(
         root_dir_from,
         root_dir_to,
         MoveOptions::default(),
-        REPLACE_OPTION_UPDATE_PACK.clone(),
+        &REPLACE_OPTION_UPDATE_PACK,
     )?;
 
     Ok(())
@@ -292,11 +292,10 @@ fn workdir_remove_unneed_media_files(
         let file_ext = check_file_path
             .extension()
             .and_then(|e| e.to_str())
-            .unwrap_or("")
-            .to_lowercase();
+            .unwrap_or("");
 
         for (upper_exts, lower_exts) in rule {
-            if !upper_exts.iter().any(|e| e.to_lowercase() == file_ext) {
+            if !upper_exts.contains(&file_ext) {
                 continue;
             }
 
@@ -329,10 +328,11 @@ fn workdir_remove_unneed_media_files(
             check_file_path.file_name()
         );
         let _ = std::fs::remove_file(replacing_file_path);
+        // Intentionally ignored: file may already be removed
     }
 
     // Remove zero-sized media files
-    remove_zero_sized_media_files(work_dir)?;
+    crate::options::bms_folder::remove_zero_sized_media_files(work_dir, false)?;
 
     // Count extensions for mp4 warning
     let mut ext_count: HashMap<String, Vec<String>> = HashMap::new();
@@ -348,14 +348,16 @@ fn workdir_remove_unneed_media_files(
         let file_ext = count_file_path
             .extension()
             .and_then(|e| e.to_str())
-            .unwrap_or("")
-            .to_lowercase();
+            .unwrap_or("");
         let file_name = count_file_path
             .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("")
             .to_string();
-        ext_count.entry(file_ext).or_default().push(file_name);
+        ext_count
+            .entry(file_ext.to_string())
+            .or_default()
+            .push(file_name);
     }
 
     if let Some(mp4_files) = ext_count.get("mp4")
@@ -410,71 +412,6 @@ pub fn remove_unneed_media_files(
     Ok(())
 }
 
-/// Remove zero-sized media files and temp files
-///
-/// # Errors
-///
-/// Returns [`std::io::Error`] if directory operations fail.
-#[allow(dead_code)]
-pub fn remove_zero_sized_media_files(current_dir: &Path) -> Result<(), std::io::Error> {
-    const TEMP_FILES: &[&str] = &["desktop.ini", "thumbs.db", ".ds_store"];
-    const MEDIA_EXTS: &[&str] = &[
-        "flac", "ogg", "wav", "mp4", "mkv", "avi", "wmv", "mpg", "mpeg", "jpg", "png", "bmp", "svg",
-    ];
-
-    let mut next_dirs: Vec<PathBuf> = Vec::new();
-
-    let entries: Vec<_> = std::fs::read_dir(current_dir)?
-        .filter_map(std::result::Result::ok)
-        .collect();
-
-    for entry in &entries {
-        let element_path = entry.path();
-        let element_name = element_path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("");
-
-        if element_path.is_file() {
-            // Check if temp file
-            let is_temp = TEMP_FILES.contains(&element_name.to_lowercase().as_str())
-                || element_name.starts_with(".trash-")
-                || element_name.starts_with("._");
-
-            if is_temp {
-                info!(" - Remove temp file: {:?}", element_path);
-                let _ = std::fs::remove_file(&element_path);
-                continue;
-            }
-
-            // Check if zero-sized media file
-            let ext = element_path
-                .extension()
-                .and_then(|e| e.to_str())
-                .unwrap_or("")
-                .to_lowercase();
-
-            if !MEDIA_EXTS.contains(&ext.as_str()) {
-                continue;
-            }
-
-            if element_path.metadata().is_ok_and(|m| m.len() == 0) {
-                info!(" - Remove empty file: {:?}", element_path);
-                let _ = std::fs::remove_file(&element_path);
-            }
-        } else if element_path.is_dir() {
-            next_dirs.push(element_path);
-        }
-    }
-
-    // Recurse into subdirectories
-    for next_dir in next_dirs {
-        remove_zero_sized_media_files(&next_dir)?;
-    }
-
-    Ok(())
-}
-
 /// Move works out one level (un-nest subdirectories)
 ///
 /// # Errors
@@ -512,12 +449,13 @@ pub fn move_out_works(target_root_dir: &Path) -> Result<(), std::io::Error> {
                 &work_dir_path,
                 &target_work_dir_path,
                 MoveOptions::default(),
-                REPLACE_OPTION_UPDATE_PACK.clone(),
+                &REPLACE_OPTION_UPDATE_PACK,
             )?;
         }
 
         // Remove empty root_dir if not having files
         if !is_dir_having_file(&root_dir_path) {
+            // Intentionally ignored: directory may not be empty
             let _ = std::fs::remove_dir(&root_dir_path);
         }
     }
@@ -538,8 +476,17 @@ pub fn move_works_with_same_name(
     root_dir_from: &Path,
     root_dir_to: &Path,
 ) -> Result<(), std::io::Error> {
-    if !root_dir_from.is_dir() || !root_dir_to.is_dir() {
-        return Ok(());
+    if !root_dir_from.is_dir() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("源路径不存在或不是目录: {}", root_dir_from.display()),
+        ));
+    }
+    if !root_dir_to.is_dir() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("目标路径不存在或不是目录: {}", root_dir_to.display()),
+        ));
     }
 
     // Get source subdirectories
@@ -586,7 +533,7 @@ pub fn move_works_with_same_name(
             from_path,
             to_path,
             MoveOptions::default(),
-            REPLACE_OPTION_UPDATE_PACK.clone(),
+            &REPLACE_OPTION_UPDATE_PACK,
         )?;
     }
 
@@ -679,7 +626,7 @@ pub fn move_works_with_same_name_to_siblings(root_dir_from: &Path) -> Result<(),
             from_path,
             target_path,
             MoveOptions::default(),
-            REPLACE_OPTION_UPDATE_PACK.clone(),
+            &REPLACE_OPTION_UPDATE_PACK,
         )?;
     }
 
@@ -782,7 +729,7 @@ pub fn merge_split_folders(root_dir: &Path) -> Result<(), anyhow::Error> {
             &from_dir_path,
             &target_dir_path,
             MoveOptions::default(),
-            ReplaceOptions::default(),
+            &ReplaceOptions::default(),
         )?;
     }
 

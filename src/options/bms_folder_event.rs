@@ -6,7 +6,6 @@ use std::path::Path;
 use tracing::info;
 
 use crate::bms::dir::get_dir_bms_info;
-use crate::bms::work::parse_work_dir_name;
 use rust_xlsxwriter::Workbook;
 
 /// Check if numbered folders exist in a BMS event directory
@@ -87,6 +86,7 @@ pub async fn generate_work_info_table(root_dir: &Path) -> anyhow::Result<()> {
 
     let mut workbook = Workbook::new();
     let worksheet = workbook.add_worksheet();
+    worksheet.set_name("BMS List")?;
 
     let entries: Vec<_> = std::fs::read_dir(root_dir)?
         .filter_map(std::result::Result::ok)
@@ -104,15 +104,12 @@ pub async fn generate_work_info_table(root_dir: &Path) -> anyhow::Result<()> {
             continue;
         };
 
-        let (num_str, _rest) = parse_work_dir_name(work_name);
-        let Some(id_str) = num_str else { continue };
-        if !id_str.chars().all(|c| c.is_ascii_digit()) {
+        let id_str = work_name.split('.').next().unwrap_or("");
+        if id_str.is_empty() || !id_str.chars().all(|c| c.is_ascii_digit()) {
+            println!("Warning: Skipping dir {work_name} - invalid id format: {id_str}");
             continue;
         }
         let row: u32 = id_str.parse().unwrap_or(0);
-        if row == 0 {
-            continue;
-        }
 
         worksheet.write_number(row, 0, f64::from(row))?;
         worksheet.write_string(row, 1, &info.title)?;

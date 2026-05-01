@@ -117,5 +117,6 @@ pub fn jump_to_work_info(_args: &[Box<dyn Any>]) {
 
 /// Open URL in browser.
 pub fn open_url(url: &str) {
+    // Intentionally ignored: browser open may fail in headless environments
     let _ = webbrowser::open(url);
 }

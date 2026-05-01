@@ -10,9 +10,7 @@
 )]
 
 use std::collections::HashMap;
-use std::path::Path;
-#[cfg(test)]
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tracing::info;
 
 use crate::bms::types::CHART_FILE_EXTS;
@@ -20,9 +18,6 @@ use crate::fs::pack_move::{
     DEFAULT_MOVE_OPTIONS, DEFAULT_REPLACE_OPTIONS, move_elements_across_dir,
 };
 
-/// Safely join a path component to a base directory, preventing path traversal attacks.
-/// Returns `None` if the joined path would escape the base directory.
-#[cfg(test)]
 fn safe_join(base: &Path, component: &str) -> Option<PathBuf> {
     let decoded = component.replace('\\', "/");
     let path = PathBuf::from(&decoded);
@@ -54,13 +49,33 @@ fn safe_join(base: &Path, component: &str) -> Option<PathBuf> {
     }
 }
 
-/// Set the modification time of a file.
-#[expect(dead_code)]
-async fn set_mtime(path: &Path, mtime: u32) -> anyhow::Result<()> {
-    let _file = tokio::fs::File::open(path).await?;
-    let times = filetime::FileTime::from_unix_time(i64::from(mtime), 0);
-    filetime::set_file_mtime(path, times)?;
-    Ok(())
+fn set_mtime(path: &Path, dt: Option<zip::DateTime>) {
+    let Some(dt) = dt else { return };
+    let unix_secs = datetime_to_unix(
+        i64::from(dt.year()),
+        i64::from(dt.month()),
+        i64::from(dt.day()),
+        i64::from(dt.hour()),
+        i64::from(dt.minute()),
+        i64::from(dt.second()),
+    );
+    let ft = filetime::FileTime::from_unix_time(unix_secs, 0);
+    let _ = filetime::set_file_mtime(path, ft);
+    // Intentionally ignored: mtime is best-effort metadata
+}
+
+fn datetime_to_unix(year: i64, month: i64, day: i64, hour: i64, minute: i64, second: i64) -> i64 {
+    let (y_adj, m_adj) = if month <= 2 {
+        (year - 1, month + 9)
+    } else {
+        (year, month - 3)
+    };
+    let era = y_adj.div_euclid(400);
+    let yoe = y_adj.rem_euclid(400);
+    let doy = (153 * m_adj + 2) / 5 + day - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    let days_since_epoch = era * 146_097 + doe - 719_468;
+    days_since_epoch * 86400 + hour * 3600 + minute * 60 + second
 }
 
 /// Get numbered file names from a directory.
@@ -83,8 +98,6 @@ pub fn get_num_set_file_names(dir: &Path) -> Vec<String> {
             names.push(name);
         }
     }
-
-    names.sort();
     names
 }
 
@@ -179,33 +192,35 @@ fn extract_zip(archive_path: &Path, output_dir: &Path) -> Result<(), std::io::Er
     let file = std::fs::File::open(archive_path)?;
     let mut archive = ZipArchive::new(file)?;
 
-    // Detect if we need CP932 (Shift-JIS) decoding
-    // This matches Python's behavior: check non-UTF-8 entries for Japanese characters
     let use_cp932 = detect_cp932_encoding(&mut archive);
 
     for i in 0..archive.len() {
         let mut file = archive.by_index(i)?;
 
-        // Decode filename: try enclosed_name first, then CP932 if needed
         let decoded_name = if let Some(enclosed) = file.enclosed_name() {
             enclosed.to_string_lossy().to_string()
         } else if use_cp932 {
-            // Try CP437 -> CP932 conversion on the name
             decode_cp932_filename(file.name()).unwrap_or_else(|| file.name().to_string())
         } else {
             file.name().to_string()
         };
 
-        let outpath = output_dir.join(&decoded_name);
+        let Some(outpath) = safe_join(output_dir, &decoded_name) else {
+            continue;
+        };
+
+        let dt = file.last_modified();
 
         if file.is_dir() {
             std::fs::create_dir_all(&outpath)?;
+            set_mtime(&outpath, dt);
         } else {
             if let Some(p) = outpath.parent() {
                 std::fs::create_dir_all(p)?;
             }
             let mut outfile = std::fs::File::create(&outpath)?;
             std::io::copy(&mut file, &mut outfile)?;
+            set_mtime(&outpath, dt);
         }
     }
 
@@ -476,14 +491,13 @@ async fn extract_rar(archive_path: &Path, output_dir: &Path) -> Result<(), std::
 #[expect(clippy::too_many_lines)]
 pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
     let mut error = false;
-
+    let mut file_ext_count: HashMap<String, Vec<String>>;
     loop {
-        let mut file_ext_count: HashMap<String, Vec<String>> = HashMap::new();
+        file_ext_count = HashMap::new();
         let mut cache_folder_count: usize = 0;
         let mut cache_file_count: usize = 0;
         let mut inner_dir_name: Option<String> = None;
 
-        // Scan cache directory
         let Ok(entries) = std::fs::read_dir(cache_dir_path) else {
             break;
         };
@@ -496,7 +510,6 @@ pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
                 .unwrap_or("");
 
             if cache_path.is_dir() {
-                // Remove __MACOSX directory
                 if cache_name == "__MACOSX" {
                     info!("Removing __MACOSX directory: {:?}", cache_path);
                     if let Err(e) = std::fs::remove_dir_all(&cache_path) {
@@ -504,19 +517,13 @@ pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
                     }
                     continue;
                 }
-                // Normal directory
                 cache_folder_count += 1;
                 inner_dir_name = Some(cache_name.to_string());
             }
 
             if cache_path.is_file() {
                 cache_file_count += 1;
-                // Count extensions
-                let ext = cache_path
-                    .extension()
-                    .and_then(|e| e.to_str())
-                    .unwrap_or("")
-                    .to_string();
+                let ext = crate::fs::utils::get_ext(&cache_path).to_string();
                 file_ext_count
                     .entry(ext)
                     .or_default()
@@ -524,12 +531,10 @@ pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
             }
         }
 
-        // Determine state
         let done;
         if cache_folder_count == 0 || (cache_folder_count == 1 && cache_file_count >= 10) {
             done = true;
         } else if cache_folder_count > 1 {
-            // Check if there are BMS files anywhere in cache_dir
             let mut has_bms = false;
             for entry in walkdir::WalkDir::new(cache_dir_path).into_iter().flatten() {
                 let path = entry.path();
@@ -561,10 +566,8 @@ pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
             break;
         }
 
-        // Move files out of inner directory
         if let Some(ref inner_name) = inner_dir_name {
             let inner_dir_path = cache_dir_path.join(inner_name);
-            // Avoid two floor same name: if inner_dir_path/inner_name exists, rename it
             let inner_inner_dir_path = inner_dir_path.join(inner_name);
             if inner_inner_dir_path.is_dir() {
                 info!(
@@ -576,7 +579,6 @@ pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
                     info!("Failed to rename inner inner dir: {}", e);
                 }
             }
-            // Move files
             info!(
                 " - Moving inner files in {:?} to {:?}",
                 inner_dir_path, cache_dir_path
@@ -585,16 +587,15 @@ pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
                 &inner_dir_path,
                 cache_dir_path,
                 DEFAULT_MOVE_OPTIONS,
-                DEFAULT_REPLACE_OPTIONS.clone(),
+                &DEFAULT_REPLACE_OPTIONS,
             ) {
                 info!("Failed to move elements: {}", e);
             }
-            // Try to remove the now-empty inner directory
             let _ = std::fs::remove_dir(&inner_dir_path);
+            // Intentionally ignored: directory may not be empty after move
         }
     }
 
-    // Final checks
     let (final_folder_count, final_file_count) = count_cache_contents(cache_dir_path);
 
     if error {
@@ -603,16 +604,12 @@ pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
 
     if final_folder_count == 0 && final_file_count == 0 {
         info!(" !_! {}: Cache is Empty!", cache_dir_path.display());
-        // Try to remove the empty cache directory
         let _ = std::fs::remove_dir(cache_dir_path);
-        return false;
+        // Intentionally ignored: cleanup of empty cache directory
     }
 
-    // Check for multiple mp4 files
-    let mp4_files: usize = file_ext_count_at_path(cache_dir_path)
-        .get("mp4")
-        .map_or(0, std::vec::Vec::len);
-    if mp4_files > 1 {
+    let mp4_count = file_ext_count.get("mp4").map_or(0, Vec::len);
+    if mp4_count > 1 {
         info!(
             " - Tips: {} has more than 1 mp4 files!",
             cache_dir_path.display()
@@ -638,28 +635,6 @@ fn count_cache_contents(dir: &Path) -> (usize, usize) {
     }
 
     (folder_count, file_count)
-}
-
-/// Get file extension counts in a directory
-fn file_ext_count_at_path(dir: &Path) -> HashMap<String, Vec<String>> {
-    let mut ext_count: HashMap<String, Vec<String>> = HashMap::new();
-
-    if let Ok(entries) = std::fs::read_dir(dir) {
-        for entry in entries.flatten() {
-            if entry.path().is_file() {
-                let name = entry.file_name().to_string_lossy().to_string();
-                let ext = entry
-                    .path()
-                    .extension()
-                    .and_then(|e| e.to_str())
-                    .unwrap_or("")
-                    .to_string();
-                ext_count.entry(ext).or_default().push(name);
-            }
-        }
-    }
-
-    ext_count
 }
 
 #[cfg(test)]

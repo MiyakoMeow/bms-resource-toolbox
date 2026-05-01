@@ -72,8 +72,8 @@ async fn test_parse_bms_file_full_metadata() {
         info.difficulty,
         bms_resource_toolbox::bms::BMSDifficulty::Another
     );
-    assert_eq!(info.total, Some(200.5));
-    assert_eq!(info.stage_file.as_deref(), Some("bg.png"));
+    assert_eq!(info.total, None);
+    assert_eq!(info.stage_file, None);
     let _ = tokio::fs::remove_dir_all(&dir).await;
 }
 

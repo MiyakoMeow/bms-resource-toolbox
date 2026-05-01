@@ -13,37 +13,55 @@ use tokio::process::Command;
 /// Check if ffmpeg is available
 #[expect(dead_code)]
 pub(crate) async fn check_ffmpeg() -> bool {
-    Command::new("ffmpeg")
+    let result = Command::new("ffmpeg")
         .arg("-version")
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status()
-        .await
-        .is_ok_and(|s| s.success())
+        .await;
+    match result {
+        Ok(status) if status.success() => true,
+        _ => {
+            println!(" - 未找到或无法执行 ffmpeg（命令 \"ffmpeg -version\" 失败）。");
+            false
+        }
+    }
 }
 
 /// Check if flac is available
 #[expect(dead_code)]
 pub(crate) async fn check_flac() -> bool {
-    Command::new("flac")
+    let result = Command::new("flac")
         .arg("--version")
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status()
-        .await
-        .is_ok_and(|s| s.success())
+        .await;
+    match result {
+        Ok(status) if status.success() => true,
+        _ => {
+            println!(" - 未找到或无法执行 flac（命令 \"flac --version\" 失败）。");
+            false
+        }
+    }
 }
 
 /// Check if oggenc is available
 #[expect(dead_code)]
 pub(crate) async fn check_oggenc() -> bool {
-    Command::new("oggenc")
+    let result = Command::new("oggenc")
         .arg("-v")
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status()
-        .await
-        .is_ok_and(|s| s.success())
+        .await;
+    match result {
+        Ok(status) if status.success() => true,
+        _ => {
+            println!(" - 未找到或无法执行 oggenc（命令 \"oggenc -v\" 失败）。");
+            false
+        }
+    }
 }
 
 /// Validate path exists and is a directory

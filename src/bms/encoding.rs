@@ -154,6 +154,7 @@ pub fn get_bms_file_str(file_bytes: &[u8], encoding: Option<&str>) -> String {
 }
 
 /// Read BMS file auto-detecting encoding - 异步版本
+#[allow(dead_code)]
 pub async fn read_bms_file<P: AsRef<Path>>(path: P) -> Result<String, std::io::Error> {
     let path = path.as_ref();
     let bytes = fs::read(path).await?;

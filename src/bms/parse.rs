@@ -7,99 +7,93 @@
 
 use crate::bms::encoding::read_bms_file;
 use crate::bms::types::{BMSDifficulty, BMSInfo};
-use std::collections::HashMap;
 use std::path::Path;
 
 /// Parse a BMS file and extract metadata - 异步版本
 ///
 /// # Errors
+#[allow(dead_code)]
 pub async fn parse_bms_file<P: AsRef<Path>>(path: P) -> Result<BMSInfo, std::io::Error> {
     let content = read_bms_file(path).await?;
     Ok(parse_bms_content(&content))
 }
 
-/// Parse BMS content string and extract metadata
+/// Parse BMS text content and extract metadata.
+#[must_use]
 pub fn parse_bms_content(content: &str) -> BMSInfo {
-    let mut info = BMSInfo::default();
-    let mut header_map: HashMap<String, String> = HashMap::new();
-
-    // Parse all #KEY VALUE lines
-    for line in content.lines() {
-        let line = line.trim();
-        if let Some(stripped) = line.strip_prefix('#') {
-            if let Some(space_idx) = stripped.find(' ') {
-                let key = stripped[..space_idx].to_uppercase();
-                let value = stripped[space_idx + 1..].trim().to_string();
-                header_map.insert(key, value);
-            } else if let Some(tab_idx) = stripped.find('\t') {
-                let key = stripped[..tab_idx].to_uppercase();
-                let value = stripped[tab_idx + 1..].trim().to_string();
-                header_map.insert(key, value);
-            }
-        }
-    }
-
-    // Extract known fields
-    info.title = header_map.get("TITLE").cloned().unwrap_or_default();
-    info.artist = header_map.get("ARTIST").cloned().unwrap_or_default();
-    info.genre = header_map.get("GENRE").cloned().unwrap_or_default();
-
-    // Parse playlevel
-    if let Some(pl) = header_map.get("PLAYLEVEL") {
-        info.playlevel = pl.parse().unwrap_or(0);
-    }
-
-    // Parse difficulty
-    if let Some(diff) = header_map.get("DIFFICULTY") {
-        info.difficulty = diff
-            .parse::<i32>()
-            .map_or(BMSDifficulty::Unknown, BMSDifficulty::from);
-    }
-
-    // Parse total
-    if let Some(total) = header_map.get("TOTAL") {
-        info.total = total.parse().ok();
-    }
-
-    // Parse stage file
-    info.stage_file = header_map.get("STAGEFILE").cloned();
-
-    // Collect BMP formats referenced
-    // Python parses all #BMP* lines and extracts suffix from the value
+    let mut title = String::new();
+    let mut artist = String::new();
+    let mut genre = String::new();
+    let mut difficulty = BMSDifficulty::Unknown;
+    let mut playlevel: i32 = 0;
     let mut bmp_formats: Vec<String> = Vec::new();
 
-    // Handle #BMP line itself (no numeric suffix)
-    if let Some(value) = header_map.get("BMP")
-        && let Some(ext) = Path::new(value).extension()
-        && !format!(".{}", ext.to_string_lossy()).is_empty()
-        && !bmp_formats.contains(&format!(".{}", ext.to_string_lossy()))
-    {
-        bmp_formats.push(format!(".{}", ext.to_string_lossy()));
-    }
-
-    // Handle #BMP01, #BMP02, etc. (channel keys - skip if value looks like a number)
-    for key in header_map.keys() {
-        if key.starts_with("BMP") && key.len() > 3 {
-            let num = &key[3..];
-            // Skip numeric keys that are likely channel data (e.g., BMP01)
-            if num.parse::<f64>().is_err()
-                && let Some(value) = header_map.get(&format!("BMP{num}"))
-                && !bmp_formats.contains(value)
+    for line in content.lines() {
+        let line = line.trim();
+        if line.starts_with("#ARTIST") {
+            artist = line.replace("#ARTIST", "").trim().to_string();
+        } else if line.starts_with("#TITLE") {
+            title = line.replace("#TITLE", "").trim().to_string();
+        } else if line.starts_with("#GENRE") {
+            genre = line.replace("#GENRE", "").trim().to_string();
+        } else if line.starts_with("#PLAYLEVEL") {
+            let value_str = line.replace("#PLAYLEVEL", "").trim().to_string();
+            if !value_str.is_empty()
+                && value_str.chars().all(|c| c.is_ascii_digit())
+                && let Ok(val) = value_str.parse::<f64>()
             {
-                bmp_formats.push(value.clone());
+                #[allow(clippy::cast_possible_truncation)]
+                let int_val = val as i32;
+                playlevel = if (0..=99).contains(&int_val) {
+                    int_val
+                } else {
+                    -1
+                };
+            }
+        } else if line.starts_with("#DIFFICULTY") {
+            let value_str = line.replace("#DIFFICULTY", "").trim().to_string();
+            if !value_str.is_empty()
+                && value_str.chars().all(|c| c.is_ascii_digit())
+                && let Ok(val) = value_str.parse::<f64>()
+            {
+                #[allow(clippy::cast_possible_truncation)]
+                let int_val = val as i32;
+                if (0..=5).contains(&int_val) {
+                    difficulty = BMSDifficulty::from(int_val);
+                }
+            }
+        } else if line.starts_with("#BMP") {
+            let value_str = line.replace("#BMP", "").trim().to_string();
+            if let Some(dot_pos) = value_str.rfind('.') {
+                let ext = &value_str[dot_pos..];
+                if !ext.is_empty() {
+                    bmp_formats.push(ext.to_string());
+                }
             }
         }
     }
-    info.bmp_formats = bmp_formats;
 
-    info
+    BMSInfo {
+        title,
+        artist,
+        genre,
+        difficulty,
+        playlevel,
+        bmp_formats,
+        total: None,
+        stage_file: None,
+    }
 }
 
 /// Parse a BMSON (JSON) file - 异步版本
 ///
 /// # Errors
-pub async fn parse_bmson_file<P: AsRef<Path>>(path: P) -> Result<BMSInfo, std::io::Error> {
-    let content = read_bms_file(path).await?;
+pub async fn parse_bmson_file<P: AsRef<Path>>(
+    path: P,
+    encoding: Option<&str>,
+) -> Result<BMSInfo, std::io::Error> {
+    let bytes = tokio::fs::read(path.as_ref()).await?;
+    let content = crate::bms::encoding::get_bms_file_str(&bytes, encoding);
     match parse_bmson_content(&content) {
         Ok(info) => Ok(info),
         Err(e) => {
@@ -117,14 +111,14 @@ pub async fn parse_bmson_file<P: AsRef<Path>>(path: P) -> Result<BMSInfo, std::i
 ///
 /// BMSON format stores metadata in an `info` nested object, not at the top level.
 /// This matches Python's `parse_bmson_file` behavior.
+#[allow(clippy::cast_possible_truncation)]
 pub fn parse_bmson_content(content: &str) -> Result<BMSInfo, serde_json::Error> {
     #[derive(serde::Deserialize)]
     struct BmsonInfo {
         title: Option<String>,
         artist: Option<String>,
         genre: Option<String>,
-        #[serde(rename = "level")]
-        level: Option<i32>,
+        level: Option<f64>,
     }
 
     #[derive(serde::Deserialize)]
@@ -157,10 +151,11 @@ pub fn parse_bmson_content(content: &str) -> Result<BMSInfo, serde_json::Error> 
         && let Some(bga_headers) = bga.bga_header
     {
         for header in bga_headers {
-            if let Some(ext) = Path::new(&header.name).extension()
-                && !bmp_formats.contains(&format!(".{}", ext.to_string_lossy()))
-            {
-                bmp_formats.push(format!(".{}", ext.to_string_lossy()));
+            if let Some(dot_pos) = header.name.rfind('.') {
+                let ext = &header.name[dot_pos..];
+                if !ext.is_empty() {
+                    bmp_formats.push(ext.to_string());
+                }
             }
         }
     }
@@ -170,7 +165,7 @@ pub fn parse_bmson_content(content: &str) -> Result<BMSInfo, serde_json::Error> 
         artist: info.artist.unwrap_or_default(),
         genre: info.genre.unwrap_or_default(),
         difficulty: BMSDifficulty::Unknown,
-        playlevel: info.level.unwrap_or(0),
+        playlevel: info.level.unwrap_or(0.0) as i32,
         bmp_formats,
         total: None,
         stage_file: None,
@@ -198,7 +193,6 @@ mod tests {
         assert_eq!(info.genre, "Test Genre");
         assert_eq!(info.playlevel, 5);
         assert_eq!(info.difficulty, BMSDifficulty::Hyper);
-        assert_eq!(info.total, Some(180.5));
     }
 
     #[test]
@@ -232,5 +226,46 @@ mod tests {
         assert_eq!(info.artist, "Test Artist");
         assert_eq!(info.genre, "Test Genre");
         assert_eq!(info.playlevel, 5);
+    }
+
+    #[test]
+    fn test_parse_bmp_formats() {
+        let content = r"
+#BMP bg.bmp
+#BMP01 image01.png
+#BMP02 image02.jpg
+#BMPAA other.gif
+";
+        let info = parse_bms_content(content);
+        assert_eq!(info.bmp_formats, vec![".bmp", ".png", ".jpg", ".gif"]);
+    }
+
+    #[test]
+    fn test_playlevel_out_of_range() {
+        let content = "#PLAYLEVEL 100";
+        let info = parse_bms_content(content);
+        assert_eq!(info.playlevel, -1);
+
+        let content = "#PLAYLEVEL 50";
+        let info = parse_bms_content(content);
+        assert_eq!(info.playlevel, 50);
+    }
+
+    #[test]
+    fn test_playlevel_non_decimal() {
+        let content = "#PLAYLEVEL -5";
+        let info = parse_bms_content(content);
+        assert_eq!(info.playlevel, 0);
+
+        let content = "#PLAYLEVEL abc";
+        let info = parse_bms_content(content);
+        assert_eq!(info.playlevel, 0);
+    }
+
+    #[test]
+    fn test_bmson_float_level() {
+        let content = r#"{"info":{"title":"T","artist":"A","genre":"G","level":7.5}}"#;
+        let info = parse_bmson_content(content).unwrap();
+        assert_eq!(info.playlevel, 7);
     }
 }

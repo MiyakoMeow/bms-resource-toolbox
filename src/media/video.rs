@@ -330,7 +330,7 @@ pub async fn convert_video(
     input: &Path,
     output: &Path,
     preset: &VideoPreset,
-) -> Result<(), std::io::Error> {
+) -> Result<String, std::io::Error> {
     let cmd_str = preset.get_video_process_cmd(input, output);
     info!("Running: {}", cmd_str);
 
@@ -340,17 +340,21 @@ pub async fn convert_video(
         ("sh", "-c")
     };
 
-    let status = Command::new(shell)
+    let result = Command::new(shell)
         .args([shell_arg, &cmd_str])
-        .stdout(Stdio::null())
+        .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .status()
+        .output()
         .await?;
 
-    if status.success() {
-        Ok(())
+    if result.status.success() {
+        Ok(cmd_str)
     } else {
-        Err(std::io::Error::other("Conversion failed"))
+        let stdout = String::from_utf8_lossy(&result.stdout).to_string();
+        let stderr = String::from_utf8_lossy(&result.stderr).to_string();
+        Err(std::io::Error::other(format!(
+            "Conversion failed\nCmd: {cmd_str}\nStdout: {stdout}\nStderr: {stderr}"
+        )))
     }
 }
 
@@ -360,12 +364,16 @@ pub async fn convert_video(
 /// - If conversion succeeds: delete original (if `remove_origin_file`), break
 /// - If conversion fails: delete failed output, try next preset
 /// - Only report error when last preset fails
+/// - When `use_prefered` is true, adds aspect-ratio-based presets before user presets
+/// - Uses FIFO ordering (`VecDeque`) for handle completion
+/// - Propagates errors from handles
 pub async fn transfer_video_by_format_in_dir(
     dir: &Path,
     input_exts: &[&str],
     presets: &[VideoPreset],
     remove_origin_file: bool,
     remove_existing_target_file: bool,
+    use_prefered: bool,
 ) -> Result<(), std::io::Error> {
     let cpu_count = std::thread::available_parallelism().map_or(4, std::num::NonZero::get);
 
@@ -390,20 +398,31 @@ pub async fn transfer_video_by_format_in_dir(
         return Ok(());
     }
 
-    let mut handles: Vec<tokio::task::JoinHandle<Result<(), std::io::Error>>> = Vec::new();
+    let mut handles: std::collections::VecDeque<
+        tokio::task::JoinHandle<Result<(), std::io::Error>>,
+    > = std::collections::VecDeque::new();
 
     for file_path in files {
         while handles.len() >= cpu_count {
-            if let Some(handle) = handles.pop() {
-                let _ = handle.await;
+            if let Some(handle) = handles.pop_front() {
+                handle.await??;
             }
         }
 
         let presets_clone = presets.to_vec();
+        let use_prefered_clone = use_prefered;
         let handle = tokio::spawn(async move {
             let mut last_error = false;
+            let mut last_err_msg = String::new();
 
-            for (i, preset) in presets_clone.iter().enumerate() {
+            let mut presets_for_file = presets_clone;
+            if use_prefered_clone {
+                let mut prefered = get_prefered_preset_list(&file_path);
+                prefered.extend(presets_for_file);
+                presets_for_file = prefered;
+            }
+
+            for (i, preset) in presets_for_file.iter().enumerate() {
                 let output = preset.get_output_file_path(&file_path);
 
                 if file_path == output {
@@ -412,8 +431,10 @@ pub async fn transfer_video_by_format_in_dir(
 
                 if output.is_file() {
                     if remove_existing_target_file {
+                        // Intentionally ignored: target removal before re-conversion
                         let _ = std::fs::remove_file(&output);
                     } else {
+                        info!("File exists: {:?}", output);
                         continue;
                     }
                 }
@@ -422,19 +443,24 @@ pub async fn transfer_video_by_format_in_dir(
 
                 if result.is_ok() {
                     if remove_origin_file && file_path.is_file() {
+                        // Intentionally ignored: origin removal after successful conversion
                         let _ = std::fs::remove_file(&file_path);
                     }
                     break;
                 }
                 if output.is_file() {
+                    // Intentionally ignored: cleanup of failed conversion output
                     let _ = std::fs::remove_file(&output);
                 }
-                if i == presets_clone.len() - 1 {
+                if i == presets_for_file.len() - 1 {
                     last_error = true;
+                    last_err_msg = result.unwrap_err().to_string();
                 }
             }
 
             if last_error {
+                info!("Has Error!");
+                info!("{}", last_err_msg);
                 Err(std::io::Error::other(format!(
                     "All presets failed for {}",
                     file_path.display()
@@ -443,11 +469,11 @@ pub async fn transfer_video_by_format_in_dir(
                 Ok(())
             }
         });
-        handles.push(handle);
+        handles.push_back(handle);
     }
 
     for handle in handles {
-        let _ = handle.await;
+        handle.await??;
     }
 
     Ok(())

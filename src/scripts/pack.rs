@@ -14,158 +14,62 @@ use crate::media::{
     transfer_audio_by_format_in_dir,
 };
 use crate::options::bms_folder::{append_name_by_bms, copy_numbered_workdir_names};
+use crate::options::bms_folder_bigpack::{get_remove_media_rule_oraja, remove_unneed_media_files};
 use crate::options::rawpack::unzip_numeric_to_bms_folder;
 use std::path::Path;
 use tracing::info;
 
-/// Remove unneeded media files from all works in a directory.
-///
-/// Processes each subdirectory in `root_dir` and removes media files
-/// according to the provided rule.
-///
-/// # Errors
-///
-/// Returns [`std::io::Error`] if directory operations fail.
-pub fn remove_unneed_media_files(
+async fn bms_folder_transfer_audio(
     root_dir: &Path,
-    rule: &[(&[&str], &[&str])],
+    input_exts: &[&str],
+    presets: &[crate::media::audio::AudioPreset],
+    options: &TransferOptions,
 ) -> Result<(), std::io::Error> {
-    for entry in walkdir::WalkDir::new(root_dir)
-        .min_depth(1)
-        .max_depth(1)
-        .into_iter()
-        .filter_map(std::result::Result::ok)
-    {
-        let work_dir = entry.path();
-        if !work_dir.is_dir() {
-            continue;
-        }
-
-        workdir_remove_unneed_media_files(work_dir, rule)?;
-    }
-
-    Ok(())
-}
-
-/// Remove unnecessary media files in a single work directory
-///
-/// This matches Python's `_workdir_remove_unneed_media_files` behavior.
-fn workdir_remove_unneed_media_files(
-    work_dir: &Path,
-    rules: &[(&[&str], &[&str])],
-) -> Result<(), std::io::Error> {
-    use std::collections::HashSet;
-
-    let mut remove_pairs: Vec<(std::path::PathBuf, std::path::PathBuf)> = Vec::new();
-    let mut removed_files: HashSet<std::path::PathBuf> = HashSet::new();
-
-    // Collect files in work directory
-    let entries: Vec<_> = std::fs::read_dir(work_dir)?
+    let entries: Vec<_> = std::fs::read_dir(root_dir)?
         .filter_map(std::result::Result::ok)
         .collect();
 
-    // Find files to remove based on rules
-    for entry in &entries {
-        let check_file_path = entry.path();
-        if !check_file_path.is_file() {
+    for entry in entries {
+        let bms_dir_path = entry.path();
+        if !bms_dir_path.is_dir() {
             continue;
         }
-
-        let file_ext = check_file_path
-            .extension()
-            .map(|e| e.to_string_lossy().to_lowercase())
-            .unwrap_or_default();
-
-        for rule in rules {
-            let (upper_exts, lower_exts) = *rule;
-            if !upper_exts.contains(&file_ext.as_str()) {
-                continue;
-            }
-
-            // Check if file is empty (skip if empty)
-            if let Ok(metadata) = check_file_path.metadata()
-                && metadata.len() == 0
-            {
-                info!("Skipping empty file: {:?}", check_file_path);
-                continue;
-            }
-
-            // Search for lower quality files to remove
-            for lower_ext in lower_exts {
-                let replacing_file_path = check_file_path.with_extension(*lower_ext);
-                if replacing_file_path.is_file() && !removed_files.contains(&replacing_file_path) {
-                    remove_pairs.push((check_file_path.clone(), replacing_file_path.clone()));
-                    removed_files.insert(replacing_file_path);
-                }
-            }
-        }
-    }
-
-    if !remove_pairs.is_empty() {
-        info!("Entering: {:?}", work_dir);
-    }
-
-    // Remove files
-    for (check_file_path, replacing_file_path) in &remove_pairs {
-        info!(
-            "Remove file {:?}, because {:?} exists.",
-            replacing_file_path.file_name().unwrap_or_default(),
-            check_file_path.file_name().unwrap_or_default()
-        );
-        std::fs::remove_file(replacing_file_path)?;
-    }
-
-    // Count extensions for diagnostics
-    let mut ext_count: std::collections::HashMap<String, Vec<String>> =
-        std::collections::HashMap::new();
-    for entry in &entries {
-        let count_file_path = entry.path();
-        if !count_file_path.is_file() {
-            continue;
-        }
-
-        let file_ext = count_file_path
-            .extension()
-            .map(|e| e.to_string_lossy().to_lowercase())
-            .unwrap_or_default();
-        let file_name = count_file_path
-            .file_name()
-            .map(|n| n.to_string_lossy().to_string())
-            .unwrap_or_default();
-        ext_count
-            .entry(file_ext.clone())
-            .or_default()
-            .push(file_name);
-    }
-
-    // Check for multiple mp4 files
-    if let Some(mp4_files) = ext_count.get("mp4")
-        && mp4_files.len() > 1
-    {
-        info!(
-            "Tips: {:?} has more than 1 mp4 files! {:?}",
-            work_dir, mp4_files
-        );
+        transfer_audio_by_format_in_dir(&bms_dir_path, input_exts, presets, options).await?;
     }
 
     Ok(())
 }
 
-/// Media file removal rule for ORAJA standard.
-///
-/// Removes redundant video files preferring specific formats:
-/// - mp4 > avi/wmv/mpg/mpeg
-/// - avi > wmv/mpg/mpeg
-/// - flac/wav > ogg
-/// - flac > wav
-/// - mpg > wmv
-pub const REMOVE_MEDIA_RULE_ORAJA: &[(&[&str], &[&str])] = &[
-    (&["mp4"], &["avi", "wmv", "mpg", "mpeg"]),
-    (&["avi"], &["wmv", "mpg", "mpeg"]),
-    (&["flac", "wav"], &["ogg"]),
-    (&["flac"], &["wav"]),
-    (&["mpg"], &["wmv"]),
-];
+async fn bms_folder_transfer_video(
+    root_dir: &Path,
+    input_exts: &[&str],
+    presets: &[crate::media::video::VideoPreset],
+    remove_origin_file: bool,
+    remove_existing_target_file: bool,
+    use_prefered: bool,
+) -> Result<(), std::io::Error> {
+    let entries: Vec<_> = std::fs::read_dir(root_dir)?
+        .filter_map(std::result::Result::ok)
+        .collect();
+
+    for entry in entries {
+        let bms_dir_path = entry.path();
+        if !bms_dir_path.is_dir() {
+            continue;
+        }
+        transfer_video_by_format_in_dir(
+            &bms_dir_path,
+            input_exts,
+            presets,
+            remove_origin_file,
+            remove_existing_target_file,
+            use_prefered,
+        )
+        .await?;
+    }
+
+    Ok(())
+}
 
 /// Pack raw BMS to HQ version (for beatoraja/Qwilight)
 ///
@@ -182,7 +86,7 @@ pub async fn pack_raw_to_hq(root_dir: &Path) -> Result<(), std::io::Error> {
     info!("Parsing Audio... Phase 1: WAV -> FLAC");
     let flac_preset = audio_preset_flac();
     let flac_ffmpeg_preset = audio_preset_flac_ffmpeg();
-    transfer_audio_by_format_in_dir(
+    bms_folder_transfer_audio(
         root_dir,
         &["wav"],
         &[flac_preset, flac_ffmpeg_preset],
@@ -197,7 +101,7 @@ pub async fn pack_raw_to_hq(root_dir: &Path) -> Result<(), std::io::Error> {
 
     // Phase 2: Remove unnecessary media files
     info!("Removing Unneed Files");
-    remove_unneed_media_files(root_dir, REMOVE_MEDIA_RULE_ORAJA)?;
+    remove_unneed_media_files(root_dir, Some(get_remove_media_rule_oraja()))?;
 
     Ok(())
 }
@@ -216,7 +120,7 @@ pub async fn pack_hq_to_lq(root_dir: &Path) -> Result<(), std::io::Error> {
     // Phase 1: Convert FLAC to OGG
     info!("Parsing Audio... Phase 1: FLAC -> OGG");
     let ogg_preset = audio_preset_ogg_q10();
-    transfer_audio_by_format_in_dir(
+    bms_folder_transfer_audio(
         root_dir,
         &["flac"],
         &[ogg_preset],
@@ -236,7 +140,7 @@ pub async fn pack_hq_to_lq(root_dir: &Path) -> Result<(), std::io::Error> {
         video_preset_wmv2_512x512(),
         video_preset_avi_512x512(),
     ];
-    transfer_video_by_format_in_dir(root_dir, &["mp4"], &presets, true, false).await?;
+    bms_folder_transfer_video(root_dir, &["mp4"], &presets, true, false, false).await?;
 
     Ok(())
 }
@@ -297,8 +201,7 @@ pub(crate) fn pack_setup_rawpack_to_hq_check(
 /// # Errors
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
-#[expect(dead_code)]
-pub(crate) fn pack_update_rawpack_to_hq_check(
+pub fn pack_update_rawpack_to_hq_check(
     pack_dir: &Path,
     root_dir: &Path,
     sync_dir: &Path,
@@ -355,8 +258,6 @@ pub async fn pack_setup_rawpack_to_hq(
     info!("Pack Setup RAW -> HQ: {:?} -> {:?}", pack_dir, root_dir);
 
     // Setup directories
-    // Match Python behavior: mkdir(parents=True, exist_ok=False)
-    // If directory already exists, this should fail
     if root_dir.exists() {
         return Err(std::io::Error::new(
             std::io::ErrorKind::AlreadyExists,
@@ -383,13 +284,13 @@ pub async fn pack_setup_rawpack_to_hq(
     info!("Parsing Audio... Phase 1: WAV -> FLAC");
     let flac_preset = audio_preset_flac();
     let flac_ffmpeg_preset = audio_preset_flac_ffmpeg();
-    transfer_audio_by_format_in_dir(
+    bms_folder_transfer_audio(
         root_dir,
         &["wav"],
         &[flac_preset, flac_ffmpeg_preset],
         &TransferOptions {
             remove_origin_on_success: true,
-            remove_origin_on_failed: true, // Match Python bms_folder_transfer_audio default
+            remove_origin_on_failed: true,
             remove_existing_target_file: true,
             stop_on_error: false,
         },
@@ -398,7 +299,7 @@ pub async fn pack_setup_rawpack_to_hq(
 
     // Step 4: Remove unnecessary media files
     info!("Removing Unneed Files");
-    remove_unneed_media_files(root_dir, REMOVE_MEDIA_RULE_ORAJA)?;
+    remove_unneed_media_files(root_dir, Some(get_remove_media_rule_oraja()))?;
 
     Ok(())
 }
@@ -419,7 +320,6 @@ pub async fn pack_update_rawpack_to_hq(
     );
 
     // Setup directories
-    // Match Python: mkdir(exist_ok=False) — fail if directory already exists
     if root_dir.exists() {
         return Err(std::io::Error::new(
             std::io::ErrorKind::AlreadyExists,
@@ -441,13 +341,13 @@ pub async fn pack_update_rawpack_to_hq(
     info!("Parsing Audio... Phase 1: WAV -> FLAC");
     let flac_preset = audio_preset_flac();
     let flac_ffmpeg_preset = audio_preset_flac_ffmpeg();
-    transfer_audio_by_format_in_dir(
+    bms_folder_transfer_audio(
         root_dir,
         &["wav"],
         &[flac_preset, flac_ffmpeg_preset],
         &TransferOptions {
             remove_origin_on_success: true,
-            remove_origin_on_failed: true, // Match Python bms_folder_transfer_audio default
+            remove_origin_on_failed: true,
             remove_existing_target_file: true,
             stop_on_error: false,
         },
@@ -456,7 +356,7 @@ pub async fn pack_update_rawpack_to_hq(
 
     // Step 4: Remove unnecessary media files
     info!("Removing Unneed Files");
-    remove_unneed_media_files(root_dir, REMOVE_MEDIA_RULE_ORAJA)?;
+    remove_unneed_media_files(root_dir, Some(get_remove_media_rule_oraja()))?;
 
     // Step 5: Soft sync from sync_dir
     info!("Syncing dir files from {:?} to {:?}", sync_dir, root_dir);

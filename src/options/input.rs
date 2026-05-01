@@ -57,7 +57,7 @@ impl Input {
     pub fn exec_input(&self) -> Box<dyn Any> {
         match self.input_type {
             InputType::Any => {
-                let result = input_string("Input: ");
+                let result = input_string("Input:");
                 Box::new(result)
             }
             InputType::Word => {
@@ -219,6 +219,7 @@ async fn load_path_history() -> Vec<PathBuf> {
 async fn save_path_history(paths: &[PathBuf]) {
     if let Ok(mut file) = tokio::fs::File::create(HISTORY_FILE).await {
         for path in paths {
+            // Intentionally ignored: history file write is best-effort
             let _ = file
                 .write_all(format!("{}\n", path.display()).as_bytes())
                 .await;

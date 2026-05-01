@@ -157,25 +157,22 @@ impl MenuOption {
 }
 
 fn is_root_dir(paths: &[Box<dyn Any>]) -> bool {
-    let path = paths
-        .first()
-        .and_then(|p| p.downcast_ref::<PathBuf>())
-        .unwrap();
-
-    if !path.is_dir() {
-        return false;
-    }
-
     let bms_exts = [".bms", ".bme", ".bml", ".pms", ".bmson"];
 
-    if let Ok(entries) = std::fs::read_dir(path) {
-        for entry in entries.flatten() {
-            let p = entry.path();
-            if p.is_file()
-                && let Some(name) = p.file_name().and_then(|n| n.to_str())
-                && bms_exts.iter().any(|ext| name.ends_with(ext))
-            {
-                return false;
+    for path in paths.iter().filter_map(|p| p.downcast_ref::<PathBuf>()) {
+        if !path.is_dir() {
+            return false;
+        }
+
+        if let Ok(entries) = std::fs::read_dir(path) {
+            for entry in entries.flatten() {
+                let p = entry.path();
+                if p.is_file()
+                    && let Some(name) = p.file_name().and_then(|n| n.to_str())
+                    && bms_exts.iter().any(|ext| name.ends_with(ext))
+                {
+                    return false;
+                }
             }
         }
     }
@@ -237,7 +234,9 @@ async fn main() {
             name: "BMS根目录：按照BMS设置文件夹名".to_string(),
             exec_func: |args| {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
-                let _ = Handle::current().block_on(set_name_by_bms(path));
+                if let Err(e) = Handle::current().block_on(set_name_by_bms(path)) {
+                    eprintln!("{e}");
+                }
             },
             inputs: vec![Input {
                 input_type: InputType::Path,
@@ -251,7 +250,9 @@ async fn main() {
             name: "BMS根目录：按照BMS追加文件夹名".to_string(),
             exec_func: |args| {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
-                let _ = Handle::current().block_on(append_name_by_bms(path));
+                if let Err(e) = Handle::current().block_on(append_name_by_bms(path)) {
+                    eprintln!("{e}");
+                }
             },
             inputs: vec![Input {
                 input_type: InputType::Path,
@@ -265,7 +266,9 @@ async fn main() {
             name: "BMS根目录：按照BMS追加文件夹艺术家名".to_string(),
             exec_func: |args| {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
-                let _ = Handle::current().block_on(append_artist_name_by_bms(path));
+                if let Err(e) = Handle::current().block_on(append_artist_name_by_bms(path)) {
+                    eprintln!("{e}");
+                }
             },
             inputs: vec![Input {
                 input_type: InputType::Path,
@@ -280,7 +283,9 @@ async fn main() {
             exec_func: |args| {
                 let from = args[0].downcast_ref::<PathBuf>().unwrap();
                 let to = args[1].downcast_ref::<PathBuf>().unwrap();
-                let _ = copy_numbered_workdir_names(from, to);
+                if let Err(e) = copy_numbered_workdir_names(from, to) {
+                    eprintln!("{e}");
+                }
             },
             inputs: vec![
                 Input {
@@ -300,7 +305,9 @@ async fn main() {
             name: "BMS根目录：扫描相似文件夹名".to_string(),
             exec_func: |args| {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
-                let _ = scan_folder_similar_folders(path, 0.7);
+                if let Err(e) = scan_folder_similar_folders(path, 0.7) {
+                    eprintln!("{e}");
+                }
             },
             inputs: vec![Input {
                 input_type: InputType::Path,
@@ -314,7 +321,9 @@ async fn main() {
             name: "BMS根目录：撤销重命名".to_string(),
             exec_func: |args| {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
-                let _ = undo_set_name(path);
+                if let Err(e) = undo_set_name(path) {
+                    eprintln!("{e}");
+                }
             },
             inputs: vec![Input {
                 input_type: InputType::Path,
@@ -328,7 +337,9 @@ async fn main() {
             name: "BMS根目录：移除大小为0的媒体文件和临时文件".to_string(),
             exec_func: |args| {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
-                let _ = remove_zero_sized_media_files(path, false);
+                if let Err(e) = remove_zero_sized_media_files(path, false) {
+                    eprintln!("{e}");
+                }
             },
             inputs: vec![Input {
                 input_type: InputType::Path,
@@ -353,7 +364,9 @@ async fn main() {
             name: "BMS大包目录：将该目录下的作品，按照首字符分成多个文件夹".to_string(),
             exec_func: |args| {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
-                let _ = split_folders_with_first_char(path);
+                if let Err(e) = split_folders_with_first_char(path) {
+                    eprintln!("{e}");
+                }
             },
             inputs: vec![Input {
                 input_type: InputType::Path,
@@ -367,7 +380,9 @@ async fn main() {
             name: "BMS大包目录：（撤销操作）将该目录下的作品，按照首字符分成多个文件夹".to_string(),
             exec_func: |args| {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
-                let _ = undo_split_pack(path);
+                if let Err(e) = undo_split_pack(path) {
+                    eprintln!("{e}");
+                }
             },
             inputs: vec![Input {
                 input_type: InputType::Path,
@@ -388,7 +403,9 @@ async fn main() {
             exec_func: |args| {
                 let from = args[0].downcast_ref::<PathBuf>().unwrap();
                 let to = args[1].downcast_ref::<PathBuf>().unwrap();
-                let _ = move_works_in_pack(from, to);
+                if let Err(e) = move_works_in_pack(from, to) {
+                    eprintln!("{e}");
+                }
             },
             inputs: vec![
                 Input {
@@ -408,7 +425,9 @@ async fn main() {
             name: "BMS大包父目录：移出一层目录（自动合并）".to_string(),
             exec_func: |args| {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
-                let _ = move_out_works(path);
+                if let Err(e) = move_out_works(path) {
+                    eprintln!("{e}");
+                }
             },
             inputs: vec![Input {
                 input_type: InputType::Path,
@@ -423,7 +442,9 @@ async fn main() {
             exec_func: |args| {
                 let from = args[0].downcast_ref::<PathBuf>().unwrap();
                 let to = args[1].downcast_ref::<PathBuf>().unwrap();
-                let _ = move_works_with_same_name(from, to);
+                if let Err(e) = move_works_with_same_name(from, to) {
+                    eprintln!("{e}");
+                }
             },
             inputs: vec![
                 Input { input_type: InputType::Path, description: "From".to_string() },
@@ -437,7 +458,9 @@ async fn main() {
             name: "BMS大包目录：将该目录中文件名相似的子文件夹，合并到各平级目录中".to_string(),
             exec_func: |args| {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
-                let _ = move_works_with_same_name_to_siblings(path);
+                if let Err(e) = move_works_with_same_name_to_siblings(path) {
+                    eprintln!("{e}");
+                }
             },
             inputs: vec![Input {
                 input_type: InputType::Path,
@@ -483,7 +506,9 @@ async fn main() {
             exec_func: |args| {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
                 let count = *args[1].downcast_ref::<i32>().unwrap();
-                let _ = create_num_folders(path, count);
+                if let Err(e) = create_num_folders(path, count) {
+                    eprintln!("{e}");
+                }
             },
             inputs: vec![
                 Input {
@@ -503,7 +528,9 @@ async fn main() {
             name: "BMS活动目录：生成活动作品的xlsx表格".to_string(),
             exec_func: |args| {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
-                let _ = Handle::current().block_on(generate_work_info_table(path));
+                if let Err(e) = Handle::current().block_on(generate_work_info_table(path)) {
+                    eprintln!("{e}");
+                }
             },
             inputs: vec![Input {
                 input_type: InputType::Path,
@@ -523,9 +550,11 @@ async fn main() {
 
         media_opts.push(MenuOption {
             name: "BMS根目录：音频文件转换".to_string(),
-            exec_func: |_args| {
-                let path = input_path("");
-                Handle::current().block_on(transfer_audio(&path)).ok();
+            exec_func: |args| {
+                let path = args[0].downcast_ref::<PathBuf>().unwrap();
+                if let Err(e) = Handle::current().block_on(transfer_audio(path)) {
+                    eprintln!("{e}");
+                }
             },
             inputs: vec![Input {
                 input_type: InputType::Path,
@@ -539,9 +568,11 @@ async fn main() {
 
         media_opts.push(MenuOption {
             name: "BMS根目录：视频文件转换".to_string(),
-            exec_func: |_args| {
-                let path = input_path("");
-                Handle::current().block_on(transfer_video(&path)).ok();
+            exec_func: |args| {
+                let path = args[0].downcast_ref::<PathBuf>().unwrap();
+                if let Err(e) = Handle::current().block_on(transfer_video(path)) {
+                    eprintln!("{e}");
+                }
             },
             inputs: vec![Input {
                 input_type: InputType::Path,
@@ -567,7 +598,9 @@ async fn main() {
                 let pack = args[0].downcast_ref::<PathBuf>().unwrap();
                 let cache = args[1].downcast_ref::<PathBuf>().unwrap();
                 let root = args[2].downcast_ref::<PathBuf>().unwrap();
-                let _ = unzip_numeric_to_bms_folder(pack, cache, root, false);
+                if let Err(e) = unzip_numeric_to_bms_folder(pack, cache, root, false) {
+                    eprintln!("{e}");
+                }
             },
             inputs: vec![
                 Input { input_type: InputType::Path, description: "Pack Dir".to_string() },
@@ -584,7 +617,9 @@ async fn main() {
                 let pack = args[0].downcast_ref::<PathBuf>().unwrap();
                 let cache = args[1].downcast_ref::<PathBuf>().unwrap();
                 let root = args[2].downcast_ref::<PathBuf>().unwrap();
-                let _ = unzip_with_name_to_bms_folder(pack, cache, root, false);
+                if let Err(e) = unzip_with_name_to_bms_folder(pack, cache, root, false) {
+                    eprintln!("{e}");
+                }
             },
             inputs: vec![
                 Input { input_type: InputType::Path, description: "Pack Dir".to_string() },
@@ -599,7 +634,9 @@ async fn main() {
             name: "BMS原文件：赋予编号".to_string(),
             exec_func: |args| {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
-                let _ = set_file_num(path);
+                if let Err(e) = set_file_num(path) {
+                    eprintln!("{e}");
+                }
             },
             inputs: vec![Input {
                 input_type: InputType::Path,
@@ -615,6 +652,7 @@ async fn main() {
     {
         use scripts::pack::{
             pack_hq_to_lq, pack_raw_to_hq, pack_setup_rawpack_to_hq, pack_update_rawpack_to_hq,
+            pack_update_rawpack_to_hq_check,
         };
 
         let mut scripts_opts: Vec<MenuOption> = Vec::new();
@@ -624,9 +662,9 @@ async fn main() {
             exec_func: |args| {
                 let pack = args[0].downcast_ref::<PathBuf>().unwrap();
                 let root = args[1].downcast_ref::<PathBuf>().unwrap();
-                Handle::current()
-                    .block_on(pack_setup_rawpack_to_hq(pack, root))
-                    .ok();
+                if let Err(e) = Handle::current().block_on(pack_setup_rawpack_to_hq(pack, root)) {
+                    eprintln!("{e}");
+                }
             },
             inputs: vec![
                 Input {
@@ -648,9 +686,11 @@ async fn main() {
                 let pack = args[0].downcast_ref::<PathBuf>().unwrap();
                 let root = args[1].downcast_ref::<PathBuf>().unwrap();
                 let sync = args[2].downcast_ref::<PathBuf>().unwrap();
-                Handle::current()
-                    .block_on(pack_update_rawpack_to_hq(pack, root, sync))
-                    .ok();
+                if let Err(e) =
+                    Handle::current().block_on(pack_update_rawpack_to_hq(pack, root, sync))
+                {
+                    eprintln!("{e}");
+                }
             },
             inputs: vec![
                 Input {
@@ -666,7 +706,14 @@ async fn main() {
                     description: "Sync Dir".to_string(),
                 },
             ],
-            check_func: Some(|args| check_flac(args) && check_ffmpeg(args)),
+            check_func: Some(|args| {
+                let pack = args[0].downcast_ref::<PathBuf>().unwrap();
+                let root = args[1].downcast_ref::<PathBuf>().unwrap();
+                let sync = args[2].downcast_ref::<PathBuf>().unwrap();
+                check_flac(args)
+                    && check_ffmpeg(args)
+                    && pack_update_rawpack_to_hq_check(pack, root, sync).is_ok()
+            }),
             confirm: ConfirmType::DefaultYes,
         });
 
@@ -674,7 +721,9 @@ async fn main() {
             name: "BMS大包脚本：原包 -> HQ版大包".to_string(),
             exec_func: |args| {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
-                Handle::current().block_on(pack_raw_to_hq(path)).ok();
+                if let Err(e) = Handle::current().block_on(pack_raw_to_hq(path)) {
+                    eprintln!("{e}");
+                }
             },
             inputs: vec![Input {
                 input_type: InputType::Path,
@@ -688,7 +737,9 @@ async fn main() {
             name: "BMS大包脚本：HQ版大包 -> LQ版大包".to_string(),
             exec_func: |args| {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
-                Handle::current().block_on(pack_hq_to_lq(path)).ok();
+                if let Err(e) = Handle::current().block_on(pack_hq_to_lq(path)) {
+                    eprintln!("{e}");
+                }
             },
             inputs: vec![Input {
                 input_type: InputType::Path,

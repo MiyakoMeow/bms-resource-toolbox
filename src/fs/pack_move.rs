@@ -126,12 +126,11 @@ pub fn is_dir_having_file(dir: &Path) -> bool {
 /// Returns [`std::io::Error`] if:
 /// - `src` is not a directory
 /// - directory operations fail
-#[expect(clippy::needless_pass_by_value)]
 pub fn move_elements_across_dir(
     src: &Path,
     dst: &Path,
     options: MoveOptions,
-    replace_options: ReplaceOptions,
+    replace_options: &ReplaceOptions,
 ) -> Result<(), std::io::Error> {
     if let (Ok(src_canon), Ok(dst_canon)) = (src.canonicalize(), dst.canonicalize())
         && src_canon == dst_canon
@@ -162,7 +161,7 @@ pub fn move_elements_across_dir(
 
         if src_path.is_file() {
             if let Some((planned_src, planned_dst)) =
-                plan_move_file(&src_path, &dst_path, &replace_options)
+                plan_move_file(&src_path, &dst_path, replace_options)
             {
                 write_ops.push((planned_src, planned_dst));
             }
@@ -179,7 +178,7 @@ pub fn move_elements_across_dir(
     }
 
     for (src_path, dst_path) in next_folder_paths {
-        move_elements_across_dir(&src_path, &dst_path, options, replace_options.clone())?;
+        move_elements_across_dir(&src_path, &dst_path, options, replace_options)?;
     }
 
     let should_clean = replace_options.default != ReplaceAction::Skip || !is_dir_having_file(src);
@@ -216,7 +215,6 @@ fn plan_move_file(
         }
         ReplaceAction::Replace => Some((ori_path.to_path_buf(), dst_path.to_path_buf())),
         ReplaceAction::Rename => {
-            // Find a new name that doesn't conflict
             for i in 0..100 {
                 let stem = dst_path.file_stem().unwrap_or_default().to_string_lossy();
                 let ext = dst_path
@@ -229,9 +227,13 @@ fn plan_move_file(
                     format!("{stem}.{i}.{ext}")
                 };
                 let new_dst_path = dst_path.with_file_name(new_name);
-                if !new_dst_path.exists() {
-                    return Some((ori_path.to_path_buf(), new_dst_path));
+                if new_dst_path.is_file() {
+                    if is_same_content(ori_path, &new_dst_path) {
+                        return None;
+                    }
+                    continue;
                 }
+                return Some((ori_path.to_path_buf(), new_dst_path));
             }
             None
         }
@@ -242,7 +244,6 @@ fn plan_move_file(
                 // Same content, still move to unify location
                 Some((ori_path.to_path_buf(), dst_path.to_path_buf()))
             } else {
-                // Different content, rename
                 for i in 0..100 {
                     let stem = dst_path.file_stem().unwrap_or_default().to_string_lossy();
                     let ext = dst_path
@@ -255,9 +256,13 @@ fn plan_move_file(
                         format!("{stem}.{i}.{ext}")
                     };
                     let new_dst_path = dst_path.with_file_name(new_name);
-                    if !new_dst_path.exists() {
-                        return Some((ori_path.to_path_buf(), new_dst_path));
+                    if new_dst_path.is_file() {
+                        if is_same_content(ori_path, &new_dst_path) {
+                            return None;
+                        }
+                        continue;
                     }
+                    return Some((ori_path.to_path_buf(), new_dst_path));
                 }
                 None
             }

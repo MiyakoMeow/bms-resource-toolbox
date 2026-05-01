@@ -5,6 +5,17 @@
 
 use std::path::Path;
 
+/// Get file extension using Python's `rsplit(".")[-1]` semantics.
+///
+/// Returns the part after the last dot, or the full filename if no dot exists.
+#[must_use]
+pub fn get_ext(path: &Path) -> &str {
+    path.file_name()
+        .and_then(|n| n.to_str())
+        .and_then(|n| n.rsplit('.').next())
+        .unwrap_or("")
+}
+
 /// Copy directory recursively.
 ///
 /// # Errors
