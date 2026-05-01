@@ -68,7 +68,7 @@ jobs:
           workspaces: |
             . -> target
 
-      - run: cargo clippy --verbose --all-features -- -D warnings 2>&1
+      - run: cargo clippy --verbose --all-features --all-targets -- -D warnings
 
   test:
     strategy:
@@ -86,7 +86,7 @@ jobs:
           workspaces: |
             . -> target
 
-      - run: cargo test --verbose --all-features
+      - run: cargo test --verbose --all-features --all-targets
 
   fmt:
     runs-on: ubuntu-latest
