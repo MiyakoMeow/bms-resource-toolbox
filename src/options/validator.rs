@@ -19,8 +19,7 @@ pub(crate) async fn check_ffmpeg() -> bool {
         .stderr(Stdio::null())
         .status()
         .await
-        .map(|s| s.success())
-        .unwrap_or(false)
+        .is_ok_and(|s| s.success())
 }
 
 /// Check if flac is available
@@ -32,8 +31,7 @@ pub(crate) async fn check_flac() -> bool {
         .stderr(Stdio::null())
         .status()
         .await
-        .map(|s| s.success())
-        .unwrap_or(false)
+        .is_ok_and(|s| s.success())
 }
 
 /// Check if oggenc is available
@@ -45,8 +43,7 @@ pub(crate) async fn check_oggenc() -> bool {
         .stderr(Stdio::null())
         .status()
         .await
-        .map(|s| s.success())
-        .unwrap_or(false)
+        .is_ok_and(|s| s.success())
 }
 
 /// Validate path exists and is a directory

@@ -144,8 +144,7 @@ fn process_single_archive(
 fn prepare_cache_directory(cache_dir_path: &Path) -> Result<(), std::io::Error> {
     if cache_dir_path.is_dir() {
         let has_files = std::fs::read_dir(cache_dir_path)
-            .map(|mut e| e.any(|r| r.map(|e| e.path().is_file()).unwrap_or(false)))
-            .unwrap_or(false);
+            .is_ok_and(|mut e| e.any(|r| r.is_ok_and(|e| e.path().is_file())));
         if has_files {
             info!("Removing existing cache dir: {:?}", cache_dir_path);
             std::fs::remove_dir_all(cache_dir_path)?;
@@ -399,7 +398,7 @@ pub fn set_file_num(dir: &Path) -> Result<(), std::io::Error> {
             }
 
             // Skip empty files
-            if path.metadata().map(|m| m.len() == 0).unwrap_or(true) {
+            if path.metadata().map_or(true, |m| m.len() == 0) {
                 continue;
             }
 

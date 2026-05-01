@@ -367,9 +367,7 @@ pub async fn transfer_video_by_format_in_dir(
     remove_origin_file: bool,
     remove_existing_target_file: bool,
 ) -> Result<(), std::io::Error> {
-    let cpu_count = std::thread::available_parallelism()
-        .map(std::num::NonZero::get)
-        .unwrap_or(4);
+    let cpu_count = std::thread::available_parallelism().map_or(4, std::num::NonZero::get);
 
     let mut files: Vec<PathBuf> = Vec::new();
     if let Ok(entries) = std::fs::read_dir(dir) {
@@ -464,7 +462,7 @@ pub async fn check_ffprobe() -> bool {
         .stderr(Stdio::null())
         .status()
         .await;
-    output.map(|s| s.success()).unwrap_or(false)
+    output.is_ok_and(|s| s.success())
 }
 
 #[cfg(test)]

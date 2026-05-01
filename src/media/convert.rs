@@ -125,9 +125,7 @@ pub async fn transfer_audio_by_format_in_dir(
         return Ok(());
     }
 
-    let cpu_count = std::thread::available_parallelism()
-        .map(std::num::NonZero::get)
-        .unwrap_or(4);
+    let cpu_count = std::thread::available_parallelism().map_or(4, std::num::NonZero::get);
 
     let tasks = collect_tasks(dir, input_exts).await;
     info!("Found {} files to convert in {:?}", tasks.len(), dir);

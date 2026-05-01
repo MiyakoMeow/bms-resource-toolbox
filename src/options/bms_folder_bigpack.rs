@@ -301,11 +301,7 @@ fn workdir_remove_unneed_media_files(
             }
 
             // File is empty?
-            if check_file_path
-                .metadata()
-                .map(|m| m.len() == 0)
-                .unwrap_or(false)
-            {
+            if check_file_path.metadata().is_ok_and(|m| m.len() == 0) {
                 info!(" - !x!: File {:?} is Empty! Skipping...", check_file_path);
                 continue;
             }
@@ -462,11 +458,7 @@ pub fn remove_zero_sized_media_files(current_dir: &Path) -> Result<(), std::io::
                 continue;
             }
 
-            if element_path
-                .metadata()
-                .map(|m| m.len() == 0)
-                .unwrap_or(false)
-            {
+            if element_path.metadata().is_ok_and(|m| m.len() == 0) {
                 info!(" - Remove empty file: {:?}", element_path);
                 let _ = std::fs::remove_file(&element_path);
             }

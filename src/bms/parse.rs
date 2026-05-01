@@ -53,8 +53,7 @@ pub fn parse_bms_content(content: &str) -> BMSInfo {
     if let Some(diff) = header_map.get("DIFFICULTY") {
         info.difficulty = diff
             .parse::<i32>()
-            .map(BMSDifficulty::from)
-            .unwrap_or(BMSDifficulty::Unknown);
+            .map_or(BMSDifficulty::Unknown, BMSDifficulty::from);
     }
 
     // Parse total

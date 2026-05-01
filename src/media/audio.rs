@@ -110,7 +110,7 @@ pub(crate) async fn check_audio_tool(exec: &str) -> bool {
         .stderr(Stdio::null())
         .status()
         .await;
-    output.map(|s| s.success()).unwrap_or(false)
+    output.is_ok_and(|s| s.success())
 }
 
 /// Check ffmpeg availability
