@@ -23,9 +23,7 @@ pub fn unzip_with_name_to_bms_folder(
     root_dir: &Path,
     confirm: bool,
 ) -> Result<(), std::io::Error> {
-    println!(
-        "Unzip with name to BMS folder: {pack_dir:?} -> {root_dir:?}"
-    );
+    println!("Unzip with name to BMS folder: {pack_dir:?} -> {root_dir:?}");
 
     create_directories(cache_dir, root_dir)?;
     let archive_names = get_archive_files(pack_dir);
@@ -152,9 +150,7 @@ fn move_cache_to_bms_dir(
     cache_dir_path: &Path,
     target_dir_path: &Path,
 ) -> Result<(), std::io::Error> {
-    println!(
-        "Moving files from {cache_dir_path:?} to {target_dir_path:?}"
-    );
+    println!("Moving files from {cache_dir_path:?} to {target_dir_path:?}");
 
     let entries: Vec<_> = std::fs::read_dir(cache_dir_path)?
         .filter_map(std::result::Result::ok)
@@ -209,9 +205,7 @@ pub fn unzip_numeric_to_bms_folder(
     root_dir: &Path,
     confirm: bool,
 ) -> Result<(), std::io::Error> {
-    println!(
-        "Unzip numeric to BMS folder: {pack_dir:?} -> {root_dir:?}"
-    );
+    println!("Unzip numeric to BMS folder: {pack_dir:?} -> {root_dir:?}");
 
     // Create directories
     if !cache_dir.is_dir() {
@@ -306,9 +300,7 @@ pub fn unzip_numeric_to_bms_folder(
         let target_dir_path = target_dir_path.unwrap_or_else(|| root_dir.join(id_str));
 
         // Move cache to BMS dir
-        println!(
-            "Moving files from {cache_dir_path:?} to {target_dir_path:?}"
-        );
+        println!("Moving files from {cache_dir_path:?} to {target_dir_path:?}");
 
         // Get entries in cache dir
         let entries: Vec<_> = std::fs::read_dir(&cache_dir_path)?

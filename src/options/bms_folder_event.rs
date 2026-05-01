@@ -28,9 +28,7 @@ pub fn check_num_folder(bms_dir: &Path, max_count: i32) {
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
 pub fn create_num_folders(root_dir: &Path, folder_count: i32) -> Result<(), std::io::Error> {
-    println!(
-        "Creating {folder_count} numbered folders in {root_dir:?}"
-    );
+    println!("Creating {folder_count} numbered folders in {root_dir:?}");
 
     // Get existing elements to check for conflicts
     let existing_elements: Vec<String> = std::fs::read_dir(root_dir)?

@@ -324,9 +324,7 @@ pub async fn pack_update_rawpack_to_hq(
     root_dir: &Path,
     sync_dir: &Path,
 ) -> Result<(), std::io::Error> {
-    println!(
-        "Pack Update RAW -> HQ: {pack_dir:?} -> {root_dir:?} (sync from {sync_dir:?})"
-    );
+    println!("Pack Update RAW -> HQ: {pack_dir:?} -> {root_dir:?} (sync from {sync_dir:?})");
 
     // Setup directories
     if root_dir.exists() {

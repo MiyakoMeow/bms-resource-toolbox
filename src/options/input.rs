@@ -13,9 +13,10 @@ use tokio::runtime::Handle;
 
 fn get_history_file_path() -> PathBuf {
     if let Ok(exe) = std::env::current_exe()
-        && let Some(dir) = exe.parent() {
-            return dir.join("history.log");
-        }
+        && let Some(dir) = exe.parent()
+    {
+        return dir.join("history.log");
+    }
     PathBuf::from("history.log")
 }
 

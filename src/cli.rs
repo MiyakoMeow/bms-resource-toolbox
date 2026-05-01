@@ -206,7 +206,8 @@ pub enum Commands {
     },
 }
 
-/// Dispatch a CLI command to the appropriate function
+/// Dispatch a CLI command to the appropriate function.
+#[allow(clippy::too_many_lines)]
 pub fn dispatch(cmd: &Commands) {
     use tokio::runtime::Handle;
 

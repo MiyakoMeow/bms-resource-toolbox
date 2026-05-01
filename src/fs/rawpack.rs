@@ -561,17 +561,13 @@ pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
             let inner_dir_path = cache_dir_path.join(inner_name);
             let inner_inner_dir_path = inner_dir_path.join(inner_name);
             if inner_inner_dir_path.is_dir() {
-                println!(
-                    " - Renaming inner inner dir name: {inner_inner_dir_path:?}"
-                );
+                println!(" - Renaming inner inner dir name: {inner_inner_dir_path:?}");
                 let new_path = inner_inner_dir_path.with_file_name(format!("{inner_name}-rep"));
                 if let Err(e) = std::fs::rename(&inner_inner_dir_path, &new_path) {
                     println!("Failed to rename inner inner dir: {e}");
                 }
             }
-            println!(
-                " - Moving inner files in {inner_dir_path:?} to {cache_dir_path:?}"
-            );
+            println!(" - Moving inner files in {inner_dir_path:?} to {cache_dir_path:?}");
             if let Err(e) = move_elements_across_dir(
                 &inner_dir_path,
                 cache_dir_path,
