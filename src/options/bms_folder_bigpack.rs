@@ -8,7 +8,6 @@ use regex::Regex;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
-use tracing::info;
 
 use crate::fs::pack_move::{
     MoveOptions, REPLACE_OPTION_UPDATE_PACK, ReplaceOptions, is_dir_having_file,
@@ -87,14 +86,14 @@ fn find_first_char_rule(name: &str) -> String {
 /// Returns [`std::io::Error`] if directory operations fail.
 pub fn split_folders_with_first_char(root_dir: &Path) -> Result<(), std::io::Error> {
     if !root_dir.is_dir() {
-        info!("{} is not a dir! Aborting...", root_dir.display());
+        println!("{} is not a dir! Aborting...", root_dir.display());
         return Ok(());
     }
 
     let root_folder_name = root_dir.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
     if root_folder_name.ends_with(']') {
-        info!("{} endswith ']'. Aborting...", root_dir.display());
+        println!("{} endswith ']'. Aborting...", root_dir.display());
         return Ok(());
     }
 
@@ -122,7 +121,7 @@ pub fn split_folders_with_first_char(root_dir: &Path) -> Result<(), std::io::Err
         }
 
         let target_path = target_dir.join(element_name);
-        info!("Moving {:?} -> {:?}", element_path, target_path);
+        println!("Moving {element_path:?} -> {target_path:?}");
         std::fs::rename(&element_path, &target_path)?;
     }
 
@@ -210,7 +209,7 @@ pub fn move_works_in_pack(root_dir_from: &Path, root_dir_to: &Path) -> Result<()
 
             let bms_dir_name = bms_dir.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
-            info!("Moving: {}", bms_dir_name);
+            println!("Moving: {bms_dir_name}");
 
             let dst_bms_dir = root_dir_to.join(bms_dir_name);
             move_elements_across_dir(
@@ -224,7 +223,7 @@ pub fn move_works_in_pack(root_dir_from: &Path, root_dir_to: &Path) -> Result<()
     }
 
     if move_count > 0 {
-        info!("Move {} songs.", move_count);
+        println!("Move {move_count} songs.");
         return Ok(());
     }
 
@@ -301,7 +300,7 @@ fn workdir_remove_unneed_media_files(
 
             // File is empty?
             if check_file_path.metadata().is_ok_and(|m| m.len() == 0) {
-                info!(" - !x!: File {:?} is Empty! Skipping...", check_file_path);
+                println!(" - !x!: File {check_file_path:?} is Empty! Skipping...");
                 continue;
             }
 
@@ -322,7 +321,7 @@ fn workdir_remove_unneed_media_files(
 
     // Remove files
     for (check_file_path, replacing_file_path) in &remove_pairs {
-        info!(
+        println!(
             "- Remove file {:?}, because {:?} exists.",
             replacing_file_path.file_name(),
             check_file_path.file_name()
@@ -363,7 +362,7 @@ fn workdir_remove_unneed_media_files(
     if let Some(mp4_files) = ext_count.get("mp4")
         && mp4_files.len() > 1
     {
-        info!(" - Tips: {:?} has more than 1 mp4 files!", work_dir);
+        println!(" - Tips: {work_dir:?} has more than 1 mp4 files!");
     }
 
     Ok(())

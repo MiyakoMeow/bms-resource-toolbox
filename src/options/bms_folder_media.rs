@@ -4,7 +4,6 @@
 //! audio and video files in BMS directories.
 
 use std::path::Path;
-use tracing::info;
 
 use crate::media::audio::{
     AudioPreset, audio_preset_flac, audio_preset_flac_ffmpeg, audio_preset_ogg_q10,
@@ -31,7 +30,7 @@ use crate::media::{TransferOptions, transfer_audio_by_format_in_dir};
 pub async fn transfer_audio(root_dir: &Path) -> Result<(), std::io::Error> {
     use std::io::{self, Write};
 
-    info!("Audio Transfer for: {:?}", root_dir);
+    println!("Audio Transfer for: {root_dir:?}");
 
     // Audio transfer modes: (name, input_exts, presets)
     let modes: [(&str, Vec<&str>, Vec<AudioPreset>); 4] = [
@@ -57,9 +56,9 @@ pub async fn transfer_audio(root_dir: &Path) -> Result<(), std::io::Error> {
         ),
     ];
 
-    info!("Available audio modes:");
+    println!("Available audio modes:");
     for (i, (name, _, _)) in modes.iter().enumerate() {
-        info!("  {}: {}", i, name);
+        println!("  {i}: {name}");
     }
 
     let max_index = modes.len() - 1;
@@ -73,7 +72,7 @@ pub async fn transfer_audio(root_dir: &Path) -> Result<(), std::io::Error> {
     let idx = match selection {
         Ok(i) if i < modes.len() => i,
         _ => {
-            info!("No valid selection, aborting.");
+            println!("No valid selection, aborting.");
             return Ok(());
         }
     };
@@ -95,7 +94,7 @@ pub async fn transfer_audio(root_dir: &Path) -> Result<(), std::io::Error> {
 
         let bms_dir_name = bms_dir.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
-        info!("Processing: {}", bms_dir_name);
+        println!("Processing: {bms_dir_name}");
 
         transfer_audio_by_format_in_dir(
             &bms_dir,
@@ -128,7 +127,7 @@ pub async fn transfer_audio(root_dir: &Path) -> Result<(), std::io::Error> {
 pub async fn transfer_video(root_dir: &Path) -> Result<(), std::io::Error> {
     use std::io::{self, Write};
 
-    info!("Video Transfer for: {:?}", root_dir);
+    println!("Video Transfer for: {root_dir:?}");
 
     // Video presets: (name, preset)
     let presets: [(&str, VideoPreset); 6] = [
@@ -146,9 +145,9 @@ pub async fn transfer_video(root_dir: &Path) -> Result<(), std::io::Error> {
         ),
     ];
 
-    info!("Available video modes:");
+    println!("Available video modes:");
     for (i, (name, _)) in presets.iter().enumerate() {
-        info!("  {}: {}", i, name);
+        println!("  {i}: {name}");
     }
 
     let max_index = presets.len() - 1;
@@ -162,7 +161,7 @@ pub async fn transfer_video(root_dir: &Path) -> Result<(), std::io::Error> {
     let idx = match selection {
         Ok(i) if i < presets.len() => i,
         _ => {
-            info!("No valid selection, aborting.");
+            println!("No valid selection, aborting.");
             return Ok(());
         }
     };
@@ -182,7 +181,7 @@ pub async fn transfer_video(root_dir: &Path) -> Result<(), std::io::Error> {
 
         let bms_dir_name = bms_dir.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
-        info!("Processing: {}", bms_dir_name);
+        println!("Processing: {bms_dir_name}");
 
         transfer_video_by_format_in_dir(
             &bms_dir,

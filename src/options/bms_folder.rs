@@ -3,7 +3,6 @@
 //! This module provides functions for renaming and managing BMS work directories.
 
 use std::path::Path;
-use tracing::info;
 
 use crate::bms::types::MEDIA_FILE_EXTS;
 
@@ -47,7 +46,7 @@ pub async fn append_name_by_bms(root_dir: &Path) -> Result<(), std::io::Error> {
     }
 
     for (from, to) in to_rename {
-        info!("Renaming {:?} -> {:?}", from.file_name(), to.file_name());
+        println!("Renaming {:?} -> {:?}", from.file_name(), to.file_name());
         std::fs::rename(&from, &to)?;
     }
 
@@ -135,7 +134,7 @@ pub fn copy_numbered_workdir_names(
             if src_name.starts_with(numeric_part) {
                 let target_path = dst_path.with_file_name(src_name);
                 if target_path != dst_path {
-                    info!(
+                    println!(
                         "Renaming {:?} -> {:?}",
                         dst_path.file_name(),
                         target_path.file_name()

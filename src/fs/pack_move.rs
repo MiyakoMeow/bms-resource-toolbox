@@ -6,7 +6,6 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
-use tracing::info;
 
 /// Check if two files have the same content.
 #[must_use]
@@ -169,7 +168,7 @@ pub fn move_elements_across_dir(
 
     for (src_path, final_dst_path) in write_ops {
         if options.print_info {
-            info!("Moving {:?} -> {:?}", src_path, final_dst_path);
+            println!("Moving {src_path:?} -> {final_dst_path:?}");
         }
         move_file(&src_path, &final_dst_path)?;
     }
@@ -180,7 +179,7 @@ pub fn move_elements_across_dir(
 
     let should_clean = replace_options.default != ReplaceAction::Skip || !is_dir_having_file(src);
     if should_clean && let Err(e) = std::fs::remove_dir_all(src) {
-        tracing::warn!("Failed to remove source directory {:?}: {}", src, e);
+        println!("Failed to remove source directory {src:?}: {e}");
     }
 
     Ok(())

@@ -9,9 +9,9 @@
     clippy::items_after_statements
 )]
 
+use chrono::TimeZone;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use tracing::info;
 
 use crate::bms::types::CHART_FILE_EXTS;
 use crate::fs::pack_move::{
@@ -51,31 +51,18 @@ fn safe_join(base: &Path, component: &str) -> Option<PathBuf> {
 
 fn set_mtime(path: &Path, dt: Option<zip::DateTime>) {
     let Some(dt) = dt else { return };
-    let unix_secs = datetime_to_unix(
-        i64::from(dt.year()),
-        i64::from(dt.month()),
-        i64::from(dt.day()),
-        i64::from(dt.hour()),
-        i64::from(dt.minute()),
-        i64::from(dt.second()),
+    let local_dt = chrono::Local.with_ymd_and_hms(
+        i32::from(dt.year()),
+        u32::from(dt.month()),
+        u32::from(dt.day()),
+        u32::from(dt.hour()),
+        u32::from(dt.minute()),
+        u32::from(dt.second()),
     );
-    let ft = filetime::FileTime::from_unix_time(unix_secs, 0);
-    let _ = filetime::set_file_mtime(path, ft);
-    // Intentionally ignored: mtime is best-effort metadata
-}
-
-fn datetime_to_unix(year: i64, month: i64, day: i64, hour: i64, minute: i64, second: i64) -> i64 {
-    let (y_adj, m_adj) = if month <= 2 {
-        (year - 1, month + 9)
-    } else {
-        (year, month - 3)
-    };
-    let era = y_adj.div_euclid(400);
-    let yoe = y_adj.rem_euclid(400);
-    let doy = (153 * m_adj + 2) / 5 + day - 1;
-    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-    let days_since_epoch = era * 146_097 + doe - 719_468;
-    days_since_epoch * 86400 + hour * 3600 + minute * 60 + second
+    if let Some(dt) = local_dt.single() {
+        let ft = filetime::FileTime::from_unix_time(dt.timestamp(), 0);
+        let _ = filetime::set_file_mtime(path, ft);
+    }
 }
 
 /// Get numbered file names from a directory.
@@ -125,14 +112,14 @@ pub(crate) fn extract_numeric_to_bms_folder(
     std::fs::create_dir_all(root_dir)?;
 
     let file_names = get_num_set_file_names(pack_dir);
-    info!("Found {} pack files", file_names.len());
+    println!("Found {} pack files", file_names.len());
 
     // Create runtime for async extraction
     let rt = Runtime::new()?;
 
     for file_name in file_names {
         let pack_path = pack_dir.join(&file_name);
-        info!("Extracting: {}", file_name);
+        println!("Extracting: {file_name}");
 
         // Determine archive type and extract
         let ext = pack_path
@@ -160,7 +147,7 @@ pub(crate) fn extract_numeric_to_bms_folder(
                     .split_once(' ')
                     .map_or(file_name.as_str(), |(_, rest)| rest);
                 let target_file_path = cache_dir.join(target_file_name);
-                info!("Copying {} to {}", file_name, target_file_path.display());
+                println!("Copying {} to {}", file_name, target_file_path.display());
                 std::fs::copy(&pack_path, &target_file_path)?;
             }
         }
@@ -515,9 +502,9 @@ pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
 
             if cache_path.is_dir() {
                 if cache_name == "__MACOSX" {
-                    info!("Removing __MACOSX directory: {:?}", cache_path);
+                    println!("Removing __MACOSX directory: {cache_path:?}");
                     if let Err(e) = std::fs::remove_dir_all(&cache_path) {
-                        info!("Failed to remove __MACOSX: {}", e);
+                        println!("Failed to remove __MACOSX: {e}");
                     }
                     continue;
                 }
@@ -555,7 +542,7 @@ pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
             if has_bms {
                 done = true;
             } else {
-                info!(
+                println!(
                     " !_! {}: has more than 1 folders, please do it manually.",
                     cache_dir_path.display()
                 );
@@ -574,18 +561,16 @@ pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
             let inner_dir_path = cache_dir_path.join(inner_name);
             let inner_inner_dir_path = inner_dir_path.join(inner_name);
             if inner_inner_dir_path.is_dir() {
-                info!(
-                    " - Renaming inner inner dir name: {:?}",
-                    inner_inner_dir_path
+                println!(
+                    " - Renaming inner inner dir name: {inner_inner_dir_path:?}"
                 );
                 let new_path = inner_inner_dir_path.with_file_name(format!("{inner_name}-rep"));
                 if let Err(e) = std::fs::rename(&inner_inner_dir_path, &new_path) {
-                    info!("Failed to rename inner inner dir: {}", e);
+                    println!("Failed to rename inner inner dir: {e}");
                 }
             }
-            info!(
-                " - Moving inner files in {:?} to {:?}",
-                inner_dir_path, cache_dir_path
+            println!(
+                " - Moving inner files in {inner_dir_path:?} to {cache_dir_path:?}"
             );
             if let Err(e) = move_elements_across_dir(
                 &inner_dir_path,
@@ -593,7 +578,7 @@ pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
                 DEFAULT_MOVE_OPTIONS,
                 &DEFAULT_REPLACE_OPTIONS,
             ) {
-                info!("Failed to move elements: {}", e);
+                println!("Failed to move elements: {e}");
             }
             let _ = std::fs::remove_dir(&inner_dir_path);
             // Intentionally ignored: directory may not be empty after move
@@ -607,14 +592,14 @@ pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
     }
 
     if final_folder_count == 0 && final_file_count == 0 {
-        info!(" !_! {}: Cache is Empty!", cache_dir_path.display());
+        println!(" !_! {}: Cache is Empty!", cache_dir_path.display());
         let _ = std::fs::remove_dir(cache_dir_path);
         return false;
     }
 
     let mp4_count = file_ext_count.get("mp4").map_or(0, Vec::len);
     if mp4_count > 1 {
-        info!(
+        println!(
             " - Tips: {} has more than 1 mp4 files!",
             cache_dir_path.display()
         );

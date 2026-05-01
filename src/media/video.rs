@@ -215,6 +215,34 @@ pub static VIDEO_PRESET_WMV2_480P: LazyLock<VideoPreset> = LazyLock::new(video_p
 pub static VIDEO_PRESET_MPEG1VIDEO_480P: LazyLock<VideoPreset> =
     LazyLock::new(video_preset_mpeg1video_480p);
 
+/// All video presets (matching Python `VIDEO_PRESETS`)
+pub static VIDEO_PRESETS: LazyLock<Vec<VideoPreset>> = LazyLock::new(|| {
+    vec![
+        video_preset_avi_512x512(),
+        video_preset_wmv2_512x512(),
+        video_preset_mpeg1video_512x512(),
+        video_preset_avi_480p(),
+        video_preset_wmv2_480p(),
+        video_preset_mpeg1video_480p(),
+    ]
+});
+
+/// Interactive video presets list (matching Python `VIDEO_PRESETS` for interactive selection)
+pub static VIDEO_PRESETS_INTERACTIVE: LazyLock<Vec<(&'static str, VideoPreset)>> =
+    LazyLock::new(|| {
+        vec![
+            ("MP4 -> AVI 512x512", video_preset_avi_512x512()),
+            ("MP4 -> WMV2 512x512", video_preset_wmv2_512x512()),
+            (
+                "MP4 -> MPEG1VIDEO 512x512",
+                video_preset_mpeg1video_512x512(),
+            ),
+            ("MP4 -> AVI 480p", video_preset_avi_480p()),
+            ("MP4 -> WMV2 480p", video_preset_wmv2_480p()),
+            ("MP4 -> MPEG1VIDEO 480p", video_preset_mpeg1video_480p()),
+        ]
+    });
+
 /// Get video info from file using ffprobe
 #[must_use]
 #[allow(dead_code)]
@@ -392,7 +420,7 @@ pub async fn transfer_video_by_format_in_dir(
         }
     }
 
-    info!("Found {} video files to convert in {:?}", files.len(), dir);
+    println!("Found {} video files to convert in {:?}", files.len(), dir);
 
     if files.is_empty() {
         return Ok(());
@@ -434,7 +462,7 @@ pub async fn transfer_video_by_format_in_dir(
                         // Intentionally ignored: target removal before re-conversion
                         let _ = std::fs::remove_file(&output);
                     } else {
-                        info!("File exists: {:?}", output);
+                        println!("File exists: {output:?}");
                         continue;
                     }
                 }
@@ -459,8 +487,8 @@ pub async fn transfer_video_by_format_in_dir(
             }
 
             if last_error {
-                info!("Has Error!");
-                info!("{}", last_err_msg);
+                println!("Has Error!");
+                println!("{last_err_msg}");
                 Err(std::io::Error::other(format!(
                     "All presets failed for {}",
                     file_path.display()

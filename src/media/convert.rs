@@ -96,7 +96,7 @@ async fn remove_existing_target(output: &Path, remove: bool) {
         && output.is_file()
         && let Err(e) = tokio::fs::remove_file(output).await
     {
-        info!("Failed to remove existing target file {:?}: {}", output, e);
+        println!("Failed to remove existing target file {output:?}: {e}");
     }
 }
 
@@ -131,13 +131,13 @@ pub async fn transfer_audio_by_format_in_dir(
 
     let initial_tasks = collect_tasks(dir, input_exts).await;
     let file_count = initial_tasks.len();
-    info!("Found {} files to convert in {:?}", file_count, dir);
+    println!("Found {file_count} files to convert in {dir:?}");
 
     if initial_tasks.is_empty() {
         return Ok(());
     }
 
-    info!("Entering dir: {:?} Input ext: {:?}", dir, input_exts);
+    println!("Entering dir: {dir:?} Input ext: {input_exts:?}");
 
     let mut task_queue: std::collections::VecDeque<(PathBuf, usize)> =
         initial_tasks.into_iter().collect();
@@ -165,7 +165,7 @@ pub async fn transfer_audio_by_format_in_dir(
             && metadata.len() > 0
             && !options.remove_existing_target_file
         {
-            info!("File {:?} exists! Skipping...", output);
+            println!("File {output:?} exists! Skipping...");
             continue;
         }
 
@@ -229,12 +229,12 @@ pub async fn transfer_audio_by_format_in_dir(
                             && input.is_file()
                             && let Err(e) = tokio::fs::remove_file(&input).await
                         {
-                            info!("Failed to remove origin file {:?}: {}", input, e);
+                            println!("Failed to remove origin file {input:?}: {e}");
                         }
                     }
                     Err(e) => {
                         let stderr_str = e.to_string();
-                        info!("Conversion failed for {:?}: {}", input, e);
+                        println!("Conversion failed for {input:?}: {e}");
                         switch_next_list.push((input.clone(), preset_idx));
                         err_file_path = input.to_string_lossy().to_string();
                         err_stderr = stderr_str;
@@ -251,7 +251,7 @@ pub async fn transfer_audio_by_format_in_dir(
                     && input.is_file()
                     && let Err(e) = tokio::fs::remove_file(&input).await
                 {
-                    info!("Failed to remove failed origin file {:?}: {}", input, e);
+                    println!("Failed to remove failed origin file {input:?}: {e}");
                 }
                 if options.stop_on_error {
                     return Err(std::io::Error::other(format!(
@@ -286,7 +286,7 @@ pub async fn transfer_audio_by_format_in_dir(
                     && metadata.len() > 0
                     && !options.remove_existing_target_file
                 {
-                    info!("File {:?} exists! Skipping...", output);
+                    println!("File {output:?} exists! Skipping...");
                     continue;
                 }
 
@@ -335,20 +335,20 @@ pub async fn transfer_audio_by_format_in_dir(
     }
 
     if has_error {
-        info!("Has Error!");
-        info!("- Err file_path: {}", err_file_path);
-        info!("- Err stdout: {}", err_stdout);
-        info!("- Err stderr: {}", err_stderr);
+        println!("Has Error!");
+        println!("- Err file_path: {err_file_path}");
+        println!("- Err stdout: {err_stdout}");
+        println!("- Err stderr: {err_stderr}");
         if options.remove_origin_on_failed {
-            info!("The failed origin file has been removed.");
+            println!("The failed origin file has been removed.");
         }
     }
 
     if file_count > 0 {
-        info!("Parsed {} file(s).", file_count);
+        println!("Parsed {file_count} file(s).");
     }
     if !fallback_file_names.is_empty() {
-        info!(
+        println!(
             "Fallback: {:?}. Totally {} files.",
             fallback_file_names,
             fallback_file_names.len()

@@ -4,13 +4,20 @@
 //! with history tracking for paths.
 
 use std::any::Any;
+use std::collections::HashSet;
 use std::io::{self, Write};
 use std::path::PathBuf;
 
 use tokio::io::AsyncWriteExt;
 use tokio::runtime::Handle;
 
-static HISTORY_FILE: &str = "history.log";
+fn get_history_file_path() -> PathBuf {
+    if let Ok(exe) = std::env::current_exe()
+        && let Some(dir) = exe.parent() {
+            return dir.join("history.log");
+        }
+    PathBuf::from("history.log")
+}
 
 /// Input type for interactive prompts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -198,17 +205,26 @@ pub fn input_confirm(prompt: &str, default_yes: bool) -> bool {
 }
 
 async fn load_path_history() -> Vec<PathBuf> {
-    let history_path = PathBuf::from(HISTORY_FILE);
+    let history_path = get_history_file_path();
     if !history_path.exists() {
         return Vec::new();
     }
 
     match tokio::fs::read_to_string(&history_path).await {
         Ok(content) => {
+            let mut seen = HashSet::new();
             let lines: Vec<PathBuf> = content
                 .lines()
-                .map(|s| PathBuf::from(s.trim()))
-                .filter(|p| !p.as_os_str().is_empty())
+                .map(str::trim)
+                .map(|s| s.trim_matches('"').trim_matches('\''))
+                .filter(|s| !s.is_empty())
+                .filter_map(|s| {
+                    if seen.insert(s.to_string()) {
+                        Some(PathBuf::from(s))
+                    } else {
+                        None
+                    }
+                })
                 .collect();
             lines
         }
@@ -217,7 +233,8 @@ async fn load_path_history() -> Vec<PathBuf> {
 }
 
 async fn save_path_history(paths: &[PathBuf]) {
-    if let Ok(mut file) = tokio::fs::File::create(HISTORY_FILE).await {
+    let history_path = get_history_file_path();
+    if let Ok(mut file) = tokio::fs::File::create(&history_path).await {
         for path in paths {
             // Intentionally ignored: history file write is best-effort
             let _ = file

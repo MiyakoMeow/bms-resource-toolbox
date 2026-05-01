@@ -5,7 +5,6 @@
 
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
-use tracing::info;
 
 use crate::fs::pack_move::is_dir_having_file;
 use crate::fs::rawpack::{
@@ -24,16 +23,15 @@ pub fn unzip_with_name_to_bms_folder(
     root_dir: &Path,
     confirm: bool,
 ) -> Result<(), std::io::Error> {
-    info!(
-        "Unzip with name to BMS folder: {:?} -> {:?}",
-        pack_dir, root_dir
+    println!(
+        "Unzip with name to BMS folder: {pack_dir:?} -> {root_dir:?}"
     );
 
     create_directories(cache_dir, root_dir)?;
     let archive_names = get_archive_files(pack_dir);
 
     if archive_names.is_empty() {
-        info!("No archive files found in {:?}", pack_dir);
+        println!("No archive files found in {pack_dir:?}");
         return Ok(());
     }
 
@@ -123,7 +121,7 @@ fn process_single_archive(
     rt.block_on(extract_archive(&file_path, &cache_dir_path))?;
 
     if !move_out_files_in_folder_in_cache_dir(&cache_dir_path) {
-        info!("Failed to process cache dir: {:?}", cache_dir_path);
+        println!("Failed to process cache dir: {cache_dir_path:?}");
         return Ok(());
     }
 
@@ -133,7 +131,7 @@ fn process_single_archive(
     // Intentionally ignored: directory may not be empty
     move_original_to_bofttpacks(&file_path, pack_dir, file_name);
 
-    info!("Finished processing: {}", file_name);
+    println!("Finished processing: {file_name}");
     Ok(())
 }
 
@@ -142,7 +140,7 @@ fn prepare_cache_directory(cache_dir_path: &Path) -> Result<(), std::io::Error> 
         let has_files = std::fs::read_dir(cache_dir_path)
             .is_ok_and(|mut e| e.any(|r| r.is_ok_and(|e| e.path().is_file())));
         if has_files {
-            info!("Removing existing cache dir: {:?}", cache_dir_path);
+            println!("Removing existing cache dir: {cache_dir_path:?}");
             std::fs::remove_dir_all(cache_dir_path)?;
         }
     }
@@ -154,9 +152,8 @@ fn move_cache_to_bms_dir(
     cache_dir_path: &Path,
     target_dir_path: &Path,
 ) -> Result<(), std::io::Error> {
-    info!(
-        "Moving files from {:?} to {:?}",
-        cache_dir_path, target_dir_path
+    println!(
+        "Moving files from {cache_dir_path:?} to {target_dir_path:?}"
     );
 
     let entries: Vec<_> = std::fs::read_dir(cache_dir_path)?
@@ -212,9 +209,8 @@ pub fn unzip_numeric_to_bms_folder(
     root_dir: &Path,
     confirm: bool,
 ) -> Result<(), std::io::Error> {
-    info!(
-        "Unzip numeric to BMS folder: {:?} -> {:?}",
-        pack_dir, root_dir
+    println!(
+        "Unzip numeric to BMS folder: {pack_dir:?} -> {root_dir:?}"
     );
 
     // Create directories
@@ -227,7 +223,7 @@ pub fn unzip_numeric_to_bms_folder(
 
     // Get numbered file names
     let num_set_file_names = get_num_set_file_names(pack_dir);
-    info!("Found {} numbered pack files", num_set_file_names.len());
+    println!("Found {} numbered pack files", num_set_file_names.len());
 
     if confirm {
         for file_name in &num_set_file_names {
@@ -266,13 +262,13 @@ pub fn unzip_numeric_to_bms_folder(
         }
 
         // Extract archive
-        info!("Extracting {:?} to {:?}", file_path, cache_dir_path);
+        println!("Extracting {file_path:?} to {cache_dir_path:?}");
         let rt = tokio::runtime::Runtime::new()?;
         rt.block_on(extract_archive(&file_path, &cache_dir_path))?;
 
         // Move files out of nested folders
         if !move_out_files_in_folder_in_cache_dir(&cache_dir_path) {
-            info!("Failed to process cache dir: {:?}", cache_dir_path);
+            println!("Failed to process cache dir: {cache_dir_path:?}");
             continue;
         }
 
@@ -310,9 +306,8 @@ pub fn unzip_numeric_to_bms_folder(
         let target_dir_path = target_dir_path.unwrap_or_else(|| root_dir.join(id_str));
 
         // Move cache to BMS dir
-        info!(
-            "Moving files from {:?} to {:?}",
-            cache_dir_path, target_dir_path
+        println!(
+            "Moving files from {cache_dir_path:?} to {target_dir_path:?}"
         );
 
         // Get entries in cache dir
@@ -342,7 +337,7 @@ pub fn unzip_numeric_to_bms_folder(
         let _ = std::fs::remove_dir(&cache_dir_path);
 
         // Move original file to BOFTTPacks subdirectory
-        info!("Finished processing: {}", file_name);
+        println!("Finished processing: {file_name}");
         let used_pack_dir = pack_dir.join("BOFTTPacks");
         if !used_pack_dir.is_dir() {
             std::fs::create_dir_all(&used_pack_dir)?;
@@ -367,7 +362,7 @@ pub fn set_file_num(dir: &Path) -> Result<(), std::io::Error> {
     use std::io::{self, Write};
     const ALLOWED_EXTS: &[&str] = &["zip", "7z", "rar", "mp4", "bms", "bme", "bml", "pms"];
 
-    info!("Setting file numbers in: {:?}", dir);
+    println!("Setting file numbers in: {dir:?}");
 
     loop {
         // Get files to number
@@ -413,7 +408,7 @@ pub fn set_file_num(dir: &Path) -> Result<(), std::io::Error> {
         }
 
         if file_names.is_empty() {
-            info!("No files to number");
+            println!("No files to number");
             return Ok(());
         }
 
@@ -436,7 +431,7 @@ pub fn set_file_num(dir: &Path) -> Result<(), std::io::Error> {
         let parts: Vec<&str> = input.split_whitespace().collect();
 
         if parts.is_empty() {
-            info!("Invalid input");
+            println!("Invalid input");
             println!();
             continue;
         }
@@ -457,7 +452,7 @@ pub fn set_file_num(dir: &Path) -> Result<(), std::io::Error> {
         };
 
         if file_idx >= file_names.len() {
-            info!("Invalid file index");
+            println!("Invalid file index");
             println!();
             continue;
         }
@@ -467,7 +462,7 @@ pub fn set_file_num(dir: &Path) -> Result<(), std::io::Error> {
         let new_file_name = format!("{num} {file_name}");
         let new_file_path = dir.join(&new_file_name);
 
-        info!("Rename {} to {}", file_name, new_file_name);
+        println!("Rename {file_name} to {new_file_name}");
         std::fs::rename(&file_path, &new_file_path)?;
 
         // Ask if continue

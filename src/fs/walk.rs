@@ -9,7 +9,6 @@ use crate::bms::CHART_FILE_EXTS;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::Semaphore;
-use tracing::{info, warn};
 
 /// Walk through BMS directories (directories containing BMS files) - 异步版本
 #[must_use]
@@ -85,10 +84,10 @@ pub fn remove_empty_dirs(dir: &Path) -> Result<(), std::io::Error> {
             continue;
         }
         if !super::is_dir_having_file(&path) {
-            info!("Remove empty dir: {:?}", path);
+            println!("Remove empty dir: {path:?}");
             match std::fs::remove_dir_all(&path) {
                 Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
-                    warn!(" x PermissionError!");
+                    println!(" x PermissionError!");
                 }
                 Err(e) => return Err(e),
                 Ok(()) => {}

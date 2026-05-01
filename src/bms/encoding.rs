@@ -10,17 +10,20 @@
 )]
 
 use std::path::Path;
+use std::sync::{LazyLock, RwLock};
 use tokio::fs;
 
 /// Encoding priority order (from Python ENCODINGS)
-pub const ENCODINGS: [&str; 6] = [
-    "shift-jis",
-    "shift-jis-2004",
-    "gb2312",
-    "utf-8",
-    "gb18030",
-    "shift-jisx0213",
-];
+pub static ENCODINGS: LazyLock<RwLock<Vec<&'static str>>> = LazyLock::new(|| {
+    RwLock::new(vec![
+        "shift-jis",
+        "shift-jis-2004",
+        "gb2312",
+        "utf-8",
+        "gb18030",
+        "shift-jisx0213",
+    ])
+});
 
 /// BOFTT-specific encoding overrides
 const BOFTT_ID_ENCODING: [(&str, &str); 4] = [
@@ -53,9 +56,18 @@ impl PriorityDecoder {
         for enc in encoding_priority {
             if let Some(encoding) = encoding_rs::Encoding::for_label(enc.as_bytes()) {
                 codecs.push(encoding);
+            } else if let Some(fallback) = Self::fallback_encoding(enc) {
+                codecs.push(fallback);
             }
         }
         Self { codecs }
+    }
+
+    fn fallback_encoding(label: &str) -> Option<&'static encoding_rs::Encoding> {
+        match label {
+            "shift-jis-2004" | "shift-jisx0213" => Some(encoding_rs::SHIFT_JIS),
+            _ => None,
+        }
     }
 
     /// Decode a single byte sequence using the encoding priority
@@ -135,16 +147,23 @@ pub(crate) async fn read_file_with_priority<P: AsRef<Path>>(
 #[must_use]
 #[allow(clippy::similar_names)]
 pub fn get_bms_file_str(file_bytes: &[u8], encoding: Option<&str>) -> String {
-    let mut encodings: Vec<&str> = ENCODINGS.to_vec();
     if let Some(enc) = encoding {
-        encodings.insert(0, enc);
+        let enc_static: &'static str = Box::leak(enc.to_string().into_boxed_str());
+        {
+            let mut list = ENCODINGS.write().unwrap();
+            if let Some(pos) = list.iter().position(|e| *e == enc_static) {
+                list.remove(pos);
+            }
+            list.insert(0, enc_static);
+        }
     }
+    let encodings = ENCODINGS.read().unwrap();
     let decoder = PriorityDecoder::new(&encodings);
     if let Ok(s) = decoder.decode(file_bytes, "strict") {
         s
     } else {
         let (decoded, _) = encoding_rs::UTF_8.decode_without_bom_handling(file_bytes);
-        decoded.replace('\u{FFFD}', "")
+        decoded.into_owned()
     }
 }
 

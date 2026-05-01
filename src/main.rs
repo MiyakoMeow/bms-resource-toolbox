@@ -3,22 +3,23 @@
 //! This module provides an interactive CLI that replicates the behavior
 //! of bms-resource-scripts main.py exactly.
 
-#![expect(clippy::too_many_lines)]
-
 use std::any::Any;
 use std::path::PathBuf;
 
+use clap::Parser;
 use tokio::runtime::Handle;
 
 use options::bms_events::jump_to_work_info;
 use options::input::{input_confirm, input_path, input_string};
 
 mod bms;
+mod cli;
 mod error;
 mod fs;
 mod media;
 mod options;
 mod scripts;
+mod tui;
 
 /// Input type for interactive prompts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -242,8 +243,7 @@ fn check_pack_update(args: &[Box<dyn Any>]) -> bool {
     pack_update_rawpack_to_hq_check(pack, root, sync).is_ok()
 }
 
-#[tokio::main]
-async fn main() {
+fn run_interactive_menu() {
     let mut options: Vec<(String, Vec<MenuOption>)> = Vec::new();
 
     options.push((
@@ -390,7 +390,7 @@ async fn main() {
 
     {
         use options::bms_folder_bigpack::{
-            move_out_works, move_works_in_pack, move_works_with_same_name,
+            merge_split_folders, move_out_works, move_works_in_pack, move_works_with_same_name,
             move_works_with_same_name_to_siblings, split_folders_with_first_char, undo_split_pack,
         };
 
@@ -489,6 +489,22 @@ async fn main() {
             exec_func: |args| {
                 let path = args[0].downcast_ref::<PathBuf>().unwrap();
                 if let Err(e) = move_works_with_same_name_to_siblings(path) {
+                    eprintln!("{e}");
+                }
+            },
+            inputs: vec![Input {
+                input_type: InputType::Path,
+                description: "Dir".to_string(),
+            }],
+            check_func: Some(vec![is_root_dir as CheckFunc]),
+            confirm: ConfirmType::DefaultYes,
+        });
+
+        bigpack_opts.push(MenuOption {
+            name: "BMS大包目录：合并被拆分的文件夹".to_string(),
+            exec_func: |args| {
+                let path = args[0].downcast_ref::<PathBuf>().unwrap();
+                if let Err(e) = merge_split_folders(path) {
                     eprintln!("{e}");
                 }
             },
@@ -796,7 +812,6 @@ async fn main() {
         current_number = ((current_number - 1) / 10 + 1) * 10 + 1;
     }
 
-    // Loop until valid selection (matches Python behavior)
     let selection = loop {
         let selection_str = input_string("\n输入要启用的功能的下标：");
         if let Ok(num) = selection_str.parse::<usize>()
@@ -813,5 +828,23 @@ async fn main() {
             .position(|(name, _)| name == module_name)
             .unwrap();
         options[module_idx].1[*opt_idx].exec();
+    }
+}
+
+#[tokio::main]
+async fn main() {
+    let cli = cli::Cli::parse();
+
+    if let Some(command) = &cli.command {
+        cli::dispatch(command);
+    } else if cli.tui {
+        if let Err(e) = tui::run_tui() {
+            eprintln!("TUI error: {e}");
+        }
+    } else {
+        // Default: try TUI, fall back to interactive menu
+        if tui::run_tui().is_err() {
+            run_interactive_menu();
+        }
     }
 }

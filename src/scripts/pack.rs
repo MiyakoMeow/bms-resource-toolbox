@@ -17,7 +17,6 @@ use crate::options::bms_folder::{append_name_by_bms, copy_numbered_workdir_names
 use crate::options::bms_folder_bigpack::{get_remove_media_rule_oraja, remove_unneed_media_files};
 use crate::options::rawpack::unzip_numeric_to_bms_folder;
 use std::path::Path;
-use tracing::info;
 
 async fn bms_folder_transfer_audio(
     root_dir: &Path,
@@ -37,7 +36,7 @@ async fn bms_folder_transfer_audio(
         if let Err(e) =
             transfer_audio_by_format_in_dir(&bms_dir_path, input_exts, presets, options).await
         {
-            info!(" - Dir: {:?} Error occured!", bms_dir_path);
+            println!(" - Dir: {bms_dir_path:?} Error occured!");
             if options.stop_on_error {
                 return Err(e);
             }
@@ -91,10 +90,10 @@ async fn bms_folder_transfer_video(
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
 pub async fn pack_raw_to_hq(root_dir: &Path) -> Result<(), std::io::Error> {
-    info!("Pack RAW -> HQ for: {:?}", root_dir);
+    println!("Pack RAW -> HQ for: {root_dir:?}");
 
     // Phase 1: Convert WAV to FLAC
-    info!("Parsing Audio... Phase 1: WAV -> FLAC");
+    println!("Parsing Audio... Phase 1: WAV -> FLAC");
     let flac_preset = audio_preset_flac();
     let flac_ffmpeg_preset = audio_preset_flac_ffmpeg();
     bms_folder_transfer_audio(
@@ -111,7 +110,7 @@ pub async fn pack_raw_to_hq(root_dir: &Path) -> Result<(), std::io::Error> {
     .await?;
 
     // Phase 2: Remove unnecessary media files
-    info!("Removing Unneed Files");
+    println!("Removing Unneed Files");
     remove_unneed_media_files(root_dir, Some(get_remove_media_rule_oraja()))?;
 
     Ok(())
@@ -126,10 +125,10 @@ pub async fn pack_raw_to_hq(root_dir: &Path) -> Result<(), std::io::Error> {
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
 pub async fn pack_hq_to_lq(root_dir: &Path) -> Result<(), std::io::Error> {
-    info!("Pack HQ -> LQ for: {:?}", root_dir);
+    println!("Pack HQ -> LQ for: {root_dir:?}");
 
     // Phase 1: Convert FLAC to OGG
-    info!("Parsing Audio... Phase 1: FLAC -> OGG");
+    println!("Parsing Audio... Phase 1: FLAC -> OGG");
     let ogg_preset = audio_preset_ogg_q10();
     bms_folder_transfer_audio(
         root_dir,
@@ -145,7 +144,7 @@ pub async fn pack_hq_to_lq(root_dir: &Path) -> Result<(), std::io::Error> {
     .await?;
 
     // Phase 2: Convert video
-    info!("Parsing Video...");
+    println!("Parsing Video...");
     let presets = vec![
         video_preset_mpeg1video_512x512(),
         video_preset_wmv2_512x512(),
@@ -266,7 +265,7 @@ pub async fn pack_setup_rawpack_to_hq(
     pack_dir: &Path,
     root_dir: &Path,
 ) -> Result<(), std::io::Error> {
-    info!("Pack Setup RAW -> HQ: {:?} -> {:?}", pack_dir, root_dir);
+    println!("Pack Setup RAW -> HQ: {pack_dir:?} -> {root_dir:?}");
 
     // Setup directories
     if root_dir.exists() {
@@ -279,7 +278,7 @@ pub async fn pack_setup_rawpack_to_hq(
     let cache_dir = root_dir.join("CacheDir");
 
     // Step 1: Unzip packs
-    info!("Unzipping packs from {:?} to {:?}", pack_dir, root_dir);
+    println!("Unzipping packs from {pack_dir:?} to {root_dir:?}");
     unzip_numeric_to_bms_folder(pack_dir, &cache_dir, root_dir, false)?;
 
     // Remove cache dir if empty
@@ -288,11 +287,11 @@ pub async fn pack_setup_rawpack_to_hq(
     }
 
     // Step 2: Set dir names from BMS files
-    info!("Setting dir names from BMS Files");
+    println!("Setting dir names from BMS Files");
     append_name_by_bms(root_dir).await?;
 
     // Step 3: Convert WAV -> FLAC
-    info!("Parsing Audio... Phase 1: WAV -> FLAC");
+    println!("Parsing Audio... Phase 1: WAV -> FLAC");
     let flac_preset = audio_preset_flac();
     let flac_ffmpeg_preset = audio_preset_flac_ffmpeg();
     bms_folder_transfer_audio(
@@ -301,7 +300,7 @@ pub async fn pack_setup_rawpack_to_hq(
         &[flac_preset, flac_ffmpeg_preset],
         &TransferOptions {
             remove_origin_on_success: true,
-            remove_origin_on_failed: true,
+            remove_origin_on_failed: false,
             remove_existing_target_file: true,
             stop_on_error: false,
         },
@@ -309,7 +308,7 @@ pub async fn pack_setup_rawpack_to_hq(
     .await?;
 
     // Step 4: Remove unnecessary media files
-    info!("Removing Unneed Files");
+    println!("Removing Unneed Files");
     remove_unneed_media_files(root_dir, Some(get_remove_media_rule_oraja()))?;
 
     Ok(())
@@ -325,9 +324,8 @@ pub async fn pack_update_rawpack_to_hq(
     root_dir: &Path,
     sync_dir: &Path,
 ) -> Result<(), std::io::Error> {
-    info!(
-        "Pack Update RAW -> HQ: {:?} -> {:?} (sync from {:?})",
-        pack_dir, root_dir, sync_dir
+    println!(
+        "Pack Update RAW -> HQ: {pack_dir:?} -> {root_dir:?} (sync from {sync_dir:?})"
     );
 
     // Setup directories
@@ -341,15 +339,15 @@ pub async fn pack_update_rawpack_to_hq(
     let cache_dir = root_dir.join("CacheDir");
 
     // Step 1: Unzip packs
-    info!("Unzipping packs from {:?} to {:?}", pack_dir, root_dir);
+    println!("Unzipping packs from {pack_dir:?} to {root_dir:?}");
     unzip_numeric_to_bms_folder(pack_dir, &cache_dir, root_dir, false)?;
 
     // Step 2: Sync dir names from sync_dir
-    info!("Syncing dir name from {:?} to {:?}", sync_dir, root_dir);
+    println!("Syncing dir name from {sync_dir:?} to {root_dir:?}");
     copy_numbered_workdir_names(sync_dir, root_dir)?;
 
     // Step 3: Convert WAV -> FLAC
-    info!("Parsing Audio... Phase 1: WAV -> FLAC");
+    println!("Parsing Audio... Phase 1: WAV -> FLAC");
     let flac_preset = audio_preset_flac();
     let flac_ffmpeg_preset = audio_preset_flac_ffmpeg();
     bms_folder_transfer_audio(
@@ -358,7 +356,7 @@ pub async fn pack_update_rawpack_to_hq(
         &[flac_preset, flac_ffmpeg_preset],
         &TransferOptions {
             remove_origin_on_success: true,
-            remove_origin_on_failed: true,
+            remove_origin_on_failed: false,
             remove_existing_target_file: true,
             stop_on_error: false,
         },
@@ -366,15 +364,15 @@ pub async fn pack_update_rawpack_to_hq(
     .await?;
 
     // Step 4: Remove unnecessary media files
-    info!("Removing Unneed Files");
+    println!("Removing Unneed Files");
     remove_unneed_media_files(root_dir, Some(get_remove_media_rule_oraja()))?;
 
     // Step 5: Soft sync from sync_dir
-    info!("Syncing dir files from {:?} to {:?}", sync_dir, root_dir);
+    println!("Syncing dir files from {sync_dir:?} to {root_dir:?}");
     sync_folder(root_dir, sync_dir, &SYNC_PRESET_FOR_APPEND, 8).await?;
 
     // Step 6: Remove empty folders
-    info!("Removing empty folder in {:?}", root_dir);
+    println!("Removing empty folder in {root_dir:?}");
     remove_empty_dirs(root_dir)?;
 
     Ok(())

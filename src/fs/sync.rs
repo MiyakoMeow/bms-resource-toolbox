@@ -7,7 +7,6 @@ use sha2::{Digest, Sha512};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, LazyLock};
 use tokio::sync::Semaphore;
-use tracing::info;
 
 /// Soft sync execution mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -356,6 +355,17 @@ pub async fn sync_folder(
         }
     }
 
+    // Recurse into subdirectories
+    for src_path in &src_list {
+        if src_path.is_dir() {
+            let dst_path = dst_dir.join(src_path.file_name().unwrap_or_default());
+            if !dst_path.is_dir() {
+                tokio::fs::create_dir(&dst_path).await?;
+            }
+            Box::pin(sync_folder(src_path, &dst_path, preset, max_concurrent)).await?;
+        }
+    }
+
     // Process destination extra files
     if preset.remove_dst_extra_files {
         for dst_path in &dst_list {
@@ -375,17 +385,6 @@ pub async fn sync_folder(
         }
     }
 
-    // Recurse into subdirectories
-    for src_path in &src_list {
-        if src_path.is_dir() {
-            let dst_path = dst_dir.join(src_path.file_name().unwrap_or_default());
-            if !dst_path.is_dir() {
-                tokio::fs::create_dir(&dst_path).await?;
-            }
-            Box::pin(sync_folder(src_path, &dst_path, preset, max_concurrent)).await?;
-        }
-    }
-
     // Log operations
     if !src_copy_files.is_empty()
         || !src_move_files.is_empty()
@@ -393,14 +392,14 @@ pub async fn sync_folder(
         || !dst_remove_files.is_empty()
         || !dst_remove_dirs.is_empty()
     {
-        info!("{} -> {}:", src_dir.display(), dst_dir.display());
+        println!("{} -> {}:", src_dir.display(), dst_dir.display());
         if !src_copy_files.is_empty() {
             let names: Vec<_> = src_copy_files
                 .iter()
                 .filter_map(|p| p.file_name())
                 .filter_map(|n| n.to_str())
                 .collect();
-            info!("Src copy: {:?}", names);
+            println!("Src copy: {names:?}");
         }
         if !src_move_files.is_empty() {
             let names: Vec<_> = src_move_files
@@ -408,7 +407,7 @@ pub async fn sync_folder(
                 .filter_map(|p| p.file_name())
                 .filter_map(|n| n.to_str())
                 .collect();
-            info!("Src move: {:?}", names);
+            println!("Src move: {names:?}");
         }
         if !src_remove_files.is_empty() {
             let names: Vec<_> = src_remove_files
@@ -416,7 +415,7 @@ pub async fn sync_folder(
                 .filter_map(|p| p.file_name())
                 .filter_map(|n| n.to_str())
                 .collect();
-            info!("Src remove: {:?}", names);
+            println!("Src remove: {names:?}");
         }
         if !dst_remove_files.is_empty() {
             let names: Vec<_> = dst_remove_files
@@ -424,7 +423,7 @@ pub async fn sync_folder(
                 .filter_map(|p| p.file_name())
                 .filter_map(|n| n.to_str())
                 .collect();
-            info!("Dst remove: {:?}", names);
+            println!("Dst remove: {names:?}");
         }
         if !dst_remove_dirs.is_empty() {
             let names: Vec<_> = dst_remove_dirs
@@ -432,7 +431,7 @@ pub async fn sync_folder(
                 .filter_map(|p| p.file_name())
                 .filter_map(|n| n.to_str())
                 .collect();
-            info!("Dst remove dir: {:?}", names);
+            println!("Dst remove dir: {names:?}");
         }
     }
 

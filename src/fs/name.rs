@@ -64,17 +64,19 @@ pub fn bms_dir_similarity(dir_path_a: &Path, dir_path_b: &Path) -> f64 {
 
         for entry in entries.flatten() {
             let path = entry.path();
-            if !path.is_file() {
-                continue;
-            }
             let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
                 continue;
             };
+
+            file_set.insert(name.to_string());
+
+            if !path.is_file() {
+                continue;
+            }
             let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
             let ext = ext.to_lowercase();
             let with_dot = format!(".{ext}");
 
-            file_set.insert(name.to_string());
             if MEDIA_EXTS.contains(&with_dot.as_str()) {
                 if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
                     media_set.insert(stem.to_string());

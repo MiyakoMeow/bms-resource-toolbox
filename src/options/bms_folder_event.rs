@@ -3,7 +3,6 @@
 //! This module provides utilities for BMS event folders.
 
 use std::path::Path;
-use tracing::info;
 
 use crate::bms::dir::get_dir_bms_info;
 use rust_xlsxwriter::Workbook;
@@ -29,9 +28,8 @@ pub fn check_num_folder(bms_dir: &Path, max_count: i32) {
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
 pub fn create_num_folders(root_dir: &Path, folder_count: i32) -> Result<(), std::io::Error> {
-    info!(
-        "Creating {} numbered folders in {:?}",
-        folder_count, root_dir
+    println!(
+        "Creating {folder_count} numbered folders in {root_dir:?}"
     );
 
     // Get existing elements to check for conflicts
@@ -55,12 +53,12 @@ pub fn create_num_folders(root_dir: &Path, folder_count: i32) -> Result<(), std:
         });
 
         if id_exists {
-            info!("  Folder {} conflicts with existing entry, skipping", i);
+            println!("  Folder {i} conflicts with existing entry, skipping");
             continue;
         }
 
         std::fs::create_dir_all(&folder_path)?;
-        info!("  Created folder {}", i);
+        println!("  Created folder {i}");
     }
 
     Ok(())
@@ -78,7 +76,7 @@ pub fn create_num_folders(root_dir: &Path, folder_count: i32) -> Result<(), std:
 ///
 /// Panics if stdout flush fails.
 pub async fn generate_work_info_table(root_dir: &Path) -> anyhow::Result<()> {
-    info!("Generating work info table for: {:?}", root_dir);
+    println!("Generating work info table for: {root_dir:?}");
 
     let mut workbook = Workbook::new();
     let worksheet = workbook.add_worksheet();

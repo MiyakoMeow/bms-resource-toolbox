@@ -5,6 +5,7 @@
 
 use std::path::Path;
 use std::process::Stdio;
+use std::sync::LazyLock;
 use tokio::process::Command;
 
 /// Audio conversion preset.
@@ -74,6 +75,44 @@ pub fn audio_preset_flac() -> AudioPreset {
 pub fn audio_preset_flac_ffmpeg() -> AudioPreset {
     AudioPreset::new("ffmpeg", "flac", None)
 }
+
+/// All audio presets (matching Python `AUDIO_PRESETS`)
+pub static AUDIO_PRESETS: LazyLock<Vec<AudioPreset>> = LazyLock::new(|| {
+    vec![
+        audio_preset_flac(),
+        audio_preset_flac_ffmpeg(),
+        audio_preset_ogg_q10(),
+        audio_preset_wav_from_flac(),
+        audio_preset_wav_ffmpeg(),
+    ]
+});
+
+/// Audio transfer modes (matching Python MODES)
+pub static AUDIO_MODES: LazyLock<Vec<(&'static str, Vec<&'static str>, Vec<AudioPreset>)>> =
+    LazyLock::new(|| {
+        vec![
+            (
+                "Convert: WAV to FLAC",
+                vec!["wav"],
+                vec![audio_preset_flac(), audio_preset_flac_ffmpeg()],
+            ),
+            (
+                "Compress: FLAC to OGG Q10",
+                vec!["flac"],
+                vec![audio_preset_ogg_q10()],
+            ),
+            (
+                "Compress: WAV to OGG Q10",
+                vec!["wav"],
+                vec![audio_preset_ogg_q10()],
+            ),
+            (
+                "Reverse: FLAC to WAV",
+                vec!["flac"],
+                vec![audio_preset_wav_from_flac(), audio_preset_wav_ffmpeg()],
+            ),
+        ]
+    });
 
 /// Get audio process command
 #[must_use]
