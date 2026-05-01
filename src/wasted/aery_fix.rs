@@ -3,7 +3,6 @@
 //! This module provides a utility for fixing Aery-themed BMS directories.
 
 use std::path::{Path, PathBuf};
-use tracing::info;
 
 use crate::fs::name::bms_dir_similarity;
 use crate::fs::pack_move::{MoveOptions, REPLACE_OPTION_UPDATE_PACK, move_elements_across_dir};
@@ -20,10 +19,8 @@ use crate::fs::pack_move::{MoveOptions, REPLACE_OPTION_UPDATE_PACK, move_element
 pub fn aery_fix(src_dir: &Path) -> Result<(), std::io::Error> {
     use std::io::{self, Write};
 
-    info!("Aery fix for: {:?}", src_dir);
-
     if !src_dir.is_dir() {
-        info!("{:?}: not a dir.", src_dir);
+        println!("{}: not a dir.", src_dir.display());
         return Ok(());
     }
 
@@ -31,7 +28,7 @@ pub fn aery_fix(src_dir: &Path) -> Result<(), std::io::Error> {
     let dirs: Vec<String> = std::fs::read_dir(src_dir)?
         .filter_map(std::result::Result::ok)
         .filter(|e| e.path().is_dir())
-        .filter_map(|e| e.file_name().to_str().map(String::from))
+        .map(|e| e.file_name().to_string_lossy().into_owned())
         .collect();
 
     // Find all Aery directories and their matches
@@ -65,18 +62,26 @@ pub fn aery_fix(src_dir: &Path) -> Result<(), std::io::Error> {
 
     // Print pairs
     for p in &aery_pairs {
-        info!("{:?} => {:?}, similarity: {}", p.0, p.1, p.2);
+        println!(
+            "{} => {}, similarity: {}",
+            p.0.display(),
+            p.1.display(),
+            p.2
+        );
     }
 
     let similarity_border = 0.95;
 
-    print!("Confirm? (border: {similarity_border}) [y/N]: ");
+    print!("Confirm? (border: {similarity_border}) [y/N]");
     io::stdout().flush().unwrap();
 
     let mut input = String::new();
     io::stdin().read_line(&mut input).unwrap();
-    if !input.trim().to_lowercase().starts_with('y') {
-        info!("Aborted.");
+    let input_stripped = input
+        .strip_suffix('\n')
+        .or_else(|| input.strip_suffix("\r\n"))
+        .unwrap_or(&input);
+    if !input_stripped.to_lowercase().starts_with('y') {
         return Ok(());
     }
 
@@ -85,9 +90,10 @@ pub fn aery_fix(src_dir: &Path) -> Result<(), std::io::Error> {
         if similarity < similarity_border {
             continue;
         }
-        info!(
-            "Moving: {:?} => {:?}, similarity: {}",
-            p_from, p_to, similarity
+        println!(
+            "Moving: {} => {}, similarity: {similarity}",
+            p_from.display(),
+            p_to.display()
         );
         move_elements_across_dir(
             &p_from,

@@ -14,16 +14,11 @@ use rust_xlsxwriter::Workbook;
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
 pub fn check_num_folder(bms_dir: &Path, max_count: i32) {
-    info!("Checking BMS event directory: {:?}", bms_dir);
-
     for i in 1..=max_count {
-        let folder_name = format!("{i}");
-        let folder_path = bms_dir.join(&folder_name);
+        let folder_path = bms_dir.join(format!("{i}"));
 
-        if folder_path.is_dir() {
-            info!("  [OK] Folder {} exists", i);
-        } else {
-            info!("  [MISSING] Folder {} does not exist", i);
+        if !folder_path.is_dir() {
+            println!("{} is not exist!", folder_path.display());
         }
     }
 }
@@ -42,6 +37,7 @@ pub fn create_num_folders(root_dir: &Path, folder_count: i32) -> Result<(), std:
     // Get existing elements to check for conflicts
     let existing_elements: Vec<String> = std::fs::read_dir(root_dir)?
         .filter_map(std::result::Result::ok)
+        .filter(|entry| entry.path().is_dir())
         .filter_map(|entry| entry.file_name().into_string().ok())
         .collect();
 

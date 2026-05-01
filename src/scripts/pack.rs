@@ -34,7 +34,14 @@ async fn bms_folder_transfer_audio(
         if !bms_dir_path.is_dir() {
             continue;
         }
-        transfer_audio_by_format_in_dir(&bms_dir_path, input_exts, presets, options).await?;
+        if let Err(e) =
+            transfer_audio_by_format_in_dir(&bms_dir_path, input_exts, presets, options).await
+        {
+            info!(" - Dir: {:?} Error occured!", bms_dir_path);
+            if options.stop_on_error {
+                return Err(e);
+            }
+        }
     }
 
     Ok(())
@@ -57,7 +64,7 @@ async fn bms_folder_transfer_video(
         if !bms_dir_path.is_dir() {
             continue;
         }
-        transfer_video_by_format_in_dir(
+        if let Err(e) = transfer_video_by_format_in_dir(
             &bms_dir_path,
             input_exts,
             presets,
@@ -65,7 +72,11 @@ async fn bms_folder_transfer_video(
             remove_existing_target_file,
             use_prefered,
         )
-        .await?;
+        .await
+        {
+            println!("Error occured!");
+            return Err(e);
+        }
     }
 
     Ok(())
@@ -140,7 +151,7 @@ pub async fn pack_hq_to_lq(root_dir: &Path) -> Result<(), std::io::Error> {
         video_preset_wmv2_512x512(),
         video_preset_avi_512x512(),
     ];
-    bms_folder_transfer_video(root_dir, &["mp4"], &presets, true, false, false).await?;
+    bms_folder_transfer_video(root_dir, &["mp4"], &presets, true, true, false).await?;
 
     Ok(())
 }
@@ -164,7 +175,7 @@ pub(crate) fn pack_setup_rawpack_to_hq_check(
 
     println!(" - Input 1: Pack dir path");
     if !pack_dir.is_dir() {
-        println!("Pack dir is not valid dir.");
+        println!("Pack dir is not vaild dir.");
         return Err(std::io::Error::new(
             std::io::ErrorKind::NotADirectory,
             "Pack dir is not a valid directory",
@@ -210,7 +221,7 @@ pub fn pack_update_rawpack_to_hq_check(
 
     println!(" - Input 1: Pack dir path");
     if !pack_dir.is_dir() {
-        println!("Pack dir is not valid dir.");
+        println!("Pack dir is not vaild dir.");
         return Err(std::io::Error::new(
             std::io::ErrorKind::NotADirectory,
             "Pack dir is not a valid directory",
@@ -236,7 +247,7 @@ pub fn pack_update_rawpack_to_hq_check(
     println!(" - Input 3: Already exists BMS Folder path. (Input a dir path that ALREADY exists)");
     println!("This script will use this dir, just for name syncing and file checking.");
     if !sync_dir.is_dir() {
-        println!("Syncing dir is not valid dir.");
+        println!("Syncing dir is not vaild dir.");
         return Err(std::io::Error::new(
             std::io::ErrorKind::NotADirectory,
             "Sync dir is not a valid directory",

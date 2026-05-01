@@ -139,10 +139,7 @@ pub fn move_elements_across_dir(
     }
 
     if !src.is_dir() {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::NotADirectory,
-            "Source is not a directory",
-        ));
+        return Ok(());
     }
 
     if !dst.is_dir() {
@@ -178,7 +175,7 @@ pub fn move_elements_across_dir(
     }
 
     for (src_path, dst_path) in next_folder_paths {
-        move_elements_across_dir(&src_path, &dst_path, options, replace_options)?;
+        move_elements_across_dir(&src_path, &dst_path, options, &ReplaceOptions::default())?;
     }
 
     let should_clean = replace_options.default != ReplaceAction::Skip || !is_dir_having_file(src);
@@ -199,11 +196,12 @@ fn plan_move_file(
         .extension()
         .and_then(|e| e.to_str())
         .unwrap_or("")
-        .to_lowercase();
+        .to_string();
     let action = replace_options
         .ext
         .get(&file_ext)
         .copied()
+        .filter(|a| *a != ReplaceAction::Skip)
         .unwrap_or(replace_options.default);
 
     match action {
@@ -221,11 +219,7 @@ fn plan_move_file(
                     .extension()
                     .map(|e| e.to_string_lossy())
                     .unwrap_or_default();
-                let new_name = if ext.is_empty() {
-                    format!("{stem}.{i}")
-                } else {
-                    format!("{stem}.{i}.{ext}")
-                };
+                let new_name = format!("{stem}.{i}.{ext}");
                 let new_dst_path = dst_path.with_file_name(new_name);
                 if new_dst_path.is_file() {
                     if is_same_content(ori_path, &new_dst_path) {
@@ -250,11 +244,7 @@ fn plan_move_file(
                         .extension()
                         .map(|e| e.to_string_lossy())
                         .unwrap_or_default();
-                    let new_name = if ext.is_empty() {
-                        format!("{stem}.{i}")
-                    } else {
-                        format!("{stem}.{i}.{ext}")
-                    };
+                    let new_name = format!("{stem}.{i}.{ext}");
                     let new_dst_path = dst_path.with_file_name(new_name);
                     if new_dst_path.is_file() {
                         if is_same_content(ori_path, &new_dst_path) {

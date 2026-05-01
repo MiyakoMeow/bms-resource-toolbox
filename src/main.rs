@@ -93,7 +93,7 @@ pub struct MenuOption {
     /// Input specifications for this option.
     pub inputs: Vec<Input>,
     /// Optional validation function to run before execution.
-    pub check_func: Option<CheckFunc>,
+    pub check_func: Option<Vec<CheckFunc>>,
     /// Confirmation type before execution.
     pub confirm: ConfirmType,
 }
@@ -116,11 +116,13 @@ impl MenuOption {
             args.push(res);
         }
 
-        if let Some(check) = self.check_func {
-            let passed = check(&args);
-            if !passed {
-                println!(" - 检查未通过。");
-                return;
+        if let Some(checks) = &self.check_func {
+            for (idx, check) in checks.iter().enumerate() {
+                let passed = check(&args);
+                if !passed {
+                    println!(" - 检查未通过（第 {} 项）。", idx + 1);
+                    return;
+                }
             }
         }
 
@@ -180,30 +182,64 @@ fn is_root_dir(paths: &[Box<dyn Any>]) -> bool {
 }
 
 fn check_ffmpeg(_paths: &[Box<dyn Any>]) -> bool {
-    std::process::Command::new("ffmpeg")
+    let result = std::process::Command::new("ffmpeg")
         .arg("-version")
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
-        .status()
-        .is_ok()
+        .status();
+    match result {
+        Ok(status) if status.success() => true,
+        _ => {
+            println!(" - 未找到或无法执行 ffmpeg（命令 \"ffmpeg -version\" 失败）。");
+            false
+        }
+    }
 }
 
 fn check_flac(_paths: &[Box<dyn Any>]) -> bool {
-    std::process::Command::new("flac")
+    let result = std::process::Command::new("flac")
         .arg("--version")
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
-        .status()
-        .is_ok()
+        .status();
+    match result {
+        Ok(status) if status.success() => true,
+        _ => {
+            println!(" - 未找到或无法执行 flac（命令 \"flac --version\" 失败）。");
+            false
+        }
+    }
 }
 
 fn check_oggenc(_paths: &[Box<dyn Any>]) -> bool {
-    std::process::Command::new("oggenc")
+    let result = std::process::Command::new("oggenc")
         .arg("-v")
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
-        .status()
-        .is_ok()
+        .status();
+    match result {
+        Ok(status) if status.success() => true,
+        _ => {
+            println!(" - 未找到或无法执行 oggenc（命令 \"oggenc -v\" 失败）。");
+            false
+        }
+    }
+}
+
+fn check_not_dir(args: &[Box<dyn Any>]) -> bool {
+    let path = args
+        .first()
+        .and_then(|p| p.downcast_ref::<PathBuf>())
+        .unwrap();
+    !path.is_dir()
+}
+
+fn check_pack_update(args: &[Box<dyn Any>]) -> bool {
+    use scripts::pack::pack_update_rawpack_to_hq_check;
+    let pack = args[0].downcast_ref::<PathBuf>().unwrap();
+    let root = args[1].downcast_ref::<PathBuf>().unwrap();
+    let sync = args[2].downcast_ref::<PathBuf>().unwrap();
+    pack_update_rawpack_to_hq_check(pack, root, sync).is_ok()
 }
 
 #[tokio::main]
@@ -242,7 +278,7 @@ async fn main() {
                 input_type: InputType::Path,
                 description: "Root Dir".to_string(),
             }],
-            check_func: Some(is_root_dir),
+            check_func: Some(vec![is_root_dir as CheckFunc]),
             confirm: ConfirmType::DefaultYes,
         });
 
@@ -258,7 +294,7 @@ async fn main() {
                 input_type: InputType::Path,
                 description: "Root Dir".to_string(),
             }],
-            check_func: Some(is_root_dir),
+            check_func: Some(vec![is_root_dir as CheckFunc]),
             confirm: ConfirmType::DefaultYes,
         });
 
@@ -274,7 +310,7 @@ async fn main() {
                 input_type: InputType::Path,
                 description: "Root Dir".to_string(),
             }],
-            check_func: Some(is_root_dir),
+            check_func: Some(vec![is_root_dir as CheckFunc]),
             confirm: ConfirmType::DefaultYes,
         });
 
@@ -297,7 +333,7 @@ async fn main() {
                     description: "Dst Root Dir".to_string(),
                 },
             ],
-            check_func: Some(is_root_dir),
+            check_func: Some(vec![is_root_dir as CheckFunc]),
             confirm: ConfirmType::DefaultYes,
         });
 
@@ -313,7 +349,7 @@ async fn main() {
                 input_type: InputType::Path,
                 description: "Root Dir".to_string(),
             }],
-            check_func: Some(is_root_dir),
+            check_func: Some(vec![is_root_dir as CheckFunc]),
             confirm: ConfirmType::DefaultYes,
         });
 
@@ -329,7 +365,7 @@ async fn main() {
                 input_type: InputType::Path,
                 description: "Root Dir".to_string(),
             }],
-            check_func: Some(is_root_dir),
+            check_func: Some(vec![is_root_dir as CheckFunc]),
             confirm: ConfirmType::DefaultYes,
         });
 
@@ -345,7 +381,7 @@ async fn main() {
                 input_type: InputType::Path,
                 description: "Root Dir".to_string(),
             }],
-            check_func: Some(is_root_dir),
+            check_func: Some(vec![is_root_dir as CheckFunc]),
             confirm: ConfirmType::DefaultYes,
         });
 
@@ -372,7 +408,7 @@ async fn main() {
                 input_type: InputType::Path,
                 description: "Root Dir".to_string(),
             }],
-            check_func: Some(is_root_dir),
+            check_func: Some(vec![is_root_dir as CheckFunc]),
             confirm: ConfirmType::DefaultYes,
         });
 
@@ -388,13 +424,7 @@ async fn main() {
                 input_type: InputType::Path,
                 description: "The target folder path.".to_string(),
             }],
-            check_func: Some(|args| {
-                let path = args
-                    .first()
-                    .and_then(|p| p.downcast_ref::<PathBuf>())
-                    .unwrap();
-                !path.is_dir()
-            }),
+            check_func: Some(vec![check_not_dir as CheckFunc]),
             confirm: ConfirmType::DefaultYes,
         });
 
@@ -417,7 +447,7 @@ async fn main() {
                     description: "To".to_string(),
                 },
             ],
-            check_func: Some(is_root_dir),
+            check_func: Some(vec![is_root_dir as CheckFunc]),
             confirm: ConfirmType::DefaultYes,
         });
 
@@ -450,7 +480,7 @@ async fn main() {
                 Input { input_type: InputType::Path, description: "From".to_string() },
                 Input { input_type: InputType::Path, description: "To".to_string() },
             ],
-            check_func: Some(is_root_dir),
+            check_func: Some(vec![is_root_dir as CheckFunc]),
             confirm: ConfirmType::DefaultYes,
         });
 
@@ -466,7 +496,7 @@ async fn main() {
                 input_type: InputType::Path,
                 description: "Dir".to_string(),
             }],
-            check_func: Some(is_root_dir),
+            check_func: Some(vec![is_root_dir as CheckFunc]),
             confirm: ConfirmType::DefaultYes,
         });
 
@@ -497,7 +527,7 @@ async fn main() {
                     description: "Create Number:".to_string(),
                 },
             ],
-            check_func: Some(is_root_dir),
+            check_func: Some(vec![is_root_dir as CheckFunc]),
             confirm: ConfirmType::DefaultYes,
         });
 
@@ -520,7 +550,7 @@ async fn main() {
                     description: "Create Number:".to_string(),
                 },
             ],
-            check_func: Some(is_root_dir),
+            check_func: Some(vec![is_root_dir as CheckFunc]),
             confirm: ConfirmType::DefaultYes,
         });
 
@@ -536,7 +566,7 @@ async fn main() {
                 input_type: InputType::Path,
                 description: "Root Dir:".to_string(),
             }],
-            check_func: Some(is_root_dir),
+            check_func: Some(vec![is_root_dir as CheckFunc]),
             confirm: ConfirmType::DefaultYes,
         });
 
@@ -560,9 +590,12 @@ async fn main() {
                 input_type: InputType::Path,
                 description: "Root Dir".to_string(),
             }],
-            check_func: Some(|args| {
-                is_root_dir(args) && check_ffmpeg(args) && check_flac(args) && check_oggenc(args)
-            }),
+            check_func: Some(vec![
+                is_root_dir as CheckFunc,
+                check_ffmpeg as CheckFunc,
+                check_flac as CheckFunc,
+                check_oggenc as CheckFunc,
+            ]),
             confirm: ConfirmType::DefaultYes,
         });
 
@@ -578,7 +611,7 @@ async fn main() {
                 input_type: InputType::Path,
                 description: "Root Dir".to_string(),
             }],
-            check_func: Some(|args| is_root_dir(args) && check_ffmpeg(args)),
+            check_func: Some(vec![is_root_dir as CheckFunc, check_ffmpeg as CheckFunc]),
             confirm: ConfirmType::DefaultYes,
         });
 
@@ -652,7 +685,6 @@ async fn main() {
     {
         use scripts::pack::{
             pack_hq_to_lq, pack_raw_to_hq, pack_setup_rawpack_to_hq, pack_update_rawpack_to_hq,
-            pack_update_rawpack_to_hq_check,
         };
 
         let mut scripts_opts: Vec<MenuOption> = Vec::new();
@@ -676,7 +708,7 @@ async fn main() {
                     description: "Root Dir".to_string(),
                 },
             ],
-            check_func: Some(|args| check_flac(args) && check_ffmpeg(args)),
+            check_func: Some(vec![check_flac as CheckFunc, check_ffmpeg as CheckFunc]),
             confirm: ConfirmType::DefaultYes,
         });
 
@@ -706,14 +738,11 @@ async fn main() {
                     description: "Sync Dir".to_string(),
                 },
             ],
-            check_func: Some(|args| {
-                let pack = args[0].downcast_ref::<PathBuf>().unwrap();
-                let root = args[1].downcast_ref::<PathBuf>().unwrap();
-                let sync = args[2].downcast_ref::<PathBuf>().unwrap();
-                check_flac(args)
-                    && check_ffmpeg(args)
-                    && pack_update_rawpack_to_hq_check(pack, root, sync).is_ok()
-            }),
+            check_func: Some(vec![
+                check_flac as CheckFunc,
+                check_ffmpeg as CheckFunc,
+                check_pack_update as CheckFunc,
+            ]),
             confirm: ConfirmType::DefaultYes,
         });
 
@@ -729,7 +758,7 @@ async fn main() {
                 input_type: InputType::Path,
                 description: "Root Dir".to_string(),
             }],
-            check_func: Some(|args| check_flac(args) && check_ffmpeg(args)),
+            check_func: Some(vec![check_flac as CheckFunc, check_ffmpeg as CheckFunc]),
             confirm: ConfirmType::DefaultYes,
         });
 
@@ -745,7 +774,7 @@ async fn main() {
                 input_type: InputType::Path,
                 description: "Root Dir".to_string(),
             }],
-            check_func: Some(|args| check_oggenc(args) && check_ffmpeg(args)),
+            check_func: Some(vec![check_oggenc as CheckFunc, check_ffmpeg as CheckFunc]),
             confirm: ConfirmType::DefaultYes,
         });
 

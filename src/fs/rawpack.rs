@@ -92,7 +92,11 @@ pub fn get_num_set_file_names(dir: &Path) -> Vec<String> {
             }
             let name = entry.file_name().to_string_lossy().to_string();
             let id_str = name.split(' ').next().unwrap_or("");
-            if id_str.is_empty() || !id_str.chars().all(|c| c.is_ascii_digit()) {
+            if id_str.is_empty()
+                || !id_str
+                    .chars()
+                    .all(|c| c.is_ascii_digit() || ('\u{FF10}'..='\u{FF19}').contains(&c))
+            {
                 continue;
             }
             names.push(name);
@@ -605,7 +609,7 @@ pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
     if final_folder_count == 0 && final_file_count == 0 {
         info!(" !_! {}: Cache is Empty!", cache_dir_path.display());
         let _ = std::fs::remove_dir(cache_dir_path);
-        // Intentionally ignored: cleanup of empty cache directory
+        return false;
     }
 
     let mp4_count = file_ext_count.get("mp4").map_or(0, Vec::len);

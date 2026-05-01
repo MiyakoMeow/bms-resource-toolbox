@@ -60,36 +60,31 @@ impl PriorityDecoder {
 
     /// Decode a single byte sequence using the encoding priority
     /// Returns (`decoded_char`, `bytes_consumed`) or (None, 1) if all fail
-    fn decode_byte_sequence(&self, byte_data: &[u8], start: usize) -> (Option<char>, usize) {
+    fn decode_byte_sequence(&self, byte_data: &[u8], start: usize) -> (Option<String>, usize) {
         for encoding in &self.codecs {
-            // Try lengths 1-4 (CJK encodings rarely exceed 4 bytes)
             for length in 1..=4 {
                 if start + length > byte_data.len() {
                     break;
                 }
                 let (decoded, _, had_error) = encoding.decode(&byte_data[start..start + length]);
                 if !had_error && !decoded.is_empty() {
-                    let ch = decoded.chars().next();
-                    if ch.is_some() {
-                        return (ch, length);
-                    }
+                    return (Some(decoded.into_owned()), length);
                 }
             }
         }
-        // All encodings failed, consume 1 byte
         (None, 1)
     }
 
     /// Decode byte data using encoding priority
     pub fn decode(&self, byte_data: &[u8], errors: &str) -> Result<String, std::io::Error> {
-        let mut result = Vec::new();
+        let mut result = String::new();
         let mut position = 0;
 
         while position < byte_data.len() {
             let (ch, consumed) = self.decode_byte_sequence(byte_data, position);
 
             match ch {
-                Some(c) => result.push(c),
+                Some(s) => result.push_str(&s),
                 None => match errors {
                     "strict" => {
                         return Err(std::io::Error::new(
@@ -107,7 +102,7 @@ impl PriorityDecoder {
             position += consumed;
         }
 
-        Ok(result.into_iter().collect())
+        Ok(result)
     }
 }
 
@@ -124,13 +119,13 @@ pub(crate) async fn read_file_with_priority<P: AsRef<Path>>(
             match decoder.decode(&byte_data, errors) {
                 Ok(s) => Ok(Some(s)),
                 Err(e) => {
-                    eprintln!("Error: {e}");
+                    println!("Error: {e}");
                     Ok(None)
                 }
             }
         }
         Err(e) => {
-            eprintln!("Error: {e}");
+            println!("Error: {e}");
             Ok(None)
         }
     }

@@ -24,12 +24,6 @@ anyhow = "1"
 rust_xlsxwriter = "0.94"
 webbrowser = "1"
 
-[lints.rust]
-missing_docs = "warn"
-
-[lints.clippy]
-pedantic = "warn"
-
 [dev-dependencies]
 criterion = { version = "0.8", features = ["async_tokio"] }
 
@@ -42,3 +36,11 @@ lto = true
 
 [lib]
 path = "src/lib.rs"
+
+[lints.rust]
+missing_docs = "warn"
+
+[lints.clippy]
+pedantic = "warn"
+
+mod_module_files = "warn"

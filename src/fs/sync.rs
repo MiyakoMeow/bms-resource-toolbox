@@ -181,10 +181,6 @@ pub async fn sync_folder(
         ));
     }
 
-    if !dst_dir.is_dir() {
-        tokio::fs::create_dir_all(dst_dir).await?;
-    }
-
     let mut src_list: Vec<PathBuf> = Vec::new();
     let mut src_entries = tokio::fs::read_dir(src_dir).await?;
     while let Ok(Some(entry)) = src_entries.next_entry().await {
@@ -222,13 +218,13 @@ pub async fn sync_folder(
             let _permit = sem.acquire().await.unwrap();
 
             // Check extension
-            let ext = crate::fs::utils::get_ext(&src_path_clone).to_lowercase();
+            let ext = crate::fs::utils::get_ext(&src_path_clone);
 
             let mut ext_check_passed = preset_clone.allow_other_exts;
-            if preset_clone.allow_src_exts.iter().any(|e| e == &ext) {
+            if preset_clone.allow_src_exts.iter().any(|e| *e == ext) {
                 ext_check_passed = true;
             }
-            if preset_clone.disallow_src_exts.iter().any(|e| e == &ext) {
+            if preset_clone.disallow_src_exts.iter().any(|e| *e == ext) {
                 ext_check_passed = false;
             }
             if !ext_check_passed {
@@ -240,7 +236,7 @@ pub async fn sync_folder(
             for (ext_bound_from_list, ext_bound_to_list) in
                 &preset_clone.no_activate_ext_bound_pairs
             {
-                if !ext_bound_from_list.iter().any(|e| e == &ext) {
+                if !ext_bound_from_list.iter().any(|e| *e == ext) {
                     continue;
                 }
                 for ext_bound_to in ext_bound_to_list {
@@ -269,7 +265,7 @@ pub async fn sync_folder(
 
             // Check if destination exists and compare
             let dst_metadata = tokio::fs::metadata(&dst_path).await;
-            let dst_file_exists = dst_metadata.is_ok();
+            let dst_file_exists = dst_metadata.as_ref().is_ok_and(std::fs::Metadata::is_file);
             let mut is_same_file = dst_file_exists;
 
             if preset_clone.check_file_size && is_same_file && dst_file_exists {
@@ -384,7 +380,7 @@ pub async fn sync_folder(
         if src_path.is_dir() {
             let dst_path = dst_dir.join(src_path.file_name().unwrap_or_default());
             if !dst_path.is_dir() {
-                tokio::fs::create_dir_all(&dst_path).await?;
+                tokio::fs::create_dir(&dst_path).await?;
             }
             Box::pin(sync_folder(src_path, &dst_path, preset, max_concurrent)).await?;
         }

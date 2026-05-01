@@ -434,9 +434,6 @@ pub fn move_out_works(target_root_dir: &Path) -> Result<(), std::io::Error> {
 
         for work_entry in work_entries {
             let work_dir_path = work_entry.path();
-            if !work_dir_path.is_dir() {
-                continue;
-            }
 
             let work_dir_name = work_dir_path
                 .file_name()
@@ -551,7 +548,10 @@ pub fn move_works_with_same_name(
 /// Returns [`std::io::Error`] if directory operations fail.
 pub fn move_works_with_same_name_to_siblings(root_dir_from: &Path) -> Result<(), std::io::Error> {
     if !root_dir_from.is_dir() {
-        return Ok(());
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("源路径不存在或不是目录: {}", root_dir_from.display()),
+        ));
     }
 
     let Some(parent_dir) = root_dir_from.parent() else {

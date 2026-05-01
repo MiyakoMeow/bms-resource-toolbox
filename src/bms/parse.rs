@@ -1,3 +1,4 @@
+#![allow(clippy::cast_possible_truncation)]
 //! BMS file parsing.
 //!
 //! This module handles parsing of BMS and BMSON chart files
@@ -8,6 +9,26 @@
 use crate::bms::encoding::read_bms_file;
 use crate::bms::types::{BMSDifficulty, BMSInfo};
 use std::path::Path;
+
+fn is_decimal_digit(s: &str) -> bool {
+    !s.is_empty()
+        && s.chars()
+            .all(|c| c.is_ascii_digit() || ('\u{FF10}'..='\u{FF19}').contains(&c))
+}
+
+fn parse_fullwidth_number(s: &str) -> Option<f64> {
+    let normalized: String = s
+        .chars()
+        .map(|c| {
+            if ('\u{FF10}'..='\u{FF19}').contains(&c) {
+                char::from_digit(c as u32 - 0xFF10, 10).unwrap()
+            } else {
+                c
+            }
+        })
+        .collect();
+    normalized.parse::<f64>().ok()
+}
 
 /// Parse a BMS file and extract metadata - 异步版本
 ///
@@ -39,13 +60,11 @@ pub fn parse_bms_content(content: &str) -> BMSInfo {
         } else if line.starts_with("#PLAYLEVEL") {
             let value_str = line.replace("#PLAYLEVEL", "").trim().to_string();
             if !value_str.is_empty()
-                && value_str.chars().all(|c| c.is_ascii_digit())
-                && let Ok(val) = value_str.parse::<f64>()
+                && is_decimal_digit(&value_str)
+                && let Some(val) = parse_fullwidth_number(&value_str)
             {
-                #[allow(clippy::cast_possible_truncation)]
-                let int_val = val as i32;
-                playlevel = if (0..=99).contains(&int_val) {
-                    int_val
+                playlevel = if (0.0..=99.0).contains(&val) {
+                    val as i32
                 } else {
                     -1
                 };
@@ -53,23 +72,19 @@ pub fn parse_bms_content(content: &str) -> BMSInfo {
         } else if line.starts_with("#DIFFICULTY") {
             let value_str = line.replace("#DIFFICULTY", "").trim().to_string();
             if !value_str.is_empty()
-                && value_str.chars().all(|c| c.is_ascii_digit())
-                && let Ok(val) = value_str.parse::<f64>()
+                && is_decimal_digit(&value_str)
+                && let Some(val) = parse_fullwidth_number(&value_str)
+                && (0.0..=5.0).contains(&val)
             {
-                #[allow(clippy::cast_possible_truncation)]
-                let int_val = val as i32;
-                if (0..=5).contains(&int_val) {
-                    difficulty = BMSDifficulty::from(int_val);
-                }
+                difficulty = BMSDifficulty::from(val as i32);
             }
         } else if line.starts_with("#BMP") {
             let value_str = line.replace("#BMP", "").trim().to_string();
-            if let Some(dot_pos) = value_str.rfind('.') {
-                let ext = &value_str[dot_pos..];
-                if !ext.is_empty() {
-                    bmp_formats.push(ext.to_string());
-                }
-            }
+            let ext = std::path::Path::new(&value_str)
+                .extension()
+                .map(|e| format!(".{}", e.to_string_lossy()))
+                .unwrap_or_default();
+            bmp_formats.push(ext);
         }
     }
 
@@ -113,59 +128,56 @@ pub async fn parse_bmson_file<P: AsRef<Path>>(
 /// This matches Python's `parse_bmson_file` behavior.
 #[allow(clippy::cast_possible_truncation)]
 pub fn parse_bmson_content(content: &str) -> Result<BMSInfo, serde_json::Error> {
-    #[derive(serde::Deserialize)]
-    struct BmsonInfo {
-        title: Option<String>,
-        artist: Option<String>,
-        genre: Option<String>,
-        level: Option<f64>,
-    }
+    let root: serde_json::Value = serde_json::from_str(content)?;
 
-    #[derive(serde::Deserialize)]
-    struct BgaHeader {
-        name: String,
-    }
+    let info = root.get("info").cloned().unwrap_or(serde_json::Value::Null);
 
-    #[derive(serde::Deserialize)]
-    struct Bga {
-        bga_header: Option<Vec<BgaHeader>>,
-    }
-
-    #[derive(serde::Deserialize)]
-    struct BmsonRoot {
-        info: Option<BmsonInfo>,
-        bga: Option<Bga>,
-    }
-
-    let root: BmsonRoot = serde_json::from_str(content)?;
-
-    let info = root.info.unwrap_or(BmsonInfo {
-        title: None,
-        artist: None,
-        genre: None,
-        level: None,
-    });
+    let title = info
+        .get("title")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let artist = info
+        .get("artist")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let genre = info
+        .get("genre")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let level = info
+        .get("level")
+        .and_then(|v| match v {
+            serde_json::Value::Number(n) => n.as_f64(),
+            serde_json::Value::String(s) => s.parse::<f64>().ok(),
+            _ => None,
+        })
+        .unwrap_or(0.0);
 
     let mut bmp_formats: Vec<String> = Vec::new();
-    if let Some(bga) = root.bga
-        && let Some(bga_headers) = bga.bga_header
+    if let Some(bga) = root.get("bga")
+        && let Some(bga_headers) = bga.get("bga_header")
+        && let Some(headers) = bga_headers.as_array()
     {
-        for header in bga_headers {
-            if let Some(dot_pos) = header.name.rfind('.') {
-                let ext = &header.name[dot_pos..];
-                if !ext.is_empty() {
-                    bmp_formats.push(ext.to_string());
-                }
+        for header in headers {
+            if let Some(name) = header.get("name").and_then(|v| v.as_str()) {
+                let ext = std::path::Path::new(name)
+                    .extension()
+                    .map(|e| format!(".{}", e.to_string_lossy()))
+                    .unwrap_or_default();
+                bmp_formats.push(ext);
             }
         }
     }
 
     Ok(BMSInfo {
-        title: info.title.unwrap_or_default(),
-        artist: info.artist.unwrap_or_default(),
-        genre: info.genre.unwrap_or_default(),
+        title,
+        artist,
+        genre,
         difficulty: BMSDifficulty::Unknown,
-        playlevel: info.level.unwrap_or(0.0) as i32,
+        playlevel: level as i32,
         bmp_formats,
         total: None,
         stage_file: None,

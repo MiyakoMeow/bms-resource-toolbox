@@ -72,12 +72,8 @@ fn get_archive_files(pack_dir: &Path) -> Vec<String> {
 
             let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
-            let name_lower = name.to_lowercase();
             #[expect(clippy::case_sensitive_file_extension_comparisons)]
-            if name_lower.ends_with(".zip")
-                || name_lower.ends_with(".7z")
-                || name_lower.ends_with(".rar")
-            {
+            if name.ends_with(".zip") || name.ends_with(".7z") || name.ends_with(".rar") {
                 archive_names.push(name.to_string());
             }
         }
@@ -86,8 +82,7 @@ fn get_archive_files(pack_dir: &Path) -> Vec<String> {
     archive_names
 }
 
-fn sorted_archive_names(mut archive_names: Vec<String>) -> Vec<String> {
-    archive_names.sort();
+fn sorted_archive_names(archive_names: Vec<String>) -> Vec<String> {
     archive_names
 }
 
@@ -409,7 +404,7 @@ pub fn set_file_num(dir: &Path) -> Result<(), std::io::Error> {
 
                 // Check extension
                 let ext = name.rsplit('.').next().unwrap_or("");
-                if !ALLOWED_EXTS.contains(&ext.to_lowercase().as_str()) {
+                if !ALLOWED_EXTS.contains(&ext) {
                     continue;
                 }
 
@@ -425,7 +420,7 @@ pub fn set_file_num(dir: &Path) -> Result<(), std::io::Error> {
         // Print selections
         println!("Here are files in {}:", dir.display());
         for (i, name) in file_names.iter().enumerate() {
-            println!("  - {i}: {name}");
+            println!(" - {i}: {name}");
         }
 
         // Prompt for input
@@ -442,6 +437,12 @@ pub fn set_file_num(dir: &Path) -> Result<(), std::io::Error> {
 
         if parts.is_empty() {
             info!("Invalid input");
+            println!();
+            continue;
+        }
+
+        if parts.len() > 2 {
+            println!("Invaild input.");
             println!();
             continue;
         }

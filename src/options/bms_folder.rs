@@ -36,7 +36,7 @@ pub async fn append_name_by_bms(root_dir: &Path) -> Result<(), std::io::Error> {
         if !dir_name.trim().is_empty()
             && dir_name
                 .chars()
-                .all(|c| c.is_ascii_digit() || c.is_whitespace())
+                .all(|c| c.is_ascii_digit() || ('\u{FF10}'..='\u{FF19}').contains(&c))
         {
             // This is a numeric-only folder, try to rename
             if let Some(new_name) = rename_folder_by_bms(&dir_path).await {
@@ -68,7 +68,7 @@ async fn rename_folder_by_bms(work_dir: &Path) -> Option<String> {
     if !dir_name.trim().is_empty()
         && !dir_name
             .chars()
-            .all(|c| c.is_ascii_digit() || c.is_whitespace())
+            .all(|c| c.is_ascii_digit() || ('\u{FF10}'..='\u{FF19}').contains(&c))
     {
         return None;
     }
@@ -296,7 +296,13 @@ async fn set_single_folder_name_by_bms(work_dir: &Path) -> Result<bool, std::io:
 
         if elements.is_empty() {
             println!(" - Empty dir! Deleting...");
-            std::fs::remove_dir(work_dir)?;
+            match std::fs::remove_dir(work_dir) {
+                Ok(()) => {}
+                Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+                    println!(" x PermissionError: {e}");
+                }
+                Err(e) => return Err(e),
+            }
             return Ok(false);
         }
 
@@ -569,10 +575,9 @@ pub fn remove_zero_sized_media_files(
                 continue;
             }
 
-            let element_lower = element_name.to_lowercase();
             if !MEDIA_FILE_EXTS
                 .iter()
-                .any(|ext| element_lower.ends_with(*ext))
+                .any(|ext| element_name.ends_with(*ext))
             {
                 continue;
             }

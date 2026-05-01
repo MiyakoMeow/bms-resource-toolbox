@@ -35,10 +35,7 @@ pub fn get_valid_fs_name(name: &str) -> String {
 pub fn get_work_folder_name(id: &str, title: &str, artist: &str) -> String {
     let raw = format!("{id}. {title}");
     let mut name = raw;
-    if !artist.is_empty() {
-        // Intentionally ignored: write to String never fails
-        let _ = write!(name, " [{artist}]");
-    }
+    let _ = write!(name, " [{artist}]");
     get_valid_fs_name(&name)
 }
 
@@ -73,9 +70,7 @@ pub fn bms_dir_similarity(dir_path_a: &Path, dir_path_b: &Path) -> f64 {
             let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
                 continue;
             };
-            let Some(ext) = path.extension().and_then(|e| e.to_str()) else {
-                continue;
-            };
+            let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
             let ext = ext.to_lowercase();
             let with_dot = format!(".{ext}");
 
@@ -143,7 +138,7 @@ mod tests {
             get_work_folder_name("1", "Title", "Artist"),
             "1. Title [Artist]"
         );
-        assert_eq!(get_work_folder_name("1", "Title", ""), "1. Title");
+        assert_eq!(get_work_folder_name("1", "Title", ""), "1. Title []");
         assert_eq!(
             get_work_folder_name("1", "Title: Part 1", "Artist"),
             "1. Title： Part 1 [Artist]"
