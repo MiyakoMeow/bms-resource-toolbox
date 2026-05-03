@@ -178,7 +178,7 @@ pub async fn undo_split_pack(root_dir: &Path) -> Result<(), std::io::Error> {
     }
 
     // Confirm with user (matches Python behavior)
-    if !crate::options::input::input_confirm("Confirm?", false) {
+    if !crate::cli::input::input_confirm("Confirm?", false) {
         return Ok(());
     }
 
@@ -336,7 +336,7 @@ async fn workdir_remove_unneed_media_files(
     }
 
     // Remove zero-sized media files
-    crate::options::bms_folder::remove_zero_sized_media_files(work_dir, false).await?;
+    crate::folder::ops::remove_zero_sized_media_files(work_dir, false).await?;
 
     // Count extensions for mp4 warning
     let mut ext_count: HashMap<String, Vec<String>> = HashMap::new();
@@ -385,7 +385,7 @@ pub async fn remove_unneed_media_files(
             for (i, r) in REMOVE_MEDIA_FILE_RULES.iter().enumerate() {
                 println!("- {i}: {r:?}");
             }
-            let selection_str = crate::options::input::input_string("Select Preset (Default: 0):");
+            let selection_str = crate::cli::input::input_string("Select Preset (Default: 0):");
             let selection = if selection_str.is_empty() {
                 0
             } else {
@@ -529,7 +529,7 @@ pub async fn move_works_with_same_name(
     }
 
     // Confirm with user (matches Python behavior)
-    if !crate::options::input::input_confirm("是否合并？", false) {
+    if !crate::cli::input::input_confirm("是否合并？", false) {
         return Ok(());
     }
 
@@ -642,7 +642,7 @@ pub async fn move_works_with_same_name_to_siblings(
     }
 
     // Confirm with user (matches Python behavior)
-    if !crate::options::input::input_confirm("是否合并到各平级目录？", false) {
+    if !crate::cli::input::input_confirm("是否合并到各平级目录？", false) {
         return Ok(());
     }
 
@@ -742,7 +742,7 @@ pub async fn merge_split_folders(root_dir: &Path) -> Result<(), anyhow::Error> {
         println!("- Find Dir pair: {target_dir_name} <- {from_dir_name}");
     }
 
-    let selection_str = crate::options::input::input_string(&format!(
+    let selection_str = crate::cli::input::input_string(&format!(
         "There are {} actions. Do transferring? [y/N]:",
         pairs.len()
     ));

@@ -7,10 +7,10 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
 use crate::fs::pack_move::is_dir_having_file;
-use crate::fs::rawpack::{
+use crate::fs::utils::copy_dir_recursive;
+use crate::pack::archive::{
     extract_archive, get_num_set_file_names, move_out_files_in_folder_in_cache_dir,
 };
-use crate::fs::utils::copy_dir_recursive;
 
 /// Extract archives by original filename to BMS folder structure
 ///

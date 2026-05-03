@@ -4,7 +4,7 @@
 
 use std::any::Any;
 
-use super::input::input_string;
+use crate::cli::input::input_string;
 use webbrowser;
 
 /// BMS event types for work information pages.

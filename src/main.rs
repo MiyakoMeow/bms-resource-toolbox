@@ -7,13 +7,9 @@
 
 use std::io::IsTerminal as _;
 
+use bms_resource_toolbox::cli;
 use clap::Parser;
 
-mod bms;
-mod cli;
-mod fs;
-mod media;
-mod options;
 mod scripts;
 mod tui;
 

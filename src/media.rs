@@ -8,4 +8,5 @@ pub mod convert;
 pub mod video;
 
 /// Options for controlling audio transfer behavior.
+#[allow(unused)]
 pub use convert::{TransferOptions, transfer_audio_by_format_in_dir};

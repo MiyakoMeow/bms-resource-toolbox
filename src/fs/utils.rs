@@ -40,3 +40,5 @@ pub async fn copy_dir_recursive(source: &Path, target: &Path) -> Result<(), std:
 
     Ok(())
 }
+
+// External tool validation utilities.

@@ -11,13 +11,7 @@ use crate::bms::types::{BMS_FILE_EXTS, BMSInfo, BMSON_FILE_EXTS};
 use crate::bms::work::{extract_work_name, extract_work_name_for_artist};
 use tokio::fs;
 
-/// Get list of `BMSInfo` from all BMS files in a directory - 异步版本
-///
-/// This replicates Python's `get_dir_bms_list(dir_path)`:
-/// - Scans first-level files in the directory
-/// - For BOFTT packs, uses ID-specific encoding from directory name
-/// - Parses BMS/BME/BML/PMS and BMSON files
-pub async fn get_dir_bms_list(dir_path: &Path) -> Vec<BMSInfo> {
+async fn get_dir_bms_list(dir_path: &Path) -> Vec<BMSInfo> {
     let mut info_list: Vec<BMSInfo> = Vec::new();
 
     let dir_name = dir_path.file_name().and_then(|n| n.to_str()).unwrap_or("");

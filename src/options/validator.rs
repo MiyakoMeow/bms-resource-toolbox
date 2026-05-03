@@ -1,1 +1,0 @@
-//! External tool validation utilities.

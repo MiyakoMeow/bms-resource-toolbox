@@ -3,6 +3,8 @@
 //! This module provides high-level functions for generating
 //! BMS packs including RAW to HQ and HQ to LQ conversion.
 
+use crate::folder::ops::{append_name_by_bms, copy_numbered_workdir_names};
+use crate::folder::pack_ops::{get_remove_media_rule_oraja, remove_unneed_media_files};
 use crate::fs::{SYNC_PRESET_FOR_APPEND, is_dir_having_file, remove_empty_dirs, sync_folder};
 use crate::media::video::{
     VIDEO_PRESET_AVI_512X512, VIDEO_PRESET_MPEG1VIDEO_512X512, VIDEO_PRESET_WMV2_512X512,
@@ -13,9 +15,7 @@ use crate::media::{
     audio::{AUDIO_PRESET_FLAC, AUDIO_PRESET_FLAC_FFMPEG, AUDIO_PRESET_OGG_Q10},
     transfer_audio_by_format_in_dir,
 };
-use crate::options::bms_folder::{append_name_by_bms, copy_numbered_workdir_names};
-use crate::options::bms_folder_bigpack::{get_remove_media_rule_oraja, remove_unneed_media_files};
-use crate::options::rawpack::unzip_numeric_to_bms_folder;
+use crate::pack::unzip::unzip_numeric_to_bms_folder;
 use std::path::Path;
 
 async fn bms_folder_transfer_audio(
