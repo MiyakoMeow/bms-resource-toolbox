@@ -5,12 +5,12 @@
 
 use crate::fs::{SYNC_PRESET_FOR_APPEND, is_dir_having_file, remove_empty_dirs, sync_folder};
 use crate::media::video::{
-    transfer_video_by_format_in_dir, video_preset_avi_512x512, video_preset_mpeg1video_512x512,
-    video_preset_wmv2_512x512,
+    VIDEO_PRESET_AVI_512X512, VIDEO_PRESET_MPEG1VIDEO_512X512, VIDEO_PRESET_WMV2_512X512,
+    transfer_video_by_format_in_dir,
 };
 use crate::media::{
     TransferOptions,
-    audio::{audio_preset_flac, audio_preset_flac_ffmpeg, audio_preset_ogg_q10},
+    audio::{AUDIO_PRESET_FLAC, AUDIO_PRESET_FLAC_FFMPEG, AUDIO_PRESET_OGG_Q10},
     transfer_audio_by_format_in_dir,
 };
 use crate::options::bms_folder::{append_name_by_bms, copy_numbered_workdir_names};
@@ -94,8 +94,8 @@ pub async fn pack_raw_to_hq(root_dir: &Path) -> Result<(), std::io::Error> {
 
     // Phase 1: Convert WAV to FLAC
     println!("Parsing Audio... Phase 1: WAV -> FLAC");
-    let flac_preset = audio_preset_flac();
-    let flac_ffmpeg_preset = audio_preset_flac_ffmpeg();
+    let flac_preset = AUDIO_PRESET_FLAC.clone();
+    let flac_ffmpeg_preset = AUDIO_PRESET_FLAC_FFMPEG.clone();
     bms_folder_transfer_audio(
         root_dir,
         &["wav"],
@@ -129,7 +129,7 @@ pub async fn pack_hq_to_lq(root_dir: &Path) -> Result<(), std::io::Error> {
 
     // Phase 1: Convert FLAC to OGG
     println!("Parsing Audio... Phase 1: FLAC -> OGG");
-    let ogg_preset = audio_preset_ogg_q10();
+    let ogg_preset = AUDIO_PRESET_OGG_Q10.clone();
     bms_folder_transfer_audio(
         root_dir,
         &["flac"],
@@ -146,9 +146,9 @@ pub async fn pack_hq_to_lq(root_dir: &Path) -> Result<(), std::io::Error> {
     // Phase 2: Convert video
     println!("Parsing Video...");
     let presets = vec![
-        video_preset_mpeg1video_512x512(),
-        video_preset_wmv2_512x512(),
-        video_preset_avi_512x512(),
+        VIDEO_PRESET_MPEG1VIDEO_512X512.clone(),
+        VIDEO_PRESET_WMV2_512X512.clone(),
+        VIDEO_PRESET_AVI_512X512.clone(),
     ];
     bms_folder_transfer_video(root_dir, &["mp4"], &presets, true, true, false).await?;
 
@@ -198,8 +198,8 @@ pub async fn pack_setup_rawpack_to_hq(
 
     // Step 3: Convert WAV -> FLAC
     println!("Parsing Audio... Phase 1: WAV -> FLAC");
-    let flac_preset = audio_preset_flac();
-    let flac_ffmpeg_preset = audio_preset_flac_ffmpeg();
+    let flac_preset = AUDIO_PRESET_FLAC.clone();
+    let flac_ffmpeg_preset = AUDIO_PRESET_FLAC_FFMPEG.clone();
     bms_folder_transfer_audio(
         root_dir,
         &["wav"],
@@ -266,8 +266,8 @@ pub async fn pack_update_rawpack_to_hq(
 
     // Step 3: Convert WAV -> FLAC
     println!("Parsing Audio... Phase 1: WAV -> FLAC");
-    let flac_preset = audio_preset_flac();
-    let flac_ffmpeg_preset = audio_preset_flac_ffmpeg();
+    let flac_preset = AUDIO_PRESET_FLAC.clone();
+    let flac_ffmpeg_preset = AUDIO_PRESET_FLAC_FFMPEG.clone();
     bms_folder_transfer_audio(
         root_dir,
         &["wav"],

@@ -5,6 +5,7 @@
 
 use std::path::Path;
 use std::process::Stdio;
+use std::sync::LazyLock;
 use tokio::process::Command;
 
 /// Audio conversion preset.
@@ -31,42 +32,39 @@ impl AudioPreset {
 }
 
 /// Audio preset for OGG encoding at quality 10.
-#[must_use]
-pub fn audio_preset_ogg_q10() -> AudioPreset {
-    AudioPreset::new("oggenc", "ogg", Some("-q10"))
-}
+pub static AUDIO_PRESET_OGG_Q10: LazyLock<AudioPreset> =
+    LazyLock::new(|| AudioPreset::new("oggenc", "ogg", Some("-q10")));
 
 /// Audio preset for WAV encoding using `FFmpeg`.
-#[must_use]
-pub fn audio_preset_wav_ffmpeg() -> AudioPreset {
-    AudioPreset::new("ffmpeg", "wav", None)
-}
+pub static AUDIO_PRESET_WAV_FFMPEG: LazyLock<AudioPreset> =
+    LazyLock::new(|| AudioPreset::new("ffmpeg", "wav", None));
 
 /// Audio preset for extracting WAV from FLAC.
-#[must_use]
-pub fn audio_preset_wav_from_flac() -> AudioPreset {
+pub static AUDIO_PRESET_WAV_FROM_FLAC: LazyLock<AudioPreset> = LazyLock::new(|| {
     AudioPreset::new(
         "flac",
         "wav",
         Some("-d --keep-foreign-metadata-if-present -f"),
     )
-}
+});
 
 /// Audio preset for FLAC encoding.
-#[must_use]
-pub fn audio_preset_flac() -> AudioPreset {
+pub static AUDIO_PRESET_FLAC: LazyLock<AudioPreset> = LazyLock::new(|| {
     AudioPreset::new(
         "flac",
         "flac",
         Some("--keep-foreign-metadata-if-present --best -f"),
     )
-}
+});
 
 /// Audio preset for FLAC encoding using `FFmpeg`.
-#[must_use]
-pub fn audio_preset_flac_ffmpeg() -> AudioPreset {
-    AudioPreset::new("ffmpeg", "flac", None)
-}
+pub static AUDIO_PRESET_FLAC_FFMPEG: LazyLock<AudioPreset> =
+    LazyLock::new(|| AudioPreset::new("ffmpeg", "flac", None));
+
+/// Audio preset for OGG encoding using `FFmpeg`.
+#[allow(dead_code)]
+pub static AUDIO_PRESET_OGG_FFMPEG: LazyLock<AudioPreset> =
+    LazyLock::new(|| AudioPreset::new("ffmpeg", "ogg", None));
 
 /// Get audio process command
 #[must_use]
@@ -141,7 +139,7 @@ mod tests {
     fn test_get_audio_process_cmd() {
         let input = PathBuf::from("/path/to/input.wav");
         let output = PathBuf::from("/path/to/output.flac");
-        let preset = audio_preset_flac();
+        let preset = AUDIO_PRESET_FLAC.clone();
         let cmd = get_audio_process_cmd(&input, &output, &preset);
         assert!(cmd.contains("flac"));
         assert!(cmd.contains("input.wav"));
@@ -150,14 +148,14 @@ mod tests {
 
     #[test]
     fn test_audio_preset_flac() {
-        let preset = audio_preset_flac();
+        let preset = AUDIO_PRESET_FLAC.clone();
         assert_eq!(preset.output_format, "flac");
         assert!(preset.exec.contains("flac"));
     }
 
     #[test]
     fn test_audio_preset_ogg() {
-        let preset = audio_preset_ogg_q10();
+        let preset = AUDIO_PRESET_OGG_Q10.clone();
         assert_eq!(preset.output_format, "ogg");
         assert!(preset.exec.contains("oggenc"));
     }

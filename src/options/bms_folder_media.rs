@@ -6,8 +6,8 @@
 use std::path::Path;
 
 use crate::media::audio::{
-    AudioPreset, audio_preset_flac, audio_preset_flac_ffmpeg, audio_preset_ogg_q10,
-    audio_preset_wav_ffmpeg, audio_preset_wav_from_flac,
+    AUDIO_PRESET_FLAC, AUDIO_PRESET_FLAC_FFMPEG, AUDIO_PRESET_OGG_Q10, AUDIO_PRESET_WAV_FFMPEG,
+    AUDIO_PRESET_WAV_FROM_FLAC, AudioPreset,
 };
 use crate::media::video::{
     VIDEO_PRESET_AVI_480P, VIDEO_PRESET_AVI_512X512, VIDEO_PRESET_MPEG1VIDEO_480P,
@@ -37,22 +37,25 @@ pub async fn transfer_audio(root_dir: &Path) -> Result<(), std::io::Error> {
         (
             "Convert: WAV to FLAC",
             vec!["wav"],
-            vec![audio_preset_flac(), audio_preset_flac_ffmpeg()],
+            vec![AUDIO_PRESET_FLAC.clone(), AUDIO_PRESET_FLAC_FFMPEG.clone()],
         ),
         (
             "Compress: FLAC to OGG Q10",
             vec!["flac"],
-            vec![audio_preset_ogg_q10()],
+            vec![AUDIO_PRESET_OGG_Q10.clone()],
         ),
         (
             "Compress: WAV to OGG Q10",
             vec!["wav"],
-            vec![audio_preset_ogg_q10()],
+            vec![AUDIO_PRESET_OGG_Q10.clone()],
         ),
         (
             "Reverse: FLAC to WAV",
             vec!["flac"],
-            vec![audio_preset_wav_from_flac(), audio_preset_wav_ffmpeg()],
+            vec![
+                AUDIO_PRESET_WAV_FROM_FLAC.clone(),
+                AUDIO_PRESET_WAV_FFMPEG.clone(),
+            ],
         ),
     ];
 
@@ -106,7 +109,7 @@ pub async fn transfer_audio(root_dir: &Path) -> Result<(), std::io::Error> {
                 remove_origin_on_success: true,
                 remove_origin_on_failed: false,
                 remove_existing_target_file: true,
-                stop_on_error: false,
+                stop_on_error: true,
             },
         )
         .await;
