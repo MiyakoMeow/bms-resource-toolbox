@@ -28,42 +28,42 @@ pub async fn get_dir_bms_list(dir_path: &Path) -> Vec<BMSInfo> {
     };
     let boftt_encoding = id.and_then(get_boftt_encoding);
 
-    if let Ok(mut entries) = fs::read_dir(dir_path).await {
-        while let Some(entry) = entries.next_entry().await.unwrap_or(None) {
-            let file_path = entry.path();
-            if !file_path.is_file() {
-                continue;
-            }
+    let Ok(mut entries) = fs::read_dir(dir_path).await else {
+        tracing::warn!("Failed to read directory: {}", dir_path.display());
+        return info_list;
+    };
 
-            let file_name = file_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+    while let Some(entry) = entries.next_entry().await.unwrap_or(None) {
+        let file_path = entry.path();
+        if !file_path.is_file() {
+            continue;
+        }
 
-            let lower_name = file_name.to_lowercase();
-            let is_bms_file = BMS_FILE_EXTS.iter().any(|ext| lower_name.ends_with(ext));
-            let is_bmson_file = BMSON_FILE_EXTS.iter().any(|ext| lower_name.ends_with(ext));
+        let file_name = file_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
-            if is_bms_file {
-                let info = parse_bms_file_with_encoding(&file_path, boftt_encoding).await;
-                info_list.push(info);
-            } else if is_bmson_file {
-                let info = parse_bmson_file(&file_path, boftt_encoding).await;
-                if let Ok(info) = info {
-                    info_list.push(info);
-                }
-            }
+        let lower_name = file_name.to_lowercase();
+        let is_bms_file = BMS_FILE_EXTS.iter().any(|ext| lower_name.ends_with(ext));
+        let is_bmson_file = BMSON_FILE_EXTS.iter().any(|ext| lower_name.ends_with(ext));
+
+        if is_bms_file
+            && let Some(info) = parse_bms_file_with_encoding(&file_path, boftt_encoding).await
+        {
+            info_list.push(info);
+        } else if is_bmson_file && let Ok(info) = parse_bmson_file(&file_path, boftt_encoding).await
+        {
+            info_list.push(info);
         }
     }
 
     info_list
 }
 
-async fn parse_bms_file_with_encoding(file_path: &Path, encoding: Option<&str>) -> BMSInfo {
-    let Ok(bytes) = fs::read(file_path).await else {
-        return BMSInfo::default();
-    };
+async fn parse_bms_file_with_encoding(file_path: &Path, encoding: Option<&str>) -> Option<BMSInfo> {
+    let bytes = fs::read(file_path).await.ok()?;
 
     let content = get_bms_file_str(&bytes, encoding);
 
-    parse_bms_content(&content)
+    Some(parse_bms_content(&content))
 }
 
 /// Get aggregated `BMSInfo` for a directory - 异步版本

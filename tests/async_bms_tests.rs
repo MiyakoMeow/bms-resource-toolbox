@@ -63,7 +63,7 @@ async fn test_parse_bms_file_full_metadata() {
 ";
     tokio::fs::write(&path, content).await.unwrap();
 
-    let info = parse_bms_file(&path).await.unwrap();
+    let info = parse_bms_file(&path, None).await.unwrap();
     assert_eq!(info.title, "Test Song");
     assert_eq!(info.artist, "Test Artist");
     assert_eq!(info.genre, "Genre");
@@ -85,7 +85,7 @@ async fn test_parse_bms_file_minimal() {
         .await
         .unwrap();
 
-    let info = parse_bms_file(&path).await.unwrap();
+    let info = parse_bms_file(&path, None).await.unwrap();
     assert_eq!(info.title, "Only Title");
     assert_eq!(info.artist, "");
     assert_eq!(info.playlevel, 0);
@@ -98,6 +98,6 @@ async fn test_parse_bms_file_nonexistent() {
     let path = std::env::temp_dir()
         .join("bms_toolbox_tests")
         .join("nonexistent_parse_48291.bms");
-    let result = parse_bms_file(&path).await;
+    let result = parse_bms_file(&path, None).await;
     assert!(result.is_err());
 }

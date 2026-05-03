@@ -6,7 +6,6 @@
 
 #![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 
-use crate::bms::encoding::read_bms_file;
 use crate::bms::types::{BMSDifficulty, BMSInfo};
 use std::path::Path;
 
@@ -32,10 +31,17 @@ fn parse_fullwidth_number(s: &str) -> Option<f64> {
 
 /// Parse a BMS file and extract metadata - 异步版本
 ///
+/// `encoding` is an optional encoding override (e.g. "gbk" for BOFTT packs).
+/// When `None`, auto-detection is used via the priority encoding list.
+///
 /// # Errors
 #[allow(dead_code)]
-pub async fn parse_bms_file<P: AsRef<Path>>(path: P) -> Result<BMSInfo, std::io::Error> {
-    let content = read_bms_file(path).await?;
+pub async fn parse_bms_file<P: AsRef<Path>>(
+    path: P,
+    encoding: Option<&str>,
+) -> Result<BMSInfo, std::io::Error> {
+    let bytes = tokio::fs::read(path.as_ref()).await?;
+    let content = crate::bms::encoding::get_bms_file_str(&bytes, encoding);
     Ok(parse_bms_content(&content))
 }
 

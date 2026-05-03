@@ -200,7 +200,6 @@ fn plan_move_file(
         .ext
         .get(&file_ext)
         .copied()
-        .filter(|a| *a != ReplaceAction::Skip)
         .unwrap_or(replace_options.default);
 
     match action {

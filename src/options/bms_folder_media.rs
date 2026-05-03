@@ -96,7 +96,9 @@ pub async fn transfer_audio(root_dir: &Path) -> Result<(), std::io::Error> {
 
         println!("Processing: {bms_dir_name}");
 
-        transfer_audio_by_format_in_dir(
+        // Ignore per-file errors to always process all files in directory,
+        // matching Python's transfer_audio_by_format_in_dir behavior.
+        let _ = transfer_audio_by_format_in_dir(
             &bms_dir,
             &combined_exts,
             &combined_presets,
@@ -104,10 +106,10 @@ pub async fn transfer_audio(root_dir: &Path) -> Result<(), std::io::Error> {
                 remove_origin_on_success: true,
                 remove_origin_on_failed: false,
                 remove_existing_target_file: true,
-                stop_on_error: true,
+                stop_on_error: false,
             },
         )
-        .await?;
+        .await;
     }
 
     Ok(())
@@ -185,7 +187,7 @@ pub async fn transfer_video(root_dir: &Path) -> Result<(), std::io::Error> {
 
         transfer_video_by_format_in_dir(
             &bms_dir,
-            &["mp4"],
+            &["mp4", "mkv", "avi", "wmv", "mpg", "mpeg"],
             std::slice::from_ref(&preset),
             true,
             true,

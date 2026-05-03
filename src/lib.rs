@@ -9,7 +9,6 @@
 //! - [`media`] - Audio and video conversion
 //! - [`options`] - CLI options and validation
 //! - [`scripts`] - Pack generation scripts
-//! - [`wasted`] - One-off/legacy utilities
 
 // Pre-existing clippy lint — Debug formatting intentional for logging paths.
 #![allow(clippy::unnecessary_debug_formatting)]
@@ -20,4 +19,3 @@ pub mod fs;
 pub mod media;
 pub mod options;
 pub mod scripts;
-pub mod wasted;

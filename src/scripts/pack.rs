@@ -155,51 +155,6 @@ pub async fn pack_hq_to_lq(root_dir: &Path) -> Result<(), std::io::Error> {
     Ok(())
 }
 
-/// Validate inputs for `pack_setup_rawpack_to_hq`
-///
-/// This replicates Python's `_pack_setup_rawpack_to_hq_check`:
-/// - Checks `pack_dir` exists
-/// - Prints numbered pack files
-/// - Checks `root_dir` does NOT exist
-///
-/// # Errors
-///
-/// Returns [`std::io::Error`] if directory operations fail.
-#[expect(dead_code)]
-pub(crate) fn pack_setup_rawpack_to_hq_check(
-    pack_dir: &Path,
-    root_dir: &Path,
-) -> Result<(), std::io::Error> {
-    use crate::fs::rawpack::get_num_set_file_names;
-
-    println!(" - Input 1: Pack dir path");
-    if !pack_dir.is_dir() {
-        println!("Pack dir is not vaild dir.");
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::NotADirectory,
-            "Pack dir is not a valid directory",
-        ));
-    }
-
-    // Print packs
-    let file_names = get_num_set_file_names(pack_dir);
-    println!(" -- There are packs in pack_dir:");
-    for file_name in &file_names {
-        println!(" > {file_name}");
-    }
-
-    println!(" - Input 2: BMS Cache Folder path. (Input a dir path that NOT exists)");
-    if root_dir.is_dir() {
-        println!("Root dir is an existing dir.");
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::AlreadyExists,
-            "Root dir already exists",
-        ));
-    }
-
-    Ok(())
-}
-
 /// Setup raw pack to HQ: extract -> rename -> convert -> clean
 ///
 /// # Errors
@@ -211,7 +166,14 @@ pub async fn pack_setup_rawpack_to_hq(
 ) -> Result<(), std::io::Error> {
     println!("Pack Setup RAW -> HQ: {pack_dir:?} -> {root_dir:?}");
 
-    // Setup directories
+    // Validate inputs (matches Python's _pack_setup_rawpack_to_hq_check)
+    if !pack_dir.is_dir() {
+        println!("Pack dir is not vaild dir.");
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::NotADirectory,
+            "Pack dir is not a valid directory",
+        ));
+    }
     if root_dir.exists() {
         return Err(std::io::Error::new(
             std::io::ErrorKind::AlreadyExists,
@@ -270,11 +232,25 @@ pub async fn pack_update_rawpack_to_hq(
 ) -> Result<(), std::io::Error> {
     println!("Pack Update RAW -> HQ: {pack_dir:?} -> {root_dir:?} (sync from {sync_dir:?})");
 
-    // Setup directories
+    // Validate inputs (matches Python's _pack_update_rawpack_to_hq_check)
+    if !pack_dir.is_dir() {
+        println!("Pack dir is not vaild dir.");
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::NotADirectory,
+            "Pack dir is not a valid directory",
+        ));
+    }
     if root_dir.exists() {
         return Err(std::io::Error::new(
             std::io::ErrorKind::AlreadyExists,
             format!("Directory {} already exists", root_dir.display()),
+        ));
+    }
+    if !sync_dir.is_dir() {
+        println!("Syncing dir is not vaild dir.");
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::NotADirectory,
+            "Sync dir is not a valid directory",
         ));
     }
     tokio::fs::create_dir_all(root_dir).await?;
@@ -309,8 +285,8 @@ pub async fn pack_update_rawpack_to_hq(
     println!("Removing Unneed Files");
     remove_unneed_media_files(root_dir, Some(get_remove_media_rule_oraja()))?;
 
-    // Step 5: Soft sync from sync_dir
-    println!("Syncing dir files from {sync_dir:?} to {root_dir:?}");
+    // Step 5: Soft sync from root_dir into sync_dir
+    println!("Syncing dir files from {root_dir:?} to {sync_dir:?}");
     sync_folder(root_dir, sync_dir, &SYNC_PRESET_FOR_APPEND, 8).await?;
 
     // Step 6: Remove empty folders
