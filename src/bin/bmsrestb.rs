@@ -10,7 +10,9 @@ use std::io::IsTerminal as _;
 use bms_resource_toolbox::cli;
 use clap::Parser;
 
+#[path = "../scripts.rs"]
 mod scripts;
+#[path = "../tui.rs"]
 mod tui;
 
 #[tokio::main]

@@ -1,7 +1,7 @@
 //! TUI interface using ratatui.
 //!
 //! Interactive terminal UI that acts as a shell over the CLI subcommands.
-//! User selects a menu item → constructs the matching [`Commands`] → calls [`dispatch`].
+//! User selects a menu item → constructs the matching [`Commands`] → calls [`crate::cli::dispatch`].
 
 use std::io;
 

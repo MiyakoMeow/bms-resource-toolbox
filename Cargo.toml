@@ -25,7 +25,7 @@ anyhow = "1"
 rust_xlsxwriter = "0.94"
 webbrowser = "1"
 clap = { version = "4", features = ["derive"] }
-ratatui = "0.29"
+ratatui = "0.30"
 crossterm = "0.28"
 
 [dev-dependencies]
@@ -34,6 +34,10 @@ criterion = { version = "0.8", features = ["async_tokio"] }
 [[bench]]
 name = "async_performance"
 harness = false
+
+[[bin]]
+name = "bmsrestb"
+path = "src/bin/bmsrestb.rs"
 
 [profile.release]
 lto = true
