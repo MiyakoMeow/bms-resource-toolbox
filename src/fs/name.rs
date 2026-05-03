@@ -1,5 +1,8 @@
 use std::path::Path;
 
+/// Replace characters invalid in filenames with fullwidth alternatives.
+///
+/// Returns a sanitized string safe for use as a file or directory name.
 #[must_use]
 pub fn get_valid_fs_name(name: &str) -> String {
     name.chars()
@@ -19,6 +22,9 @@ pub fn get_valid_fs_name(name: &str) -> String {
         .collect()
 }
 
+/// Compute similarity between two BMS directories based on shared media files.
+///
+/// Returns a ratio `[0.0, 1.0]` indicating how similar the media content is.
 #[must_use]
 pub async fn bms_dir_similarity(dir_path_a: &Path, dir_path_b: &Path) -> f64 {
     use std::collections::HashSet;

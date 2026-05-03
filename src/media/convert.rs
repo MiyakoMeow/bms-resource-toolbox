@@ -3,8 +3,6 @@
 //! This module provides async conversion functions for
 //! audio and video files using external tools.
 
-#![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
-
 use crate::media::audio::{AudioPreset, get_audio_process_cmd};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
@@ -34,7 +32,11 @@ async fn execute_shell_command_with_stderr(
     Ok((success, stdout, stderr))
 }
 
-/// Convert audio file using preset
+/// Convert audio file using preset.
+///
+/// # Errors
+///
+/// Returns an error if the conversion command fails or the executable is unknown.
 #[allow(dead_code)]
 pub async fn convert_audio(
     input: &Path,
@@ -109,6 +111,7 @@ type TaskResult = (
 );
 #[allow(clippy::type_complexity)]
 type HandleEntry = (tokio::task::JoinHandle<TaskResult>, bool);
+/// Transfer audio files in a directory using format presets with fallback.
 ///
 /// This matches Python's `transfer_audio_by_format_in_dir` behavior:
 /// - Supports preset fallback: when first preset fails, tries next one
@@ -117,6 +120,16 @@ type HandleEntry = (tokio::task::JoinHandle<TaskResult>, bool);
 /// - Uses bounded concurrency based on disk type
 /// - Captures stderr on failure
 /// - Prints fallback statistics
+///
+/// # Errors
+///
+/// Returns `std::io::Error` if `stop_on_error` is set and a conversion
+/// fails with all presets, or if a spawned task panics.
+///
+/// # Panics
+///
+/// May panic if a spawned task panics, which propagates through
+/// the `JoinHandle`.
 #[allow(clippy::too_many_lines)]
 pub async fn transfer_audio_by_format_in_dir(
     dir: &Path,

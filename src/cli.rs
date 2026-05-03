@@ -16,9 +16,11 @@ pub struct Cli {
     pub tui: bool,
 
     #[command(subcommand)]
+    /// CLI subcommand to execute (optional; launches TUI if omitted)
     pub command: Option<Commands>,
 }
 
+/// All available CLI subcommands.
 #[derive(Subcommand)]
 pub enum Commands {
     /// BMS活动：跳转至作品信息页

@@ -3,8 +3,6 @@
 //! This module provides functions for extracting work names
 //! from BMS file titles and directory names.
 
-#![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
-
 use std::collections::HashMap;
 
 /// Extract work name from multiple BMS titles (longest common prefix algorithm)

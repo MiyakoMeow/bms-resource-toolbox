@@ -80,6 +80,11 @@ impl PriorityDecoder {
     }
 
     /// Decode byte data using encoding priority
+    ///
+    /// # Errors
+    ///
+    /// Returns `std::io::Error` with `InvalidData` when `errors` is `"strict"`
+    /// and a byte sequence cannot be decoded by any known encoding.
     pub fn decode(&self, byte_data: &[u8], errors: &str) -> Result<String, std::io::Error> {
         let mut result = String::new();
         let mut position = 0;
@@ -111,6 +116,11 @@ impl PriorityDecoder {
 }
 
 /// Get BMS file string with optional forced encoding
+///
+/// # Panics
+///
+/// Panics if the global `ENCODINGS` `RwLock` is poisoned (i.e., another
+/// thread panicked while holding the lock).
 #[must_use]
 #[allow(clippy::similar_names)]
 pub fn get_bms_file_str(file_bytes: &[u8], encoding: Option<&str>) -> String {

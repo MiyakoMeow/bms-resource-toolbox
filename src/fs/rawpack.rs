@@ -62,6 +62,9 @@ fn set_mtime(path: &Path, dt: Option<zip::DateTime>) {
     }
 }
 
+/// Get filenames in a directory that start with a numeric ID (ASCII or fullwidth digits).
+///
+/// These are typically set file names in a BMS cache directory.
 #[must_use]
 pub async fn get_num_set_file_names(dir: &Path) -> Vec<String> {
     let mut names = Vec::new();
@@ -88,6 +91,14 @@ pub async fn get_num_set_file_names(dir: &Path) -> Vec<String> {
     names
 }
 
+/// Extract an archive (zip, 7z, rar) into the output directory.
+///
+/// Unrecognized extensions are treated as single files and copied directly.
+///
+/// # Errors
+///
+/// Returns an error if the archive cannot be read, extracted, or if the output
+/// directory cannot be created.
 pub async fn extract_archive(archive_path: &Path, output_dir: &Path) -> Result<(), std::io::Error> {
     let ext = archive_path
         .extension()
@@ -387,6 +398,11 @@ async fn extract_rar(archive_path: &Path, output_dir: &Path) -> Result<(), std::
     Ok(())
 }
 
+/// Flatten a cache directory by moving inner files up one level.
+///
+/// Handles `__MACOSX` cleanup, nested subdirectories, and inner inner directories.
+/// Returns `true` if the cache was successfully processed, `false` if the cache is
+/// empty or could not be fully processed automatically.
 pub async fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
     let mut error = false;
     let mut file_ext_count: HashMap<String, Vec<String>>;

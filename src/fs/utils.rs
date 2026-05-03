@@ -1,5 +1,8 @@
 use std::path::Path;
 
+/// Get the file extension of a path (without the dot).
+///
+/// Returns an empty string if the path has no recognizable extension.
 #[must_use]
 pub fn get_ext(path: &Path) -> &str {
     path.file_name()
@@ -8,6 +11,11 @@ pub fn get_ext(path: &Path) -> &str {
         .unwrap_or("")
 }
 
+/// Recursively copy a directory tree from `source` to `target`.
+///
+/// # Errors
+///
+/// Returns an error if `source` is not a directory or any file I/O fails.
 pub async fn copy_dir_recursive(source: &Path, target: &Path) -> Result<(), std::io::Error> {
     if !source.is_dir() {
         return Err(std::io::Error::new(

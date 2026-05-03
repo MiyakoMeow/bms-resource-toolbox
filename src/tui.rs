@@ -257,7 +257,10 @@ fn tui_input(
 /// Launch the TUI.
 ///
 /// Returns `Ok(())` on normal exit (Esc or after executing a command).
-/// Returns `Err` only on terminal setup failure.
+///
+/// # Errors
+///
+/// Returns terminal/crossterm errors if alternate screen, raw mode, or rendering fails.
 #[allow(clippy::too_many_lines)]
 pub fn run_tui() -> Result<(), Box<dyn std::error::Error>> {
     enable_raw_mode()?;

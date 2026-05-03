@@ -3,32 +3,55 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, LazyLock};
 use tokio::sync::Semaphore;
 
+/// Execution mode for a soft sync operation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SoftSyncExec {
+    /// Dry run; do not copy any files.
     None = 0,
+    /// Copy files from source to destination.
     #[default]
     Copy = 1,
 }
 
+/// Preset configuration for a soft sync operation.
+///
+/// Controls which files are compared, how equality is determined (size, mtime, SHA-512),
+/// whether extra files in the destination are removed, and whether identical source files
+/// are deleted after syncing.
 #[derive(Debug, Clone)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct SoftSyncPreset {
-    /// Name of this preset (informational, not read internally)
+    /// Name of this preset (informational, not read internally).
     #[allow(dead_code)]
     pub name: String,
+    /// File extensions (without dot) allowed for syncing.
     pub allow_src_exts: Vec<String>,
+    /// File extensions (without dot) disallowed for syncing.
     pub disallow_src_exts: Vec<String>,
+    /// Whether to allow extensions not listed in `allow_src_exts` or `disallow_src_exts`.
     pub allow_other_exts: bool,
+    /// Pairs of extension groups that deactivate syncing when a bound file exists in the destination.
     pub no_activate_ext_bound_pairs: Vec<(Vec<String>, Vec<String>)>,
+    /// Whether to remove files in the destination that do not exist in the source.
     pub remove_dst_extra_files: bool,
+    /// Whether to compare file sizes to determine if files are identical.
     pub check_file_size: bool,
+    /// Whether to compare modification timestamps to determine if files are identical.
     pub check_file_mtime: bool,
+    /// Whether to compare SHA-512 hashes to determine if files are identical.
     pub check_file_sha512: bool,
+    /// Whether to remove source files that are identical to their destination counterpart.
     pub remove_src_same_files: bool,
+    /// Execution mode for this sync operation.
     pub exec: SoftSyncExec,
 }
 
 impl SoftSyncPreset {
+    /// Create a new preset with the given name and sensible defaults.
+    ///
+    /// Defaults: all extensions allowed, file size + mtime checking enabled,
+    /// SHA-512 checking disabled, destination extra files removed,
+    /// source same files not removed, execution mode is [`SoftSyncExec::Copy`].
     #[must_use]
     pub fn new(name: &str) -> Self {
         Self {
@@ -76,6 +99,9 @@ fn log_op(label: &str, paths: &[PathBuf]) {
     }
 }
 
+/// Compute the SHA-512 hex digest of a file.
+///
+/// Returns an empty string if the file does not exist or cannot be read.
 pub async fn get_file_sha512(file_path: &Path) -> String {
     if !file_path.is_file() {
         return String::new();
@@ -96,6 +122,8 @@ pub async fn get_file_sha512(file_path: &Path) -> String {
     }
 }
 
+/// Preset for "append" mode sync: checks size and SHA-512, skips mtime,
+/// removes source same files, preserves destination extra files, dry-run only.
 pub static SYNC_PRESET_FOR_APPEND: LazyLock<SoftSyncPreset> = LazyLock::new(|| SoftSyncPreset {
     name: "同步预设（用于更新包）".to_string(),
     check_file_size: true,
@@ -202,6 +230,20 @@ async fn process_src_file(
     Ok((copy_files, Vec::new(), remove_files))
 }
 
+/// Synchronize files from `src_dir` to `dst_dir` according to the given preset.
+///
+/// Compares files by size, mtime, and/or SHA-512 as configured in the preset,
+/// then copies new or changed files, and optionally removes extra files in the
+/// destination or same files in the source.
+///
+/// # Errors
+///
+/// Returns an error if directory listing, file stat, or file I/O fails.
+///
+/// # Panics
+///
+/// Panics if the internal semaphore is closed, which should not happen under
+/// normal operation.
 pub async fn sync_folder(
     src_dir: &Path,
     dst_dir: &Path,

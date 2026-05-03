@@ -4,7 +4,6 @@
 
 // Pre-existing clippy lints — Debug formatting is intentional for logging paths.
 #![allow(clippy::unnecessary_debug_formatting)]
-#![allow(missing_docs, clippy::missing_errors_doc, clippy::missing_panics_doc)]
 
 use std::io::IsTerminal as _;
 

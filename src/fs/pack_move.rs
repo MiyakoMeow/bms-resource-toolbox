@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
-#[must_use]
+/// Check whether two files have identical content by reading both into memory.
 pub async fn is_same_content(file_a: &Path, file_b: &Path) -> bool {
     if !file_a.is_file() || !file_b.is_file() {
         return false;
@@ -13,22 +13,31 @@ pub async fn is_same_content(file_a: &Path, file_b: &Path) -> bool {
     }
 }
 
+/// Options for moving or merging files between directories.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct MoveOptions {
+    /// Whether to print info about each file being moved.
     pub print_info: bool,
 }
 
+/// Action to take when a destination file already exists during a move.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ReplaceAction {
+    /// Skip the file; do not overwrite.
     Skip = 0,
+    /// Overwrite the destination file unconditionally.
     #[default]
     Replace = 1,
+    /// Check content first; if different, create a numbered backup.
     CheckReplace = 12,
 }
 
+/// Per-extension replacement policy configuration for file moves.
 #[derive(Debug, Clone)]
 pub struct ReplaceOptions {
+    /// Map of file extensions (without dot) to their replacement action.
     pub ext: HashMap<String, ReplaceAction>,
+    /// Default action for extensions not present in `ext`.
     pub default: ReplaceAction,
 }
 
@@ -41,6 +50,7 @@ impl Default for ReplaceOptions {
     }
 }
 
+/// Preset that checks BMS chart files before replacing, replacing others unconditionally.
 pub static REPLACE_OPTION_UPDATE_PACK: LazyLock<ReplaceOptions> =
     LazyLock::new(|| ReplaceOptions {
         ext: HashMap::from([
@@ -54,13 +64,18 @@ pub static REPLACE_OPTION_UPDATE_PACK: LazyLock<ReplaceOptions> =
         default: ReplaceAction::Replace,
     });
 
+/// Default move options: no printed output.
 pub const DEFAULT_MOVE_OPTIONS: MoveOptions = MoveOptions { print_info: false };
 
+/// Default replace options: all extensions use [`ReplaceAction::Replace`] unconditionally.
 pub static DEFAULT_REPLACE_OPTIONS: LazyLock<ReplaceOptions> = LazyLock::new(|| ReplaceOptions {
     ext: HashMap::new(),
     default: ReplaceAction::Replace,
 });
 
+/// Check whether a directory contains any non-empty file (recursive).
+///
+/// Returns `true` if any file with size > 0 is found in the directory tree.
 #[must_use]
 pub async fn is_dir_having_file(dir: &Path) -> bool {
     async fn check_recursive(dir: &Path) -> bool {
@@ -90,6 +105,15 @@ pub async fn is_dir_having_file(dir: &Path) -> bool {
     check_recursive(dir).await
 }
 
+/// Move files and subdirectories from `src` into `dst`, merging contents.
+///
+/// When both `src` and `dst` exist as directories, files are moved individually
+/// following the given replacement policy. After moving, the source directory is
+/// removed if it no longer contains files (or if the default action is not `Skip`).
+///
+/// # Errors
+///
+/// Returns an error if any file operation (read, write, rename, remove) fails.
 pub async fn move_elements_across_dir(
     src: &Path,
     dst: &Path,

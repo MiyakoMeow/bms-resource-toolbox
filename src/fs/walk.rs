@@ -1,5 +1,14 @@
 use std::path::Path;
 
+/// Recursively remove empty child directories within `dir`.
+///
+/// Only targets immediate child directories; does not remove `dir` itself.
+/// Skips directories that fail to remove due to `PermissionDenied`.
+///
+/// # Errors
+///
+/// Returns an error if a directory removal fails for reasons other than
+/// `PermissionDenied`.
 pub async fn remove_empty_dirs(dir: &Path) -> Result<(), std::io::Error> {
     let Ok(mut entries) = tokio::fs::read_dir(dir).await else {
         return Ok(());

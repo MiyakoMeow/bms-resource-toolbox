@@ -3,8 +3,6 @@
 //! This module provides video conversion presets for formats
 //! like AVI, WMV, and MPEG using ffmpeg.
 
-#![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
-
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::LazyLock;
@@ -154,6 +152,16 @@ pub static VIDEO_PRESET_WMV2_512X512: LazyLock<VideoPreset> =
 /// - Only report error when last preset fails
 /// - Uses FIFO ordering (`VecDeque`) for handle completion
 /// - Propagates errors from handles
+///
+/// # Errors
+///
+/// Returns `std::io::Error` if all presets fail for any file,
+/// or if a spawned task panics.
+///
+/// # Panics
+///
+/// May panic if a spawned task panics, which propagates through
+/// the `JoinHandle`.
 #[allow(clippy::too_many_lines)]
 pub async fn transfer_video_by_format_in_dir(
     dir: &Path,

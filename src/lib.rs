@@ -12,8 +12,6 @@
 
 // Pre-existing clippy lint — Debug formatting intentional for logging paths.
 #![allow(clippy::unnecessary_debug_formatting)]
-// Many items lack docs; suppress warnings for now.
-#![allow(missing_docs, clippy::missing_errors_doc, clippy::missing_panics_doc)]
 
 pub mod bms;
 pub mod error;
