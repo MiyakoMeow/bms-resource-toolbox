@@ -5,7 +5,50 @@ edition = "2024"
 license = "Apache-2.0"
 
 [dependencies]
-tokio = { version = "1",  features = ["full"] }
+tokio = { version = "1", features = ["full"] }
+futures = "0.3"
+thiserror = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+walkdir = "2"
+zip = "8"
+sevenz-rust = "0.6"
+sha2 = "0.11"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+indicatif = "0.18"
+encoding_rs = "0.8"
+regex = "1"
+filetime = "0.2"
+chrono = "0.4"
+anyhow = "1"
+rust_xlsxwriter = "0.94"
+webbrowser = "1"
+clap = { version = "4", features = ["derive"] }
+ratatui = "0.30"
+crossterm = "0.28"
+
+[dev-dependencies]
+criterion = { version = "0.8", features = ["async_tokio"] }
+
+[[bench]]
+name = "async_performance"
+harness = false
+
+[[bin]]
+name = "bmsrestb"
+path = "src/bin/bmsrestb.rs"
+
+[profile.release]
+lto = true
+
+[lib]
+path = "src/lib.rs"
+
+[lints.rust]
+missing_docs = "warn"
 
 [lints.clippy]
 pedantic = "warn"
+
+mod_module_files = "warn"
