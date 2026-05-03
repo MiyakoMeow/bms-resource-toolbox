@@ -84,7 +84,7 @@ fn find_first_char_rule(name: &str) -> String {
 /// # Errors
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
-pub fn split_folders_with_first_char(root_dir: &Path) -> Result<(), std::io::Error> {
+pub async fn split_folders_with_first_char(root_dir: &Path) -> Result<(), std::io::Error> {
     if !root_dir.is_dir() {
         println!("{} is not a dir! Aborting...", root_dir.display());
         return Ok(());
@@ -101,9 +101,11 @@ pub fn split_folders_with_first_char(root_dir: &Path) -> Result<(), std::io::Err
         return Ok(());
     };
 
-    let entries: Vec<_> = std::fs::read_dir(root_dir)?
-        .filter_map(std::result::Result::ok)
-        .collect();
+    let mut read_dir = tokio::fs::read_dir(root_dir).await?;
+    let mut entries = Vec::new();
+    while let Some(entry) = read_dir.next_entry().await? {
+        entries.push(entry);
+    }
 
     for entry in entries {
         let element_path = entry.path();
@@ -117,18 +119,17 @@ pub fn split_folders_with_first_char(root_dir: &Path) -> Result<(), std::io::Err
         let target_dir = parent_dir.join(format!("{root_folder_name} [{rule}]"));
 
         if !target_dir.is_dir() {
-            std::fs::create_dir_all(&target_dir)?;
+            tokio::fs::create_dir_all(&target_dir).await?;
         }
 
         let target_path = target_dir.join(element_name);
         println!("Moving {element_path:?} -> {target_path:?}");
-        std::fs::rename(&element_path, &target_path)?;
+        tokio::fs::rename(&element_path, &target_path).await?;
     }
 
     // Remove the original folder if empty
-    if !is_dir_having_file(root_dir) {
-        let _ = std::fs::remove_dir(root_dir);
-        // Intentionally ignored: directory may already be removed by rename
+    if !is_dir_having_file(root_dir).await {
+        let _ = tokio::fs::remove_dir(root_dir).await;
     }
 
     Ok(())
@@ -143,7 +144,7 @@ pub fn split_folders_with_first_char(root_dir: &Path) -> Result<(), std::io::Err
 /// # Errors
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
-pub fn undo_split_pack(root_dir: &Path) -> Result<(), std::io::Error> {
+pub async fn undo_split_pack(root_dir: &Path) -> Result<(), std::io::Error> {
     let root_folder_name = root_dir.file_name().and_then(|n| n.to_str()).unwrap_or("");
     let Some(parent_dir) = root_dir.parent() else {
         return Ok(());
@@ -152,8 +153,8 @@ pub fn undo_split_pack(root_dir: &Path) -> Result<(), std::io::Error> {
     // Find folders that start with root_folder_name [ and end with ]
     let mut pairs: Vec<(PathBuf, PathBuf)> = Vec::new();
 
-    if let Ok(entries) = std::fs::read_dir(parent_dir) {
-        for entry in entries.flatten() {
+    if let Ok(mut read_dir) = tokio::fs::read_dir(parent_dir).await {
+        while let Some(entry) = read_dir.next_entry().await? {
             let folder_path = entry.path();
             if !folder_path.is_dir() {
                 continue;
@@ -182,7 +183,8 @@ pub fn undo_split_pack(root_dir: &Path) -> Result<(), std::io::Error> {
     }
 
     for (from, to) in &pairs {
-        move_elements_across_dir(from, to, MoveOptions::default(), &ReplaceOptions::default())?;
+        move_elements_across_dir(from, to, MoveOptions::default(), &ReplaceOptions::default())
+            .await?;
     }
 
     Ok(())
@@ -193,15 +195,18 @@ pub fn undo_split_pack(root_dir: &Path) -> Result<(), std::io::Error> {
 /// # Errors
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
-pub fn move_works_in_pack(root_dir_from: &Path, root_dir_to: &Path) -> Result<(), std::io::Error> {
+pub async fn move_works_in_pack(
+    root_dir_from: &Path,
+    root_dir_to: &Path,
+) -> Result<(), std::io::Error> {
     if root_dir_from == root_dir_to {
         return Ok(());
     }
 
     let mut move_count = 0;
 
-    if let Ok(entries) = std::fs::read_dir(root_dir_from) {
-        for entry in entries.flatten() {
+    if let Ok(mut read_dir) = tokio::fs::read_dir(root_dir_from).await {
+        while let Some(entry) = read_dir.next_entry().await? {
             let bms_dir = entry.path();
             if !bms_dir.is_dir() {
                 continue;
@@ -217,7 +222,8 @@ pub fn move_works_in_pack(root_dir_from: &Path, root_dir_to: &Path) -> Result<()
                 &dst_bms_dir,
                 MoveOptions::default(),
                 &REPLACE_OPTION_UPDATE_PACK,
-            )?;
+            )
+            .await?;
             move_count += 1;
         }
     }
@@ -232,17 +238,16 @@ pub fn move_works_in_pack(root_dir_from: &Path, root_dir_to: &Path) -> Result<()
         root_dir_to,
         MoveOptions::default(),
         &REPLACE_OPTION_UPDATE_PACK,
-    )?;
+    )
+    .await?;
 
     Ok(())
 }
 
 /// Media file removal rule
-#[allow(dead_code)]
 pub type RemoveMediaRule = Vec<(Vec<&'static str>, Vec<&'static str>)>;
 
 /// ORAJA removal rule - remove redundant video files and prefer specific formats
-#[allow(dead_code)]
 #[must_use]
 pub fn get_remove_media_rule_oraja() -> RemoveMediaRule {
     vec![
@@ -254,14 +259,11 @@ pub fn get_remove_media_rule_oraja() -> RemoveMediaRule {
     ]
 }
 
-#[allow(dead_code)]
 static REMOVE_MEDIA_RULE_WAV_FILL_FLAC: LazyLock<RemoveMediaRule> =
     LazyLock::new(|| vec![(vec!["wav"], vec!["flac"])]);
-#[allow(dead_code)]
 static REMOVE_MEDIA_RULE_MPG_FILL_WMV: LazyLock<RemoveMediaRule> =
     LazyLock::new(|| vec![(vec!["mpg"], vec!["wmv"])]);
 
-#[allow(dead_code)]
 static REMOVE_MEDIA_FILE_RULES: LazyLock<Vec<RemoveMediaRule>> = LazyLock::new(|| {
     vec![
         get_remove_media_rule_oraja(),
@@ -270,17 +272,18 @@ static REMOVE_MEDIA_FILE_RULES: LazyLock<Vec<RemoveMediaRule>> = LazyLock::new(|
     ]
 });
 
-#[allow(dead_code)]
-fn workdir_remove_unneed_media_files(
+async fn workdir_remove_unneed_media_files(
     work_dir: &Path,
     rule: &RemoveMediaRule,
 ) -> Result<(), std::io::Error> {
     let mut remove_pairs: Vec<(PathBuf, PathBuf)> = Vec::new();
     let mut removed_files: std::collections::HashSet<PathBuf> = std::collections::HashSet::new();
 
-    let entries: Vec<_> = std::fs::read_dir(work_dir)?
-        .filter_map(std::result::Result::ok)
-        .collect();
+    let mut read_dir = tokio::fs::read_dir(work_dir).await?;
+    let mut entries = Vec::new();
+    while let Some(entry) = read_dir.next_entry().await? {
+        entries.push(entry);
+    }
 
     for entry in &entries {
         let check_file_path = entry.path();
@@ -299,7 +302,10 @@ fn workdir_remove_unneed_media_files(
             }
 
             // File is empty?
-            if check_file_path.metadata().is_ok_and(|m| m.len() == 0) {
+            if tokio::fs::metadata(&check_file_path)
+                .await
+                .is_ok_and(|m| m.len() == 0)
+            {
                 println!(" - !x!: File {check_file_path:?} is Empty! Skipping...");
                 continue;
             }
@@ -326,20 +332,16 @@ fn workdir_remove_unneed_media_files(
             replacing_file_path.file_name(),
             check_file_path.file_name()
         );
-        let _ = std::fs::remove_file(replacing_file_path);
-        // Intentionally ignored: file may already be removed
+        let _ = tokio::fs::remove_file(replacing_file_path).await;
     }
 
     // Remove zero-sized media files
-    crate::options::bms_folder::remove_zero_sized_media_files(work_dir, false)?;
+    crate::options::bms_folder::remove_zero_sized_media_files(work_dir, false).await?;
 
     // Count extensions for mp4 warning
     let mut ext_count: HashMap<String, Vec<String>> = HashMap::new();
-    let entries: Vec<_> = std::fs::read_dir(work_dir)?
-        .filter_map(std::result::Result::ok)
-        .collect();
-
-    for entry in &entries {
+    let mut count_read_dir = tokio::fs::read_dir(work_dir).await?;
+    while let Some(entry) = count_read_dir.next_entry().await? {
         let count_file_path = entry.path();
         if !count_file_path.is_file() {
             continue;
@@ -373,8 +375,7 @@ fn workdir_remove_unneed_media_files(
 /// # Errors
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
-#[allow(dead_code)]
-pub fn remove_unneed_media_files(
+pub async fn remove_unneed_media_files(
     root_dir: &Path,
     rule: Option<RemoveMediaRule>,
 ) -> Result<(), std::io::Error> {
@@ -396,16 +397,13 @@ pub fn remove_unneed_media_files(
 
     println!("Selected: {rule:?}");
 
-    let entries: Vec<_> = std::fs::read_dir(root_dir)?
-        .filter_map(std::result::Result::ok)
-        .collect();
-
-    for entry in entries {
+    let mut read_dir = tokio::fs::read_dir(root_dir).await?;
+    while let Some(entry) = read_dir.next_entry().await? {
         let bms_dir_path = entry.path();
         if !bms_dir_path.is_dir() {
             continue;
         }
-        workdir_remove_unneed_media_files(&bms_dir_path, &rule)?;
+        workdir_remove_unneed_media_files(&bms_dir_path, &rule).await?;
     }
 
     Ok(())
@@ -416,10 +414,12 @@ pub fn remove_unneed_media_files(
 /// # Errors
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
-pub fn move_out_works(target_root_dir: &Path) -> Result<(), std::io::Error> {
-    let entries: Vec<_> = std::fs::read_dir(target_root_dir)?
-        .filter_map(std::result::Result::ok)
-        .collect();
+pub async fn move_out_works(target_root_dir: &Path) -> Result<(), std::io::Error> {
+    let mut read_dir = tokio::fs::read_dir(target_root_dir).await?;
+    let mut entries = Vec::new();
+    while let Some(entry) = read_dir.next_entry().await? {
+        entries.push(entry);
+    }
 
     for entry in entries {
         let root_dir_path = entry.path();
@@ -427,11 +427,8 @@ pub fn move_out_works(target_root_dir: &Path) -> Result<(), std::io::Error> {
             continue;
         }
 
-        let work_entries: Vec<_> = std::fs::read_dir(&root_dir_path)?
-            .filter_map(std::result::Result::ok)
-            .collect();
-
-        for work_entry in work_entries {
+        let mut work_read_dir = tokio::fs::read_dir(&root_dir_path).await?;
+        while let Some(work_entry) = work_read_dir.next_entry().await? {
             let work_dir_path = work_entry.path();
 
             let work_dir_name = work_dir_path
@@ -446,13 +443,13 @@ pub fn move_out_works(target_root_dir: &Path) -> Result<(), std::io::Error> {
                 &target_work_dir_path,
                 MoveOptions::default(),
                 &REPLACE_OPTION_UPDATE_PACK,
-            )?;
+            )
+            .await?;
         }
 
         // Remove empty root_dir if not having files
-        if !is_dir_having_file(&root_dir_path) {
-            // Intentionally ignored: directory may not be empty
-            let _ = std::fs::remove_dir(&root_dir_path);
+        if !is_dir_having_file(&root_dir_path).await {
+            let _ = tokio::fs::remove_dir(&root_dir_path).await;
         }
     }
 
@@ -468,7 +465,7 @@ pub fn move_out_works(target_root_dir: &Path) -> Result<(), std::io::Error> {
 /// # Errors
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
-pub fn move_works_with_same_name(
+pub async fn move_works_with_same_name(
     root_dir_from: &Path,
     root_dir_to: &Path,
 ) -> Result<(), std::io::Error> {
@@ -486,18 +483,32 @@ pub fn move_works_with_same_name(
     }
 
     // Get source subdirectories
-    let from_subdirs: Vec<(String, PathBuf)> = std::fs::read_dir(root_dir_from)?
-        .filter_map(std::result::Result::ok)
-        .filter(|e| e.path().is_dir())
-        .filter_map(|e| e.file_name().to_str().map(|n| (n.to_string(), e.path())))
-        .collect();
+    let mut from_subdirs: Vec<(String, PathBuf)> = Vec::new();
+    if let Ok(mut read_dir) = tokio::fs::read_dir(root_dir_from).await {
+        while let Some(entry) = read_dir.next_entry().await? {
+            if !entry.path().is_dir() {
+                continue;
+            }
+            let Some(name) = entry.file_name().to_str().map(String::from) else {
+                continue;
+            };
+            from_subdirs.push((name, entry.path()));
+        }
+    }
 
     // Get target subdirectories
-    let to_subdirs: Vec<String> = std::fs::read_dir(root_dir_to)?
-        .filter_map(std::result::Result::ok)
-        .filter(|e| e.path().is_dir())
-        .filter_map(|e| e.file_name().to_str().map(String::from))
-        .collect();
+    let mut to_subdirs: Vec<String> = Vec::new();
+    if let Ok(mut read_dir) = tokio::fs::read_dir(root_dir_to).await {
+        while let Some(entry) = read_dir.next_entry().await? {
+            if !entry.path().is_dir() {
+                continue;
+            }
+            let Some(name) = entry.file_name().to_str().map(String::from) else {
+                continue;
+            };
+            to_subdirs.push(name);
+        }
+    }
 
     let mut pairs: Vec<(PathBuf, PathBuf)> = Vec::new();
 
@@ -530,7 +541,8 @@ pub fn move_works_with_same_name(
             to_path,
             MoveOptions::default(),
             &REPLACE_OPTION_UPDATE_PACK,
-        )?;
+        )
+        .await?;
     }
 
     Ok(())
@@ -545,7 +557,9 @@ pub fn move_works_with_same_name(
 /// # Errors
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
-pub fn move_works_with_same_name_to_siblings(root_dir_from: &Path) -> Result<(), std::io::Error> {
+pub async fn move_works_with_same_name_to_siblings(
+    root_dir_from: &Path,
+) -> Result<(), std::io::Error> {
     if !root_dir_from.is_dir() {
         return Err(std::io::Error::new(
             std::io::ErrorKind::NotFound,
@@ -563,17 +577,24 @@ pub fn move_works_with_same_name_to_siblings(root_dir_from: &Path) -> Result<(),
         .unwrap_or("");
 
     // Get source subdirectories
-    let from_subdirs: Vec<(String, PathBuf)> = std::fs::read_dir(root_dir_from)?
-        .filter_map(std::result::Result::ok)
-        .filter(|e| e.path().is_dir())
-        .filter_map(|e| e.file_name().to_str().map(|n| (n.to_string(), e.path())))
-        .collect();
+    let mut from_subdirs: Vec<(String, PathBuf)> = Vec::new();
+    if let Ok(mut read_dir) = tokio::fs::read_dir(root_dir_from).await {
+        while let Some(entry) = read_dir.next_entry().await? {
+            if !entry.path().is_dir() {
+                continue;
+            }
+            let Some(name) = entry.file_name().to_str().map(String::from) else {
+                continue;
+            };
+            from_subdirs.push((name, entry.path()));
+        }
+    }
 
     let mut pairs: Vec<(PathBuf, PathBuf)> = Vec::new();
 
     // Iterate sibling directories
-    if let Ok(siblings) = std::fs::read_dir(parent_dir) {
-        for sibling in siblings.flatten() {
+    if let Ok(mut siblings) = tokio::fs::read_dir(parent_dir).await {
+        while let Some(sibling) = siblings.next_entry().await? {
             let sibling_path = sibling.path();
             if !sibling_path.is_dir() {
                 continue;
@@ -589,11 +610,18 @@ pub fn move_works_with_same_name_to_siblings(root_dir_from: &Path) -> Result<(),
             }
 
             // Get sibling's subdirectories
-            let to_subdirs: Vec<String> = std::fs::read_dir(&sibling_path)?
-                .filter_map(std::result::Result::ok)
-                .filter(|e| e.path().is_dir())
-                .filter_map(|e| e.file_name().to_str().map(String::from))
-                .collect();
+            let mut to_subdirs: Vec<String> = Vec::new();
+            if let Ok(mut read_dir) = tokio::fs::read_dir(&sibling_path).await {
+                while let Some(entry) = read_dir.next_entry().await? {
+                    if !entry.path().is_dir() {
+                        continue;
+                    }
+                    let Some(name) = entry.file_name().to_str().map(String::from) else {
+                        continue;
+                    };
+                    to_subdirs.push(name);
+                }
+            }
 
             // Find matching pairs
             for (from_name, from_path) in &from_subdirs {
@@ -626,7 +654,8 @@ pub fn move_works_with_same_name_to_siblings(root_dir_from: &Path) -> Result<(),
             target_path,
             MoveOptions::default(),
             &REPLACE_OPTION_UPDATE_PACK,
-        )?;
+        )
+        .await?;
     }
 
     Ok(())
@@ -640,12 +669,14 @@ pub fn move_works_with_same_name_to_siblings(root_dir_from: &Path) -> Result<(),
 /// # Errors
 ///
 /// Returns [`anyhow::Error`] if directory operations fail.
-#[allow(dead_code)]
-pub fn merge_split_folders(root_dir: &Path) -> Result<(), anyhow::Error> {
-    let entries: Vec<_> = std::fs::read_dir(root_dir)?
-        .filter_map(std::result::Result::ok)
-        .filter(|e| e.path().is_dir())
-        .collect();
+pub async fn merge_split_folders(root_dir: &Path) -> Result<(), anyhow::Error> {
+    let mut read_dir = tokio::fs::read_dir(root_dir).await?;
+    let mut entries = Vec::new();
+    while let Some(entry) = read_dir.next_entry().await? {
+        if entry.path().is_dir() {
+            entries.push(entry);
+        }
+    }
 
     let dir_names: Vec<String> = entries
         .iter()
@@ -729,7 +760,8 @@ pub fn merge_split_folders(root_dir: &Path) -> Result<(), anyhow::Error> {
             &target_dir_path,
             MoveOptions::default(),
             &ReplaceOptions::default(),
-        )?;
+        )
+        .await?;
     }
 
     Ok(())

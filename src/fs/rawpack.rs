@@ -1,14 +1,3 @@
-//! Archive extraction utilities.
-//!
-//! This module handles extraction of compressed archives
-//! including zip, 7z, and rar formats.
-
-#![allow(
-    clippy::missing_errors_doc,
-    clippy::missing_panics_doc,
-    clippy::items_after_statements
-)]
-
 use chrono::TimeZone;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -46,9 +35,6 @@ fn safe_join(base: &Path, component: &str) -> Option<PathBuf> {
         return None;
     }
 
-    // Symlink defense: resolve the parent path (file may not exist yet) and verify
-    // it still resides within the base directory. This matches Python's use of
-    // `Path.resolve()` to prevent symlink-based path traversal.
     if let Some(parent) = current.parent()
         && parent.exists()
         && let (Ok(resolved), Ok(resolved_base)) = (parent.canonicalize(), base.canonicalize())
@@ -76,98 +62,32 @@ fn set_mtime(path: &Path, dt: Option<zip::DateTime>) {
     }
 }
 
-/// Get numbered file names from a directory.
-///
-/// Matches Python behavior: files whose first space-delimited token is all digits.
 #[must_use]
-pub fn get_num_set_file_names(dir: &Path) -> Vec<String> {
-    let mut names: Vec<String> = Vec::new();
+pub async fn get_num_set_file_names(dir: &Path) -> Vec<String> {
+    let mut names = Vec::new();
 
-    if let Ok(entries) = std::fs::read_dir(dir) {
-        for entry in entries.flatten() {
-            if !entry.path().is_file() {
-                continue;
-            }
-            let name = entry.file_name().to_string_lossy().to_string();
-            let id_str = name.split(' ').next().unwrap_or("");
-            if id_str.is_empty()
-                || !id_str
-                    .chars()
-                    .all(|c| c.is_ascii_digit() || ('\u{FF10}'..='\u{FF19}').contains(&c))
-            {
-                continue;
-            }
-            names.push(name);
+    let Ok(mut entries) = tokio::fs::read_dir(dir).await else {
+        return names;
+    };
+
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        if !entry.path().is_file() {
+            continue;
         }
+        let name = entry.file_name().to_string_lossy().to_string();
+        let id_str = name.split(' ').next().unwrap_or("");
+        if id_str.is_empty()
+            || !id_str
+                .chars()
+                .all(|c| c.is_ascii_digit() || ('\u{FF10}'..='\u{FF19}').contains(&c))
+        {
+            continue;
+        }
+        names.push(name);
     }
     names
 }
 
-/// Extract numeric-prefixed archives to BMS folder structure
-#[expect(dead_code)]
-pub(crate) fn extract_numeric_to_bms_folder(
-    pack_dir: &Path,
-    cache_dir: &Path,
-    root_dir: &Path,
-) -> Result<(), std::io::Error> {
-    use tokio::runtime::Runtime;
-
-    if !pack_dir.is_dir() {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::NotADirectory,
-            "Pack dir is not a directory",
-        ));
-    }
-
-    std::fs::create_dir_all(cache_dir)?;
-    std::fs::create_dir_all(root_dir)?;
-
-    let file_names = get_num_set_file_names(pack_dir);
-    println!("Found {} pack files", file_names.len());
-
-    // Create runtime for async extraction
-    let rt = Runtime::new()?;
-
-    for file_name in file_names {
-        let pack_path = pack_dir.join(&file_name);
-        println!("Extracting: {file_name}");
-
-        // Determine archive type and extract
-        let ext = pack_path
-            .extension()
-            .and_then(|e| e.to_str())
-            .map(str::to_lowercase)
-            .unwrap_or_default();
-
-        match ext.as_str() {
-            "zip" => {
-                extract_zip(&pack_path, cache_dir)?;
-            }
-            "7z" => {
-                let pack_path_buf = pack_path.clone();
-                let cache_dir_buf = cache_dir.to_path_buf();
-                rt.block_on(async { extract_7z(&pack_path_buf, &cache_dir_buf).await })?;
-            }
-            "rar" => {
-                let pack_path_buf = pack_path.clone();
-                let cache_dir_buf = cache_dir.to_path_buf();
-                rt.block_on(async { extract_rar(&pack_path_buf, &cache_dir_buf).await })?;
-            }
-            _ => {
-                let target_file_name = file_name
-                    .split_once(' ')
-                    .map_or(file_name.as_str(), |(_, rest)| rest);
-                let target_file_path = cache_dir.join(target_file_name);
-                println!("Copying {} to {}", file_name, target_file_path.display());
-                std::fs::copy(&pack_path, &target_file_path)?;
-            }
-        }
-    }
-
-    Ok(())
-}
-
-/// Extract archive files (zip, 7z, rar)
 pub async fn extract_archive(archive_path: &Path, output_dir: &Path) -> Result<(), std::io::Error> {
     let ext = archive_path
         .extension()
@@ -175,16 +95,25 @@ pub async fn extract_archive(archive_path: &Path, output_dir: &Path) -> Result<(
         .map(str::to_lowercase)
         .unwrap_or_default();
 
-    std::fs::create_dir_all(output_dir)?;
+    tokio::fs::create_dir_all(output_dir).await?;
 
     match ext.as_str() {
-        "zip" => extract_zip(archive_path, output_dir),
+        "zip" => {
+            let archive_path = archive_path.to_path_buf();
+            let output_dir = output_dir.to_path_buf();
+            match tokio::task::spawn_blocking(move || extract_zip(&archive_path, &output_dir)).await
+            {
+                Ok(result) => result,
+                Err(e) => Err(std::io::Error::other(format!("Join error: {e}"))),
+            }
+        }
         "7z" => extract_7z(archive_path, output_dir).await,
         "rar" => extract_rar(archive_path, output_dir).await,
-        _ => Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            format!("Unsupported archive format: {ext}"),
-        )),
+        _ => {
+            let target_path = output_dir.join(archive_path.file_name().unwrap_or_default());
+            tokio::fs::copy(archive_path, &target_path).await?;
+            Ok(())
+        }
     }
 }
 
@@ -229,24 +158,15 @@ fn extract_zip(archive_path: &Path, output_dir: &Path) -> Result<(), std::io::Er
     Ok(())
 }
 
-/// Detect if ZIP file uses CP932 (Shift-JIS) encoding
-///
-/// This matches Python's behavior:
-/// 1. Check non-UTF-8 entries (using `name_raw` for detection)
-/// 2. Try CP437 -> CP932 conversion
-/// 3. Check if result contains Japanese/CJK characters
 fn detect_cp932_encoding(archive: &mut zip::ZipArchive<std::fs::File>) -> bool {
     for i in 0..archive.len() {
         let Ok(file) = archive.by_index(i) else {
             continue;
         };
 
-        // Get the raw name bytes
         let raw_name_bytes = file.name_raw();
         let name = file.name();
 
-        // If name contains non-ASCII characters that look garbled (CP437 decode of Shift-JIS),
-        // try re-decoding as Shift-JIS
         if let Some(sjis_name) = try_decode_shift_jis(raw_name_bytes)
             && contains_japanese_or_cjk(&sjis_name)
         {
@@ -263,7 +183,6 @@ fn detect_cp932_encoding(archive: &mut zip::ZipArchive<std::fs::File>) -> bool {
     false
 }
 
-/// Try to decode bytes as Shift-JIS
 fn try_decode_shift_jis(bytes: &[u8]) -> Option<String> {
     use encoding_rs::SHIFT_JIS;
     let (decoded, _, had_errors) = SHIFT_JIS.decode(bytes);
@@ -274,28 +193,18 @@ fn try_decode_shift_jis(bytes: &[u8]) -> Option<String> {
     }
 }
 
-/// Decode filename from CP437 to CP932 (Shift-JIS)
-///
-/// This matches Python's `_try_decode_cp932_from_cp437` behavior.
 fn decode_cp932_filename(name: &str) -> Option<String> {
-    // Convert CP437 string to bytes
     let cp437_bytes = encode_cp437(name)?;
-
-    // Try CP932 (Shift-JIS) decoding
     try_decode_shift_jis(&cp437_bytes)
 }
 
-/// Encode string to CP437 bytes
-///
-/// CP437 is the default encoding for ZIP files on DOS/Windows.
-#[expect(clippy::too_many_lines)]
+#[allow(clippy::too_many_lines)]
 fn encode_cp437(name: &str) -> Option<Vec<u8>> {
     let mut bytes = Vec::new();
     for ch in name.chars() {
         let byte = if ch.is_ascii() {
             ch as u8
         } else {
-            // CP437 extended characters (0x80-0xFF)
             match ch {
                 'Ç' => 0x80,
                 'ü' => 0x81,
@@ -432,16 +341,15 @@ fn encode_cp437(name: &str) -> Option<Vec<u8>> {
     Some(bytes)
 }
 
-/// Check if string contains Japanese or CJK characters
 fn contains_japanese_or_cjk(name: &str) -> bool {
     name.chars().any(|ch| {
         matches!(ch,
-            '\u{3040}'..='\u{309F}' |  // Hiragana
-            '\u{30A0}'..='\u{30FF}' |  // Katakana
-            '\u{3400}'..='\u{9FFF}' |  // CJK Unified Ideographs
-            '\u{F900}'..='\u{FAFF}' |  // CJK Compatibility Ideographs
-            '\u{FE30}'..='\u{FE4F}' |  // CJK Compatibility Forms
-            '\u{20000}'..='\u{2A6DF}' // CJK Unified Ideographs Extension B
+            '\u{3040}'..='\u{309F}' |
+            '\u{30A0}'..='\u{30FF}' |
+            '\u{3400}'..='\u{9FFF}' |
+            '\u{F900}'..='\u{FAFF}' |
+            '\u{FE30}'..='\u{FE4F}' |
+            '\u{20000}'..='\u{2A6DF}'
         )
     })
 }
@@ -461,7 +369,6 @@ async fn extract_7z(archive_path: &Path, output_dir: &Path) -> Result<(), std::i
 }
 
 async fn extract_rar(archive_path: &Path, output_dir: &Path) -> Result<(), std::io::Error> {
-    // Use unrar crate or fall back to external tool
     use tokio::process::Command;
 
     let output = Command::new("unrar")
@@ -480,18 +387,7 @@ async fn extract_rar(archive_path: &Path, output_dir: &Path) -> Result<(), std::
     Ok(())
 }
 
-/// Move out files from nested folders in cache directory
-///
-/// This replicates Python's `move_out_files_in_folder_in_cache_dir(cache_dir_path)`:
-/// - Iteratively unpacks nested folder structures
-/// - Removes __MACOSX directories
-/// - Handles single inner folder case (if >= 10 files, considered "done")
-/// - If multiple inner folders, checks for BMS files to determine if state is acceptable
-/// - Moves files out of inner directories to the cache root
-///
-/// Returns `true` on success, `false` on error or empty cache
-#[expect(clippy::too_many_lines)]
-pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
+pub async fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
     let mut error = false;
     let mut file_ext_count: HashMap<String, Vec<String>>;
     loop {
@@ -500,11 +396,11 @@ pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
         let mut cache_file_count: usize = 0;
         let mut inner_dir_name: Option<String> = None;
 
-        let Ok(entries) = std::fs::read_dir(cache_dir_path) else {
+        let Ok(mut entries) = tokio::fs::read_dir(cache_dir_path).await else {
             break;
         };
 
-        for entry in entries.flatten() {
+        while let Ok(Some(entry)) = entries.next_entry().await {
             let cache_path = entry.path();
             let cache_name = cache_path
                 .file_name()
@@ -514,7 +410,7 @@ pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
             if cache_path.is_dir() {
                 if cache_name == "__MACOSX" {
                     println!("Removing __MACOSX directory: {cache_path:?}");
-                    if let Err(e) = std::fs::remove_dir_all(&cache_path) {
+                    if let Err(e) = tokio::fs::remove_dir_all(&cache_path).await {
                         println!("Failed to remove __MACOSX: {e}");
                     }
                     continue;
@@ -537,19 +433,7 @@ pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
         if cache_folder_count == 0 || (cache_folder_count == 1 && cache_file_count >= 10) {
             done = true;
         } else if cache_folder_count > 1 {
-            let mut has_bms = false;
-            for entry in walkdir::WalkDir::new(cache_dir_path).into_iter().flatten() {
-                let path = entry.path();
-                if path.is_file()
-                    && let Some(name) = path.file_name().and_then(|n| n.to_str())
-                    && CHART_FILE_EXTS
-                        .iter()
-                        .any(|ext| name.to_lowercase().ends_with(ext))
-                {
-                    has_bms = true;
-                    break;
-                }
-            }
+            let has_bms = has_chart_file_recursive(cache_dir_path).await;
             if has_bms {
                 done = true;
             } else {
@@ -574,7 +458,7 @@ pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
             if inner_inner_dir_path.is_dir() {
                 println!(" - Renaming inner inner dir name: {inner_inner_dir_path:?}");
                 let new_path = inner_inner_dir_path.with_file_name(format!("{inner_name}-rep"));
-                if let Err(e) = std::fs::rename(&inner_inner_dir_path, &new_path) {
+                if let Err(e) = tokio::fs::rename(&inner_inner_dir_path, &new_path).await {
                     println!("Failed to rename inner inner dir: {e}");
                 }
             }
@@ -584,15 +468,16 @@ pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
                 cache_dir_path,
                 DEFAULT_MOVE_OPTIONS,
                 &DEFAULT_REPLACE_OPTIONS,
-            ) {
+            )
+            .await
+            {
                 println!("Failed to move elements: {e}");
             }
-            let _ = std::fs::remove_dir(&inner_dir_path);
-            // Intentionally ignored: directory may not be empty after move
+            let _ = tokio::fs::remove_dir(&inner_dir_path).await;
         }
     }
 
-    let (final_folder_count, final_file_count) = count_cache_contents(cache_dir_path);
+    let (final_folder_count, final_file_count) = count_cache_contents(cache_dir_path).await;
 
     if error {
         return false;
@@ -600,7 +485,7 @@ pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
 
     if final_folder_count == 0 && final_file_count == 0 {
         println!(" !_! {}: Cache is Empty!", cache_dir_path.display());
-        let _ = std::fs::remove_dir(cache_dir_path);
+        let _ = tokio::fs::remove_dir(cache_dir_path).await;
         return false;
     }
 
@@ -615,13 +500,32 @@ pub fn move_out_files_in_folder_in_cache_dir(cache_dir_path: &Path) -> bool {
     true
 }
 
-/// Count folders and files in a directory
-fn count_cache_contents(dir: &Path) -> (usize, usize) {
+async fn has_chart_file_recursive(dir: &Path) -> bool {
+    let Ok(mut entries) = tokio::fs::read_dir(dir).await else {
+        return false;
+    };
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        let path = entry.path();
+        if path.is_file()
+            && let Some(name) = path.file_name().and_then(|n| n.to_str())
+            && CHART_FILE_EXTS
+                .iter()
+                .any(|ext| name.to_lowercase().ends_with(ext))
+        {
+            return true;
+        } else if path.is_dir() && Box::pin(has_chart_file_recursive(&path)).await {
+            return true;
+        }
+    }
+    false
+}
+
+async fn count_cache_contents(dir: &Path) -> (usize, usize) {
     let mut folder_count = 0;
     let mut file_count = 0;
 
-    if let Ok(entries) = std::fs::read_dir(dir) {
-        for entry in entries.flatten() {
+    if let Ok(mut entries) = tokio::fs::read_dir(dir).await {
+        while let Ok(Some(entry)) = entries.next_entry().await {
             if entry.path().is_dir() {
                 folder_count += 1;
             } else if entry.path().is_file() {
@@ -638,10 +542,10 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
-    #[test]
-    fn test_get_num_set_file_names() {
+    #[tokio::test]
+    async fn test_get_num_set_file_names() {
         let temp_dir = std::env::temp_dir();
-        let _names = get_num_set_file_names(&temp_dir);
+        let _names = get_num_set_file_names(&temp_dir).await;
     }
 
     #[test]

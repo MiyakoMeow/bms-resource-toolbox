@@ -1,7 +1,8 @@
 //! Async tests for `bms::encoding` and `bms::parse` modules.
 
-use bms_resource_toolbox::bms::encoding::read_bms_file;
-use bms_resource_toolbox::bms::parse::parse_bms_file;
+use bms_resource_toolbox::bms::encoding::get_bms_file_str;
+use bms_resource_toolbox::bms::parse::parse_bms_content;
+use bms_resource_toolbox::bms::types::BMSDifficulty;
 use std::path::PathBuf;
 
 fn unique_temp_dir(prefix: &str) -> PathBuf {
@@ -20,7 +21,8 @@ async fn test_read_bms_file_utf8() {
         .await
         .unwrap();
 
-    let content = read_bms_file(&path).await.unwrap();
+    let bytes = tokio::fs::read(&path).await.unwrap();
+    let content = get_bms_file_str(&bytes, None);
     assert!(content.contains("#TITLE"));
     assert!(content.contains("テスト曲"));
     let _ = tokio::fs::remove_dir_all(&dir).await;
@@ -34,7 +36,8 @@ async fn test_read_bms_file_ascii() {
         .await
         .unwrap();
 
-    let content = read_bms_file(&path).await.unwrap();
+    let bytes = tokio::fs::read(&path).await.unwrap();
+    let content = get_bms_file_str(&bytes, None);
     assert!(content.contains("#TITLE Test Song"));
     let _ = tokio::fs::remove_dir_all(&dir).await;
 }
@@ -44,7 +47,7 @@ async fn test_read_bms_file_nonexistent() {
     let path = std::env::temp_dir()
         .join("bms_toolbox_tests")
         .join("nonexistent_read_48291.bms");
-    let result = read_bms_file(&path).await;
+    let result = tokio::fs::read(&path).await;
     assert!(result.is_err());
 }
 
@@ -63,15 +66,14 @@ async fn test_parse_bms_file_full_metadata() {
 ";
     tokio::fs::write(&path, content).await.unwrap();
 
-    let info = parse_bms_file(&path, None).await.unwrap();
+    let bytes = tokio::fs::read(&path).await.unwrap();
+    let file_str = get_bms_file_str(&bytes, None);
+    let info = parse_bms_content(&file_str);
     assert_eq!(info.title, "Test Song");
     assert_eq!(info.artist, "Test Artist");
     assert_eq!(info.genre, "Genre");
     assert_eq!(info.playlevel, 7);
-    assert_eq!(
-        info.difficulty,
-        bms_resource_toolbox::bms::BMSDifficulty::Another
-    );
+    assert_eq!(info.difficulty, BMSDifficulty::Another);
     assert_eq!(info.total, None);
     assert_eq!(info.stage_file, None);
     let _ = tokio::fs::remove_dir_all(&dir).await;
@@ -85,7 +87,9 @@ async fn test_parse_bms_file_minimal() {
         .await
         .unwrap();
 
-    let info = parse_bms_file(&path, None).await.unwrap();
+    let bytes = tokio::fs::read(&path).await.unwrap();
+    let file_str = get_bms_file_str(&bytes, None);
+    let info = parse_bms_content(&file_str);
     assert_eq!(info.title, "Only Title");
     assert_eq!(info.artist, "");
     assert_eq!(info.playlevel, 0);
@@ -98,6 +102,6 @@ async fn test_parse_bms_file_nonexistent() {
     let path = std::env::temp_dir()
         .join("bms_toolbox_tests")
         .join("nonexistent_parse_48291.bms");
-    let result = parse_bms_file(&path, None).await;
+    let result = tokio::fs::read(&path).await;
     assert!(result.is_err());
 }

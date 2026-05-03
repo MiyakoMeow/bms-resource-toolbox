@@ -4,9 +4,7 @@
 //! like FLAC, OGG, and WAV using external tools.
 
 use std::path::Path;
-use std::process::Stdio;
 use std::sync::LazyLock;
-use tokio::process::Command;
 
 /// Audio conversion preset.
 #[derive(Debug, Clone)]
@@ -61,11 +59,6 @@ pub static AUDIO_PRESET_FLAC: LazyLock<AudioPreset> = LazyLock::new(|| {
 pub static AUDIO_PRESET_FLAC_FFMPEG: LazyLock<AudioPreset> =
     LazyLock::new(|| AudioPreset::new("ffmpeg", "flac", None));
 
-/// Audio preset for OGG encoding using `FFmpeg`.
-#[allow(dead_code)]
-pub static AUDIO_PRESET_OGG_FFMPEG: LazyLock<AudioPreset> =
-    LazyLock::new(|| AudioPreset::new("ffmpeg", "ogg", None));
-
 /// Get audio process command
 #[must_use]
 pub fn get_audio_process_cmd(
@@ -91,35 +84,6 @@ pub fn get_audio_process_cmd(
     } else {
         String::new()
     }
-}
-
-/// Check if external audio tool is available
-pub(crate) async fn check_audio_tool(exec: &str) -> bool {
-    let output = Command::new(exec)
-        .arg("--version")
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .await;
-    output.is_ok_and(|s| s.success())
-}
-
-/// Check ffmpeg availability
-#[expect(dead_code)]
-pub(crate) async fn check_ffmpeg() -> bool {
-    check_audio_tool("ffmpeg").await
-}
-
-/// Check flac availability
-#[expect(dead_code)]
-pub(crate) async fn check_flac() -> bool {
-    check_audio_tool("flac").await
-}
-
-/// Check oggenc availability
-#[expect(dead_code)]
-pub(crate) async fn check_oggenc() -> bool {
-    check_audio_tool("oggenc").await
 }
 
 #[cfg(test)]

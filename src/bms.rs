@@ -8,5 +8,3 @@ pub mod encoding;
 pub mod parse;
 pub mod types;
 pub mod work;
-
-pub use types::*;

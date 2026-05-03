@@ -7,8 +7,6 @@
 
 use std::collections::HashMap;
 
-use regex::Regex;
-
 /// Extract work name from multiple BMS titles (longest common prefix algorithm)
 ///
 /// This replicates the Python `extract_work_name(titles: list[str])` behavior:
@@ -147,23 +145,8 @@ fn post_process(s: &str, remove_unclosed_pair: bool, remove_tailing_sign_list: &
     result
 }
 
-/// Extract work name from a single title string (legacy single-title version)
-#[allow(dead_code)]
-#[must_use]
-pub(crate) fn extract_work_name_single(title: &str) -> String {
-    extract_work_name(&[title.to_string()], true, &[])
-}
-
-/// Extract work name from multiple titles (convenience wrapper)
-#[allow(dead_code)]
-#[must_use]
-pub(crate) fn extract_work_name_default(titles: &[String]) -> String {
-    extract_work_name(titles, true, &[])
-}
-
 /// Extract work name for artist extraction (with trailing sign removal)
 /// Replicates Python's artist extraction with signs: /, :, :, -, obj, obj., Obj, Obj., OBJ, OBJ.
-#[allow(dead_code)]
 #[must_use]
 pub(crate) fn extract_work_name_for_artist(titles: &[String]) -> String {
     extract_work_name(
@@ -175,118 +158,14 @@ pub(crate) fn extract_work_name_for_artist(titles: &[String]) -> String {
     )
 }
 
-/// Extract work name from path using the original Python algorithm
-#[allow(dead_code)]
-#[must_use]
-pub(crate) fn extract_work_name_from_path(path: &str) -> String {
-    let filename = std::path::Path::new(path)
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or(path);
-
-    let re = Regex::new(r"^[\d_]+(?:\s+)(.+)$").unwrap();
-    if let Some(caps) = re.captures(filename)
-        && let Some(matched) = caps.get(1)
-    {
-        return extract_work_name_single(matched.as_str());
-    }
-
-    extract_work_name_single(filename)
-}
-
-/// Parse work directory name into components
-#[allow(dead_code)]
-#[must_use]
-pub(crate) fn parse_work_dir_name(name: &str) -> (Option<String>, String) {
-    use regex::Regex;
-
-    let re = Regex::new(r"^(\d+)[_\s]+(.+)$").unwrap();
-    if let Some(caps) = re.captures(name) {
-        let num = caps.get(1).map(|m| m.as_str().to_string());
-        let rest = caps.get(2).map_or(name, |m| m.as_str());
-        return (num, rest.to_string());
-    }
-    (None, name.to_string())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_extract_work_name_single_title() {
-        // Single title - longest common prefix is the whole title
-        assert_eq!(
-            extract_work_name_default(&["Artist - Title".to_string()]),
-            "Artist - Title"
-        );
-        assert_eq!(
-            extract_work_name_default(&["Single Title".to_string()]),
-            "Single Title"
-        );
-    }
-
-    #[test]
-    fn test_extract_work_name_multiple() {
-        // Multiple titles - common prefix
-        let titles = vec![
-            "Artist - Title [Insane]".to_string(),
-            "Artist - Title [Hyper]".to_string(),
-            "Artist - Title [Another]".to_string(),
-        ];
-        assert_eq!(extract_work_name_default(&titles), "Artist - Title");
-    }
-
-    #[test]
-    fn test_extract_work_name_with_unclosed_bracket() {
-        // Titles with unclosed bracket
-        let titles_unclosed = vec![
-            "Artist - Title [Unclosed".to_string(),
-            "Artist - Title [Unclosed".to_string(),
-        ];
-        assert_eq!(
-            extract_work_name_default(&titles_unclosed),
-            "Artist - Title"
-        );
-    }
 
     #[test]
     fn test_extract_work_name_artist_extraction() {
         // Artist with trailing obj-like suffix
         let titles_obj = vec!["Artist obj".to_string(), "Artist obj".to_string()];
         assert_eq!(extract_work_name_for_artist(&titles_obj), "Artist");
-    }
-
-    #[test]
-    fn test_parse_work_dir_name() {
-        let (num, rest) = parse_work_dir_name("001 Artist - Title");
-        assert_eq!(num, Some("001".to_string()));
-        assert_eq!(rest, "Artist - Title");
-
-        let (num, rest) = parse_work_dir_name("Artist - Title");
-        assert_eq!(num, None);
-        assert_eq!(rest, "Artist - Title");
-    }
-
-    #[test]
-    fn test_extract_work_name_bracket_suffix() {
-        let titles = vec![
-            "Test Song [Artist1]".to_string(),
-            "Test Song [Artist2]".to_string(),
-            "Test Song [Artist3]".to_string(),
-        ];
-        let result = extract_work_name_default(&titles);
-        assert_eq!(result, "Test Song");
-    }
-
-    #[test]
-    fn test_extract_work_name_with_different_prefix() {
-        let titles = vec![
-            "Song A [Artist1]".to_string(),
-            "Song B [Artist2]".to_string(),
-            "Song C [Artist3]".to_string(),
-        ];
-        let result = extract_work_name_default(&titles);
-        assert_eq!(result, "Song");
     }
 }

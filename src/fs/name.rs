@@ -1,15 +1,5 @@
-//! Filename sanitization utilities.
-//!
-//! This module provides functions for creating valid
-//! filesystem names by replacing invalid characters.
-
-use std::fmt::Write as _;
 use std::path::Path;
 
-/// Get a valid filesystem name by replacing invalid characters with full-width equivalents.
-///
-/// This matches Python behavior: invalid characters are replaced with their
-/// full-width Unicode counterparts rather than underscores.
 #[must_use]
 pub fn get_valid_fs_name(name: &str) -> String {
     name.chars()
@@ -29,40 +19,26 @@ pub fn get_valid_fs_name(name: &str) -> String {
         .collect()
 }
 
-/// Get a valid folder name for a BMS work.
-#[allow(dead_code)]
 #[must_use]
-pub fn get_work_folder_name(id: &str, title: &str, artist: &str) -> String {
-    let raw = format!("{id}. {title}");
-    let mut name = raw;
-    let _ = write!(name, " [{artist}]");
-    get_valid_fs_name(&name)
-}
-
-/// Calculate media filename similarity between two directories
-///
-/// This replicates Python's `bms_dir_similarity(dir_path_a, dir_path_b)`:
-/// - Compares media files (ogg, wav, flac, mp4, wmv, avi, mpg, mpeg, bmp, jpg, png) between two directories
-/// - Returns the ratio of intersecting media files to the minimum media file count
-/// - Returns 0.0 if either directory has no files, no media files, or no non-media files
-#[must_use]
-pub fn bms_dir_similarity(dir_path_a: &Path, dir_path_b: &Path) -> f64 {
+pub async fn bms_dir_similarity(dir_path_a: &Path, dir_path_b: &Path) -> f64 {
     use std::collections::HashSet;
 
     const MEDIA_EXTS: &[&str] = &[
         ".ogg", ".wav", ".flac", ".mp4", ".wmv", ".avi", ".mpg", ".mpeg", ".bmp", ".jpg", ".png",
     ];
 
-    fn fetch_dir_elements(dir_path: &Path) -> (HashSet<String>, HashSet<String>, HashSet<String>) {
+    async fn fetch_dir_elements(
+        dir_path: &Path,
+    ) -> (HashSet<String>, HashSet<String>, HashSet<String>) {
         let mut file_set = HashSet::new();
         let mut media_set = HashSet::new();
         let mut non_media_set = HashSet::new();
 
-        let Ok(entries) = std::fs::read_dir(dir_path) else {
+        let Ok(mut entries) = tokio::fs::read_dir(dir_path).await else {
             return (file_set, media_set, non_media_set);
         };
 
-        for entry in entries.flatten() {
+        while let Ok(Some(entry)) = entries.next_entry().await {
             let path = entry.path();
             let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
                 continue;
@@ -89,8 +65,8 @@ pub fn bms_dir_similarity(dir_path_a: &Path, dir_path_b: &Path) -> f64 {
         (file_set, media_set, non_media_set)
     }
 
-    let (file_set_a, media_set_a, non_media_set_a) = fetch_dir_elements(dir_path_a);
-    let (file_set_b, media_set_b, non_media_set_b) = fetch_dir_elements(dir_path_b);
+    let (file_set_a, media_set_a, non_media_set_a) = fetch_dir_elements(dir_path_a).await;
+    let (file_set_b, media_set_b, non_media_set_b) = fetch_dir_elements(dir_path_b).await;
 
     if file_set_a.is_empty()
         || file_set_b.is_empty()
@@ -102,7 +78,6 @@ pub fn bms_dir_similarity(dir_path_a: &Path, dir_path_b: &Path) -> f64 {
         return 0.0;
     }
 
-    // Calculate media intersection ratio
     let intersection: HashSet<_> = media_set_a.intersection(&media_set_b).collect();
     let min_media_count = media_set_a.len().min(media_set_b.len());
 
@@ -132,18 +107,5 @@ mod tests {
         assert_eq!(get_valid_fs_name("Test<File"), "Test＜File");
         assert_eq!(get_valid_fs_name("Test>File"), "Test＞File");
         assert_eq!(get_valid_fs_name("Test|File"), "Test｜File");
-    }
-
-    #[test]
-    fn test_get_work_folder_name() {
-        assert_eq!(
-            get_work_folder_name("1", "Title", "Artist"),
-            "1. Title [Artist]"
-        );
-        assert_eq!(get_work_folder_name("1", "Title", ""), "1. Title []");
-        assert_eq!(
-            get_work_folder_name("1", "Title: Part 1", "Artist"),
-            "1. Title： Part 1 [Artist]"
-        );
     }
 }

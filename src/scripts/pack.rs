@@ -24,11 +24,8 @@ async fn bms_folder_transfer_audio(
     presets: &[crate::media::audio::AudioPreset],
     options: &TransferOptions,
 ) -> Result<(), std::io::Error> {
-    let entries: Vec<_> = std::fs::read_dir(root_dir)?
-        .filter_map(std::result::Result::ok)
-        .collect();
-
-    for entry in entries {
+    let mut read_dir = tokio::fs::read_dir(root_dir).await?;
+    while let Some(entry) = read_dir.next_entry().await? {
         let bms_dir_path = entry.path();
         if !bms_dir_path.is_dir() {
             continue;
@@ -54,11 +51,8 @@ async fn bms_folder_transfer_video(
     remove_existing_target_file: bool,
     use_prefered: bool,
 ) -> Result<(), std::io::Error> {
-    let entries: Vec<_> = std::fs::read_dir(root_dir)?
-        .filter_map(std::result::Result::ok)
-        .collect();
-
-    for entry in entries {
+    let mut read_dir = tokio::fs::read_dir(root_dir).await?;
+    while let Some(entry) = read_dir.next_entry().await? {
         let bms_dir_path = entry.path();
         if !bms_dir_path.is_dir() {
             continue;
@@ -111,7 +105,7 @@ pub async fn pack_raw_to_hq(root_dir: &Path) -> Result<(), std::io::Error> {
 
     // Phase 2: Remove unnecessary media files
     println!("Removing Unneed Files");
-    remove_unneed_media_files(root_dir, Some(get_remove_media_rule_oraja()))?;
+    remove_unneed_media_files(root_dir, Some(get_remove_media_rule_oraja())).await?;
 
     Ok(())
 }
@@ -185,10 +179,10 @@ pub async fn pack_setup_rawpack_to_hq(
 
     // Step 1: Unzip packs
     println!("Unzipping packs from {pack_dir:?} to {root_dir:?}");
-    unzip_numeric_to_bms_folder(pack_dir, &cache_dir, root_dir, false)?;
+    unzip_numeric_to_bms_folder(pack_dir, &cache_dir, root_dir, false).await?;
 
     // Remove cache dir if empty
-    if !is_dir_having_file(&cache_dir) {
+    if !is_dir_having_file(&cache_dir).await {
         tokio::fs::remove_dir(&cache_dir).await?;
     }
 
@@ -215,7 +209,7 @@ pub async fn pack_setup_rawpack_to_hq(
 
     // Step 4: Remove unnecessary media files
     println!("Removing Unneed Files");
-    remove_unneed_media_files(root_dir, Some(get_remove_media_rule_oraja()))?;
+    remove_unneed_media_files(root_dir, Some(get_remove_media_rule_oraja())).await?;
 
     Ok(())
 }
@@ -258,11 +252,11 @@ pub async fn pack_update_rawpack_to_hq(
 
     // Step 1: Unzip packs
     println!("Unzipping packs from {pack_dir:?} to {root_dir:?}");
-    unzip_numeric_to_bms_folder(pack_dir, &cache_dir, root_dir, false)?;
+    unzip_numeric_to_bms_folder(pack_dir, &cache_dir, root_dir, false).await?;
 
     // Step 2: Sync dir names from sync_dir
     println!("Syncing dir name from {sync_dir:?} to {root_dir:?}");
-    copy_numbered_workdir_names(sync_dir, root_dir)?;
+    copy_numbered_workdir_names(sync_dir, root_dir).await?;
 
     // Step 3: Convert WAV -> FLAC
     println!("Parsing Audio... Phase 1: WAV -> FLAC");
@@ -283,7 +277,7 @@ pub async fn pack_update_rawpack_to_hq(
 
     // Step 4: Remove unnecessary media files
     println!("Removing Unneed Files");
-    remove_unneed_media_files(root_dir, Some(get_remove_media_rule_oraja()))?;
+    remove_unneed_media_files(root_dir, Some(get_remove_media_rule_oraja())).await?;
 
     // Step 5: Soft sync from root_dir into sync_dir
     println!("Syncing dir files from {root_dir:?} to {sync_dir:?}");
@@ -291,7 +285,7 @@ pub async fn pack_update_rawpack_to_hq(
 
     // Step 6: Remove empty folders
     println!("Removing empty folder in {root_dir:?}");
-    remove_empty_dirs(root_dir)?;
+    remove_empty_dirs(root_dir).await?;
 
     Ok(())
 }

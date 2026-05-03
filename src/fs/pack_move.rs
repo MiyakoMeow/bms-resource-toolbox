@@ -1,52 +1,34 @@
-//! Directory move and merge operations.
-//!
-//! This module provides utilities for moving files and directories
-//! between locations with conflict resolution.
-
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
-/// Check if two files have the same content.
 #[must_use]
-pub fn is_same_content(file_a: &Path, file_b: &Path) -> bool {
+pub async fn is_same_content(file_a: &Path, file_b: &Path) -> bool {
     if !file_a.is_file() || !file_b.is_file() {
         return false;
     }
-    match (std::fs::read(file_a), std::fs::read(file_b)) {
+    match (tokio::fs::read(file_a).await, tokio::fs::read(file_b).await) {
         (Ok(a), Ok(b)) => a == b,
         _ => false,
     }
 }
 
-/// Options for move operations.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct MoveOptions {
-    /// Whether to print move info.
     pub print_info: bool,
 }
 
-/// Action to take when a file conflict occurs
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ReplaceAction {
-    /// Skip the file
     Skip = 0,
-    /// Replace the destination file
     #[default]
     Replace = 1,
-    /// Rename the source file
-    #[allow(dead_code)]
-    Rename = 2,
-    /// Check if content differs, then rename or replace
     CheckReplace = 12,
 }
 
-/// Options for handling file conflicts
 #[derive(Debug, Clone)]
 pub struct ReplaceOptions {
-    /// Extension-specific replace actions
     pub ext: HashMap<String, ReplaceAction>,
-    /// Default action for extensions not in `ext`
     pub default: ReplaceAction,
 }
 
@@ -59,7 +41,6 @@ impl Default for ReplaceOptions {
     }
 }
 
-/// Replace options for update pack operations.
 pub static REPLACE_OPTION_UPDATE_PACK: LazyLock<ReplaceOptions> =
     LazyLock::new(|| ReplaceOptions {
         ext: HashMap::from([
@@ -73,35 +54,28 @@ pub static REPLACE_OPTION_UPDATE_PACK: LazyLock<ReplaceOptions> =
         default: ReplaceAction::Replace,
     });
 
-/// Default move options.
 pub const DEFAULT_MOVE_OPTIONS: MoveOptions = MoveOptions { print_info: false };
 
-/// Default replace options.
 pub static DEFAULT_REPLACE_OPTIONS: LazyLock<ReplaceOptions> = LazyLock::new(|| ReplaceOptions {
     ext: HashMap::new(),
     default: ReplaceAction::Replace,
 });
 
-/// Check if a directory contains any files (recursive)
-///
-/// This matches Python's `is_dir_having_file` behavior:
-/// - Recursively checks subdirectories
-/// - Only counts non-empty files (size > 0)
 #[must_use]
-pub fn is_dir_having_file(dir: &Path) -> bool {
-    fn check_recursive(dir: &Path) -> bool {
-        let Ok(entries) = std::fs::read_dir(dir) else {
+pub async fn is_dir_having_file(dir: &Path) -> bool {
+    async fn check_recursive(dir: &Path) -> bool {
+        let Ok(mut entries) = tokio::fs::read_dir(dir).await else {
             return false;
         };
 
-        for entry in entries.flatten() {
+        while let Ok(Some(entry)) = entries.next_entry().await {
             let path = entry.path();
             if path.is_file()
-                && let Ok(metadata) = path.metadata()
+                && let Ok(metadata) = tokio::fs::metadata(&path).await
                 && metadata.len() > 0
             {
                 return true;
-            } else if path.is_dir() && check_recursive(&path) {
+            } else if path.is_dir() && Box::pin(check_recursive(&path)).await {
                 return true;
             }
         }
@@ -113,26 +87,19 @@ pub fn is_dir_having_file(dir: &Path) -> bool {
         return false;
     }
 
-    check_recursive(dir)
+    check_recursive(dir).await
 }
 
-/// Move elements (files and directories) from source to destination.
-///
-/// If conflict exists, handles it based on `ReplaceOptions`.
-///
-/// # Errors
-///
-/// Returns [`std::io::Error`] if:
-/// - `src` is not a directory
-/// - directory operations fail
-pub fn move_elements_across_dir(
+pub async fn move_elements_across_dir(
     src: &Path,
     dst: &Path,
     options: MoveOptions,
     replace_options: &ReplaceOptions,
 ) -> Result<(), std::io::Error> {
-    if let (Ok(src_canon), Ok(dst_canon)) = (src.canonicalize(), dst.canonicalize())
-        && src_canon == dst_canon
+    if let (Ok(src_canon), Ok(dst_canon)) = (
+        tokio::fs::canonicalize(src).await,
+        tokio::fs::canonicalize(dst).await,
+    ) && src_canon == dst_canon
     {
         return Ok(());
     }
@@ -142,22 +109,22 @@ pub fn move_elements_across_dir(
     }
 
     if !dst.is_dir() {
-        std::fs::create_dir_all(dst)?;
-        return move_dir_recursive(src, dst);
+        tokio::fs::create_dir_all(dst).await?;
+        return Box::pin(move_dir_recursive(src, dst)).await;
     }
 
     let mut next_folder_paths: Vec<(PathBuf, PathBuf)> = Vec::new();
     let mut write_ops: Vec<(PathBuf, PathBuf)> = Vec::new();
 
-    for entry in std::fs::read_dir(src)? {
-        let entry = entry?;
+    let mut entries = tokio::fs::read_dir(src).await?;
+    while let Some(entry) = entries.next_entry().await? {
         let src_path = entry.path();
         let filename = entry.file_name();
         let dst_path = dst.join(&filename);
 
         if src_path.is_file() {
             if let Some((planned_src, planned_dst)) =
-                plan_move_file(&src_path, &dst_path, replace_options)
+                plan_move_file(&src_path, &dst_path, replace_options).await
             {
                 write_ops.push((planned_src, planned_dst));
             }
@@ -170,23 +137,29 @@ pub fn move_elements_across_dir(
         if options.print_info {
             println!("Moving {src_path:?} -> {final_dst_path:?}");
         }
-        move_file(&src_path, &final_dst_path)?;
+        move_file(&src_path, &final_dst_path).await?;
     }
 
     for (src_path, dst_path) in next_folder_paths {
-        move_elements_across_dir(&src_path, &dst_path, options, replace_options)?;
+        Box::pin(move_elements_across_dir(
+            &src_path,
+            &dst_path,
+            options,
+            replace_options,
+        ))
+        .await?;
     }
 
-    let should_clean = replace_options.default != ReplaceAction::Skip || !is_dir_having_file(src);
-    if should_clean && let Err(e) = std::fs::remove_dir_all(src) {
+    let should_clean =
+        replace_options.default != ReplaceAction::Skip || !is_dir_having_file(src).await;
+    if should_clean && let Err(e) = tokio::fs::remove_dir_all(src).await {
         println!("Failed to remove source directory {src:?}: {e}");
     }
 
     Ok(())
 }
 
-/// Plan a file move operation based on `ReplaceOptions`
-fn plan_move_file(
+async fn plan_move_file(
     ori_path: &Path,
     dst_path: &Path,
     replace_options: &ReplaceOptions,
@@ -210,7 +183,10 @@ fn plan_move_file(
             Some((ori_path.to_path_buf(), dst_path.to_path_buf()))
         }
         ReplaceAction::Replace => Some((ori_path.to_path_buf(), dst_path.to_path_buf())),
-        ReplaceAction::Rename => {
+        ReplaceAction::CheckReplace => {
+            if !dst_path.is_file() || is_same_content(ori_path, dst_path).await {
+                return Some((ori_path.to_path_buf(), dst_path.to_path_buf()));
+            }
             for i in 0..100 {
                 let stem = dst_path.file_stem().unwrap_or_default().to_string_lossy();
                 let ext = dst_path
@@ -220,7 +196,7 @@ fn plan_move_file(
                 let new_name = format!("{stem}.{i}.{ext}");
                 let new_dst_path = dst_path.with_file_name(new_name);
                 if new_dst_path.is_file() {
-                    if is_same_content(ori_path, &new_dst_path) {
+                    if is_same_content(ori_path, &new_dst_path).await {
                         return None;
                     }
                     continue;
@@ -229,57 +205,33 @@ fn plan_move_file(
             }
             None
         }
-        ReplaceAction::CheckReplace => {
-            if !dst_path.is_file() {
-                Some((ori_path.to_path_buf(), dst_path.to_path_buf()))
-            } else if is_same_content(ori_path, dst_path) {
-                // Same content, still move to unify location
-                Some((ori_path.to_path_buf(), dst_path.to_path_buf()))
-            } else {
-                for i in 0..100 {
-                    let stem = dst_path.file_stem().unwrap_or_default().to_string_lossy();
-                    let ext = dst_path
-                        .extension()
-                        .map(|e| e.to_string_lossy())
-                        .unwrap_or_default();
-                    let new_name = format!("{stem}.{i}.{ext}");
-                    let new_dst_path = dst_path.with_file_name(new_name);
-                    if new_dst_path.is_file() {
-                        if is_same_content(ori_path, &new_dst_path) {
-                            return None;
-                        }
-                        continue;
-                    }
-                    return Some((ori_path.to_path_buf(), new_dst_path));
-                }
-                None
-            }
-        }
     }
 }
 
 use super::utils::copy_dir_recursive;
 
-/// Move a file (handles cross-device moves)
-fn move_file(src: &Path, dst: &Path) -> Result<(), std::io::Error> {
-    std::fs::rename(src, dst).or_else(|_| {
-        if src.is_dir() {
-            copy_dir_recursive(src, dst)?;
-            std::fs::remove_dir_all(src)
-        } else {
-            std::fs::copy(src, dst)?;
-            std::fs::remove_file(src)
+async fn move_file(src: &Path, dst: &Path) -> Result<(), std::io::Error> {
+    match tokio::fs::rename(src, dst).await {
+        Ok(()) => Ok(()),
+        Err(_) => {
+            if src.is_dir() {
+                copy_dir_recursive(src, dst).await?;
+                tokio::fs::remove_dir_all(src).await
+            } else {
+                tokio::fs::copy(src, dst).await?;
+                tokio::fs::remove_file(src).await
+            }
         }
-    })
+    }
 }
 
-/// Move directory recursively
-fn move_dir_recursive(src: &Path, dst: &Path) -> Result<(), std::io::Error> {
-    std::fs::rename(src, dst).or_else(|_| {
-        std::fs::create_dir_all(dst)?;
-        copy_dir_recursive(src, dst)?;
-        std::fs::remove_dir_all(src)
-    })
+async fn move_dir_recursive(src: &Path, dst: &Path) -> Result<(), std::io::Error> {
+    if tokio::fs::rename(src, dst).await.is_ok() {
+        return Ok(());
+    }
+    tokio::fs::create_dir_all(dst).await?;
+    copy_dir_recursive(src, dst).await?;
+    tokio::fs::remove_dir_all(src).await
 }
 
 #[cfg(test)]
@@ -287,7 +239,7 @@ mod tests {
     use super::*;
     use std::fs::File;
     use std::io::Write;
-    use std::path::{Path, PathBuf};
+    use std::path::PathBuf;
 
     fn create_test_dir() -> PathBuf {
         let temp_dir = std::env::temp_dir();
@@ -308,25 +260,21 @@ mod tests {
         let _ = std::fs::remove_dir_all(path);
     }
 
-    #[test]
-    fn test_is_dir_having_file() {
-        // Create a temp directory with a file
+    #[tokio::test]
+    async fn test_is_dir_having_file() {
         let dir = create_test_dir();
         let file_path = dir.join("test.txt");
         let mut file = File::create(&file_path).unwrap();
         file.write_all(b"test content").unwrap();
         drop(file);
 
-        assert!(is_dir_having_file(&dir));
+        assert!(is_dir_having_file(&dir).await);
 
-        // Test with non-existent path
-        assert!(!is_dir_having_file(&PathBuf::from("/nonexistent")));
+        assert!(!is_dir_having_file(&PathBuf::from("/nonexistent")).await);
 
-        // Test with empty directory
         let empty_dir = create_test_dir();
-        assert!(!is_dir_having_file(&empty_dir));
+        assert!(!is_dir_having_file(&empty_dir).await);
 
-        // Cleanup
         cleanup_test_dir(&dir);
         cleanup_test_dir(&empty_dir);
     }

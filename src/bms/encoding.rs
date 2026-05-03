@@ -3,15 +3,7 @@
 //! This module provides multi-encoding detection for BMS files,
 //! supporting Shift-JIS, GBK, UTF-8, and other encodings.
 
-#![allow(
-    clippy::missing_errors_doc,
-    clippy::missing_panics_doc,
-    clippy::items_after_statements
-)]
-
-use std::path::Path;
 use std::sync::{LazyLock, RwLock};
-use tokio::fs;
 
 /// Encoding priority order (from Python ENCODINGS)
 pub static ENCODINGS: LazyLock<RwLock<Vec<&'static str>>> = LazyLock::new(|| {
@@ -118,31 +110,6 @@ impl PriorityDecoder {
     }
 }
 
-/// Read file with encoding priority decoding - 异步版本
-#[expect(dead_code)]
-pub(crate) async fn read_file_with_priority<P: AsRef<Path>>(
-    file_path: P,
-    encoding_priority: &[&str],
-    errors: &str,
-) -> Result<Option<String>, std::io::Error> {
-    match fs::read(file_path.as_ref()).await {
-        Ok(byte_data) => {
-            let decoder = PriorityDecoder::new(encoding_priority);
-            match decoder.decode(&byte_data, errors) {
-                Ok(s) => Ok(Some(s)),
-                Err(e) => {
-                    println!("Error: {e}");
-                    Ok(None)
-                }
-            }
-        }
-        Err(e) => {
-            println!("Error: {e}");
-            Ok(None)
-        }
-    }
-}
-
 /// Get BMS file string with optional forced encoding
 #[must_use]
 #[allow(clippy::similar_names)]
@@ -172,16 +139,6 @@ pub fn get_bms_file_str(file_bytes: &[u8], encoding: Option<&str>) -> String {
             s
         }
     }
-}
-
-/// Read BMS file auto-detecting encoding - 异步版本
-#[allow(dead_code)]
-pub async fn read_bms_file<P: AsRef<Path>>(path: P) -> Result<String, std::io::Error> {
-    let path = path.as_ref();
-    let bytes = fs::read(path).await?;
-
-    let content = get_bms_file_str(&bytes, None);
-    Ok(content)
 }
 
 #[cfg(test)]

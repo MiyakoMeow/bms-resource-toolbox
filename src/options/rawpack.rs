@@ -17,7 +17,7 @@ use crate::fs::utils::copy_dir_recursive;
 /// # Errors
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
-pub fn unzip_with_name_to_bms_folder(
+pub async fn unzip_with_name_to_bms_folder(
     pack_dir: &Path,
     cache_dir: &Path,
     root_dir: &Path,
@@ -25,8 +25,8 @@ pub fn unzip_with_name_to_bms_folder(
 ) -> Result<(), std::io::Error> {
     println!("Unzip with name to BMS folder: {pack_dir:?} -> {root_dir:?}");
 
-    create_directories(cache_dir, root_dir)?;
-    let archive_names = get_archive_files(pack_dir);
+    create_directories(cache_dir, root_dir).await?;
+    let archive_names = get_archive_files(pack_dir).await;
 
     if archive_names.is_empty() {
         println!("No archive files found in {pack_dir:?}");
@@ -40,27 +40,27 @@ pub fn unzip_with_name_to_bms_folder(
     }
 
     for file_name in &archive_names {
-        process_single_archive(pack_dir, cache_dir, root_dir, file_name)?;
+        process_single_archive(pack_dir, cache_dir, root_dir, file_name).await?;
     }
 
     Ok(())
 }
 
-fn create_directories(cache_dir: &Path, root_dir: &Path) -> Result<(), std::io::Error> {
+async fn create_directories(cache_dir: &Path, root_dir: &Path) -> Result<(), std::io::Error> {
     if !cache_dir.is_dir() {
-        std::fs::create_dir_all(cache_dir)?;
+        tokio::fs::create_dir_all(cache_dir).await?;
     }
     if !root_dir.is_dir() {
-        std::fs::create_dir_all(root_dir)?;
+        tokio::fs::create_dir_all(root_dir).await?;
     }
     Ok(())
 }
 
-fn get_archive_files(pack_dir: &Path) -> Vec<String> {
+async fn get_archive_files(pack_dir: &Path) -> Vec<String> {
     let mut archive_names = Vec::new();
 
-    if let Ok(entries) = std::fs::read_dir(pack_dir) {
-        for entry in entries.flatten() {
+    if let Ok(mut read_dir) = tokio::fs::read_dir(pack_dir).await {
+        while let Ok(Some(entry)) = read_dir.next_entry().await {
             let path = entry.path();
             if !path.is_file() {
                 continue;
@@ -97,7 +97,7 @@ fn confirm_archive_processing(archive_names: &[String]) -> Result<(), std::io::E
     Ok(())
 }
 
-fn process_single_archive(
+async fn process_single_archive(
     pack_dir: &Path,
     cache_dir: &Path,
     root_dir: &Path,
@@ -113,77 +113,87 @@ fn process_single_archive(
         .to_string();
 
     let cache_dir_path = cache_dir.join(&file_stem);
-    prepare_cache_directory(&cache_dir_path)?;
+    prepare_cache_directory(&cache_dir_path).await?;
 
     let rt = tokio::runtime::Runtime::new()?;
     rt.block_on(extract_archive(&file_path, &cache_dir_path))?;
 
-    if !move_out_files_in_folder_in_cache_dir(&cache_dir_path) {
+    if !move_out_files_in_folder_in_cache_dir(&cache_dir_path).await {
         println!("Failed to process cache dir: {cache_dir_path:?}");
         return Ok(());
     }
 
     let target_dir_path = root_dir.join(&file_stem);
-    move_cache_to_bms_dir(&cache_dir_path, &target_dir_path)?;
-    let _ = std::fs::remove_dir(&cache_dir_path);
-    // Intentionally ignored: directory may not be empty
-    move_original_to_bofttpacks(&file_path, pack_dir, file_name);
+    move_cache_to_bms_dir(&cache_dir_path, &target_dir_path).await?;
+    let _ = tokio::fs::remove_dir(&cache_dir_path).await;
+    move_original_to_bofttpacks(&file_path, pack_dir, file_name).await;
 
     println!("Finished processing: {file_name}");
     Ok(())
 }
 
-fn prepare_cache_directory(cache_dir_path: &Path) -> Result<(), std::io::Error> {
+async fn prepare_cache_directory(cache_dir_path: &Path) -> Result<(), std::io::Error> {
     if cache_dir_path.is_dir() {
-        let has_files = std::fs::read_dir(cache_dir_path)
-            .is_ok_and(|mut e| e.any(|r| r.is_ok_and(|e| e.path().is_file())));
+        let has_files = {
+            let mut read_dir = tokio::fs::read_dir(cache_dir_path).await?;
+            loop {
+                match read_dir.next_entry().await {
+                    Ok(Some(entry)) => {
+                        if entry.path().is_file() {
+                            break true;
+                        }
+                    }
+                    Ok(None) | Err(_) => break false,
+                }
+            }
+        };
         if has_files {
             println!("Removing existing cache dir: {cache_dir_path:?}");
-            std::fs::remove_dir_all(cache_dir_path)?;
+            tokio::fs::remove_dir_all(cache_dir_path).await?;
         }
     }
-    std::fs::create_dir_all(cache_dir_path)?;
+    tokio::fs::create_dir_all(cache_dir_path).await?;
     Ok(())
 }
 
-fn move_cache_to_bms_dir(
+async fn move_cache_to_bms_dir(
     cache_dir_path: &Path,
     target_dir_path: &Path,
 ) -> Result<(), std::io::Error> {
     println!("Moving files from {cache_dir_path:?} to {target_dir_path:?}");
 
-    let entries: Vec<_> = std::fs::read_dir(cache_dir_path)?
-        .filter_map(std::result::Result::ok)
-        .collect();
+    let mut read_dir = tokio::fs::read_dir(cache_dir_path).await?;
+    let mut entries = Vec::new();
+    while let Some(entry) = read_dir.next_entry().await? {
+        entries.push(entry);
+    }
 
-    std::fs::create_dir_all(target_dir_path)?;
+    tokio::fs::create_dir_all(target_dir_path).await?;
 
     for entry in entries {
         let src_path = entry.path();
         let dst_path = target_dir_path.join(src_path.file_name().unwrap_or_default());
-        std::fs::rename(&src_path, &dst_path).or_else(|_| {
+        if tokio::fs::rename(&src_path, &dst_path).await.is_err() {
             if src_path.is_dir() {
-                copy_dir_recursive(&src_path, &dst_path)?;
-                std::fs::remove_dir_all(&src_path)
+                copy_dir_recursive(&src_path, &dst_path).await?;
+                tokio::fs::remove_dir_all(&src_path).await?;
             } else {
-                std::fs::copy(&src_path, &dst_path)?;
-                std::fs::remove_file(&src_path)
+                tokio::fs::copy(&src_path, &dst_path).await?;
+                tokio::fs::remove_file(&src_path).await?;
             }
-        })?;
+        }
     }
 
     Ok(())
 }
 
-fn move_original_to_bofttpacks(file_path: &Path, pack_dir: &Path, file_name: &str) {
+async fn move_original_to_bofttpacks(file_path: &Path, pack_dir: &Path, file_name: &str) {
     let used_pack_dir = pack_dir.join("BOFTTPacks");
     if !used_pack_dir.is_dir() {
-        // Intentionally ignored: directory may already exist
-        let _ = std::fs::create_dir_all(&used_pack_dir);
+        let _ = tokio::fs::create_dir_all(&used_pack_dir).await;
     }
     let target_file_path = used_pack_dir.join(file_name);
-    // Intentionally ignored: cross-device rename may fail, best-effort move
-    let _ = std::fs::rename(file_path, &target_file_path);
+    let _ = tokio::fs::rename(file_path, &target_file_path).await;
 }
 
 /// Extract numeric-prefixed archives to BMS folder structure
@@ -199,7 +209,7 @@ fn move_original_to_bofttpacks(file_path: &Path, pack_dir: &Path, file_name: &st
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
 #[allow(clippy::too_many_lines)]
-pub fn unzip_numeric_to_bms_folder(
+pub async fn unzip_numeric_to_bms_folder(
     pack_dir: &Path,
     cache_dir: &Path,
     root_dir: &Path,
@@ -209,14 +219,14 @@ pub fn unzip_numeric_to_bms_folder(
 
     // Create directories
     if !cache_dir.is_dir() {
-        std::fs::create_dir_all(cache_dir)?;
+        tokio::fs::create_dir_all(cache_dir).await?;
     }
     if !root_dir.is_dir() {
-        std::fs::create_dir_all(root_dir)?;
+        tokio::fs::create_dir_all(root_dir).await?;
     }
 
     // Get numbered file names
-    let num_set_file_names = get_num_set_file_names(pack_dir);
+    let num_set_file_names = get_num_set_file_names(pack_dir).await;
     println!("Found {} numbered pack files", num_set_file_names.len());
 
     if confirm {
@@ -248,11 +258,11 @@ pub fn unzip_numeric_to_bms_folder(
         // Prepare cache directory
         let cache_dir_path = cache_dir.join(id_str);
 
-        if cache_dir_path.is_dir() && is_dir_having_file(&cache_dir_path) {
-            std::fs::remove_dir_all(&cache_dir_path)?;
+        if cache_dir_path.is_dir() && is_dir_having_file(&cache_dir_path).await {
+            tokio::fs::remove_dir_all(&cache_dir_path).await?;
         }
         if !cache_dir_path.is_dir() {
-            std::fs::create_dir_all(&cache_dir_path)?;
+            tokio::fs::create_dir_all(&cache_dir_path).await?;
         }
 
         // Extract archive
@@ -261,17 +271,16 @@ pub fn unzip_numeric_to_bms_folder(
         rt.block_on(extract_archive(&file_path, &cache_dir_path))?;
 
         // Move files out of nested folders
-        if !move_out_files_in_folder_in_cache_dir(&cache_dir_path) {
+        if !move_out_files_in_folder_in_cache_dir(&cache_dir_path).await {
             println!("Failed to process cache dir: {cache_dir_path:?}");
             continue;
         }
 
         // Find existing target directory in root_dir with exact numeric match
-        // Avoid matching "1" to "10", "11", etc.
         let mut target_dir_path: Option<PathBuf> = None;
 
-        if let Ok(entries) = std::fs::read_dir(root_dir) {
-            for entry in entries.flatten() {
+        if let Ok(mut read_dir) = tokio::fs::read_dir(root_dir).await {
+            while let Some(entry) = read_dir.next_entry().await? {
                 let dir_path = entry.path();
                 if !dir_path.is_dir() {
                     continue;
@@ -303,39 +312,40 @@ pub fn unzip_numeric_to_bms_folder(
         println!("Moving files from {cache_dir_path:?} to {target_dir_path:?}");
 
         // Get entries in cache dir
-        let entries: Vec<_> = std::fs::read_dir(&cache_dir_path)?
-            .filter_map(std::result::Result::ok)
-            .collect();
-
-        // Create target directory
-        std::fs::create_dir_all(&target_dir_path)?;
-
-        // Move each entry
-        for entry in entries {
-            let src_path = entry.path();
-            let dst_path = target_dir_path.join(src_path.file_name().unwrap_or_default());
-            std::fs::rename(&src_path, &dst_path).or_else(|_| {
-                if src_path.is_dir() {
-                    copy_dir_recursive(&src_path, &dst_path)?;
-                    std::fs::remove_dir_all(&src_path)
-                } else {
-                    std::fs::copy(&src_path, &dst_path)?;
-                    std::fs::remove_file(&src_path)
-                }
-            })?;
+        let mut cache_read_dir = tokio::fs::read_dir(&cache_dir_path).await?;
+        let mut cache_entries = Vec::new();
+        while let Some(entry) = cache_read_dir.next_entry().await? {
+            cache_entries.push(entry);
         }
 
-        // Intentionally ignored: directory may not be empty
-        let _ = std::fs::remove_dir(&cache_dir_path);
+        // Create target directory
+        tokio::fs::create_dir_all(&target_dir_path).await?;
+
+        // Move each entry
+        for entry in cache_entries {
+            let src_path = entry.path();
+            let dst_path = target_dir_path.join(src_path.file_name().unwrap_or_default());
+            if tokio::fs::rename(&src_path, &dst_path).await.is_err() {
+                if src_path.is_dir() {
+                    copy_dir_recursive(&src_path, &dst_path).await?;
+                    tokio::fs::remove_dir_all(&src_path).await?;
+                } else {
+                    tokio::fs::copy(&src_path, &dst_path).await?;
+                    tokio::fs::remove_file(&src_path).await?;
+                }
+            }
+        }
+
+        let _ = tokio::fs::remove_dir(&cache_dir_path).await;
 
         // Move original file to BOFTTPacks subdirectory
         println!("Finished processing: {file_name}");
         let used_pack_dir = pack_dir.join("BOFTTPacks");
         if !used_pack_dir.is_dir() {
-            std::fs::create_dir_all(&used_pack_dir)?;
+            tokio::fs::create_dir_all(&used_pack_dir).await?;
         }
         let target_file_path = used_pack_dir.join(file_name);
-        std::fs::rename(&file_path, &target_file_path).ok();
+        tokio::fs::rename(&file_path, &target_file_path).await.ok();
     }
 
     Ok(())
@@ -350,7 +360,7 @@ pub fn unzip_numeric_to_bms_folder(
 /// # Panics
 ///
 /// Panics if stdout flush or stdin read fails.
-pub fn set_file_num(dir: &Path) -> Result<(), std::io::Error> {
+pub async fn set_file_num(dir: &Path) -> Result<(), std::io::Error> {
     use std::io::{self, Write};
     const ALLOWED_EXTS: &[&str] = &["zip", "7z", "rar", "mp4", "bms", "bme", "bml", "pms"];
 
@@ -360,8 +370,8 @@ pub fn set_file_num(dir: &Path) -> Result<(), std::io::Error> {
         // Get files to number
         let mut file_names: Vec<String> = Vec::new();
 
-        if let Ok(entries) = std::fs::read_dir(dir) {
-            for entry in entries.flatten() {
+        if let Ok(mut read_dir) = tokio::fs::read_dir(dir).await {
+            while let Some(entry) = read_dir.next_entry().await? {
                 let path = entry.path();
                 if !path.is_file() {
                     continue;
@@ -378,14 +388,17 @@ pub fn set_file_num(dir: &Path) -> Result<(), std::io::Error> {
                     continue;
                 }
 
-                // Skip if companion .part file exists (e.g., foo.zip has foo.zip.part)
+                // Skip if companion .part file exists
                 let part_file_path = path.with_file_name(format!("{name}.part"));
                 if part_file_path.is_file() {
                     continue;
                 }
 
                 // Skip empty files
-                if path.metadata().map_or(true, |m| m.len() == 0) {
+                if tokio::fs::metadata(&path)
+                    .await
+                    .map_or(true, |m| m.len() == 0)
+                {
                     continue;
                 }
 
@@ -455,7 +468,7 @@ pub fn set_file_num(dir: &Path) -> Result<(), std::io::Error> {
         let new_file_path = dir.join(&new_file_name);
 
         println!("Rename {file_name} to {new_file_name}");
-        std::fs::rename(&file_path, &new_file_path)?;
+        tokio::fs::rename(&file_path, &new_file_path).await?;
 
         // Ask if continue
         print!("继续处理其他文件? [y/N]: ");

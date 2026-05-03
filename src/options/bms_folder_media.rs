@@ -10,8 +10,7 @@ use crate::media::audio::{
     AUDIO_PRESET_WAV_FROM_FLAC, AudioPreset,
 };
 use crate::media::video::{
-    VIDEO_PRESET_AVI_480P, VIDEO_PRESET_AVI_512X512, VIDEO_PRESET_MPEG1VIDEO_480P,
-    VIDEO_PRESET_MPEG1VIDEO_512X512, VIDEO_PRESET_WMV2_480P, VIDEO_PRESET_WMV2_512X512,
+    VIDEO_PRESET_AVI_512X512, VIDEO_PRESET_MPEG1VIDEO_512X512, VIDEO_PRESET_WMV2_512X512,
     VideoPreset, transfer_video_by_format_in_dir,
 };
 use crate::media::{TransferOptions, transfer_audio_by_format_in_dir};
@@ -85,11 +84,8 @@ pub async fn transfer_audio(root_dir: &Path) -> Result<(), std::io::Error> {
     let combined_presets: Vec<AudioPreset> = presets.clone();
 
     // Process each work directory
-    let entries: Vec<_> = std::fs::read_dir(root_dir)?
-        .filter_map(std::result::Result::ok)
-        .collect();
-
-    for entry in entries {
+    let mut read_dir = tokio::fs::read_dir(root_dir).await?;
+    while let Some(entry) = read_dir.next_entry().await? {
         let bms_dir = entry.path();
         if !bms_dir.is_dir() {
             continue;
@@ -99,8 +95,6 @@ pub async fn transfer_audio(root_dir: &Path) -> Result<(), std::io::Error> {
 
         println!("Processing: {bms_dir_name}");
 
-        // Ignore per-file errors to always process all files in directory,
-        // matching Python's transfer_audio_by_format_in_dir behavior.
         let _ = transfer_audio_by_format_in_dir(
             &bms_dir,
             &combined_exts,
@@ -135,18 +129,12 @@ pub async fn transfer_video(root_dir: &Path) -> Result<(), std::io::Error> {
     println!("Video Transfer for: {root_dir:?}");
 
     // Video presets: (name, preset)
-    let presets: [(&str, VideoPreset); 6] = [
+    let presets: [(&str, VideoPreset); 3] = [
         ("MP4 -> AVI 512x512", VIDEO_PRESET_AVI_512X512.clone()),
         ("MP4 -> WMV2 512x512", VIDEO_PRESET_WMV2_512X512.clone()),
         (
             "MP4 -> MPEG1VIDEO 512x512",
             VIDEO_PRESET_MPEG1VIDEO_512X512.clone(),
-        ),
-        ("MP4 -> AVI 480p", VIDEO_PRESET_AVI_480P.clone()),
-        ("MP4 -> WMV2 480p", VIDEO_PRESET_WMV2_480P.clone()),
-        (
-            "MP4 -> MPEG1VIDEO 480p",
-            VIDEO_PRESET_MPEG1VIDEO_480P.clone(),
         ),
     ];
 
@@ -174,11 +162,8 @@ pub async fn transfer_video(root_dir: &Path) -> Result<(), std::io::Error> {
     let preset = presets[idx].1.clone();
 
     // Process each work directory
-    let entries: Vec<_> = std::fs::read_dir(root_dir)?
-        .filter_map(std::result::Result::ok)
-        .collect();
-
-    for entry in entries {
+    let mut read_dir = tokio::fs::read_dir(root_dir).await?;
+    while let Some(entry) = read_dir.next_entry().await? {
         let bms_dir = entry.path();
         if !bms_dir.is_dir() {
             continue;

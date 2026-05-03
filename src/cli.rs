@@ -237,61 +237,79 @@ pub fn dispatch(cmd: &Commands) {
             }
         }
         Commands::CopyNumberedWorkdirNames { from, to } => {
-            if let Err(e) = crate::options::bms_folder::copy_numbered_workdir_names(from, to) {
+            if let Err(e) = Handle::current().block_on(
+                crate::options::bms_folder::copy_numbered_workdir_names(from, to),
+            ) {
                 eprintln!("{e}");
             }
         }
         Commands::ScanFolderSimilarFolders { path } => {
-            if let Err(e) = crate::options::bms_folder::scan_folder_similar_folders(path, 0.7) {
+            if let Err(e) = Handle::current().block_on(
+                crate::options::bms_folder::scan_folder_similar_folders(path, 0.7),
+            ) {
                 eprintln!("{e}");
             }
         }
         Commands::UndoSetName { path } => {
-            if let Err(e) = crate::options::bms_folder::undo_set_name(path) {
+            if let Err(e) =
+                Handle::current().block_on(crate::options::bms_folder::undo_set_name(path))
+            {
                 eprintln!("{e}");
             }
         }
         Commands::RemoveZeroSizedMediaFiles { path } => {
-            if let Err(e) = crate::options::bms_folder::remove_zero_sized_media_files(path, false) {
+            if let Err(e) = Handle::current().block_on(
+                crate::options::bms_folder::remove_zero_sized_media_files(path, false),
+            ) {
                 eprintln!("{e}");
             }
         }
         Commands::SplitFoldersWithFirstChar { path } => {
-            if let Err(e) = crate::options::bms_folder_bigpack::split_folders_with_first_char(path)
+            if let Err(e) = Handle::current()
+                .block_on(crate::options::bms_folder_bigpack::split_folders_with_first_char(path))
             {
                 eprintln!("{e}");
             }
         }
         Commands::UndoSplitPack { path } => {
-            if let Err(e) = crate::options::bms_folder_bigpack::undo_split_pack(path) {
+            if let Err(e) = Handle::current()
+                .block_on(crate::options::bms_folder_bigpack::undo_split_pack(path))
+            {
                 eprintln!("{e}");
             }
         }
         Commands::MoveWorksInPack { from, to } => {
-            if let Err(e) = crate::options::bms_folder_bigpack::move_works_in_pack(from, to) {
+            if let Err(e) = Handle::current().block_on(
+                crate::options::bms_folder_bigpack::move_works_in_pack(from, to),
+            ) {
                 eprintln!("{e}");
             }
         }
         Commands::MoveOutWorks { path } => {
-            if let Err(e) = crate::options::bms_folder_bigpack::move_out_works(path) {
+            if let Err(e) =
+                Handle::current().block_on(crate::options::bms_folder_bigpack::move_out_works(path))
+            {
                 eprintln!("{e}");
             }
         }
         Commands::MoveWorksWithSameName { from, to } => {
-            if let Err(e) = crate::options::bms_folder_bigpack::move_works_with_same_name(from, to)
+            if let Err(e) = Handle::current()
+                .block_on(crate::options::bms_folder_bigpack::move_works_with_same_name(from, to))
             {
                 eprintln!("{e}");
             }
         }
         Commands::MoveWorksWithSameNameToSiblings { path } => {
-            if let Err(e) =
-                crate::options::bms_folder_bigpack::move_works_with_same_name_to_siblings(path)
-            {
+            if let Err(e) = Handle::current().block_on(
+                crate::options::bms_folder_bigpack::move_works_with_same_name_to_siblings(path),
+            ) {
                 eprintln!("{e}");
             }
         }
         Commands::MergeSplitFolders { path } => {
-            if let Err(e) = crate::options::bms_folder_bigpack::merge_split_folders(path) {
+            if let Err(e) = Handle::current().block_on(
+                crate::options::bms_folder_bigpack::merge_split_folders(path),
+            ) {
                 eprintln!("{e}");
             }
         }
@@ -299,7 +317,9 @@ pub fn dispatch(cmd: &Commands) {
             crate::options::bms_folder_event::check_num_folder(path, *count);
         }
         Commands::CreateNumFolders { path, count } => {
-            if let Err(e) = crate::options::bms_folder_event::create_num_folders(path, *count) {
+            if let Err(e) = Handle::current().block_on(
+                crate::options::bms_folder_event::create_num_folders(path, *count),
+            ) {
                 eprintln!("{e}");
             }
         }
@@ -325,21 +345,22 @@ pub fn dispatch(cmd: &Commands) {
             }
         }
         Commands::UnzipNumericToBmsFolder { pack, cache, root } => {
-            if let Err(e) =
-                crate::options::rawpack::unzip_numeric_to_bms_folder(pack, cache, root, false)
-            {
+            if let Err(e) = Handle::current().block_on(
+                crate::options::rawpack::unzip_numeric_to_bms_folder(pack, cache, root, false),
+            ) {
                 eprintln!("{e}");
             }
         }
         Commands::UnzipWithNameToBmsFolder { pack, cache, root } => {
-            if let Err(e) =
-                crate::options::rawpack::unzip_with_name_to_bms_folder(pack, cache, root, false)
-            {
+            if let Err(e) = Handle::current().block_on(
+                crate::options::rawpack::unzip_with_name_to_bms_folder(pack, cache, root, false),
+            ) {
                 eprintln!("{e}");
             }
         }
         Commands::SetFileNum { path } => {
-            if let Err(e) = crate::options::rawpack::set_file_num(path) {
+            if let Err(e) = Handle::current().block_on(crate::options::rawpack::set_file_num(path))
+            {
                 eprintln!("{e}");
             }
         }

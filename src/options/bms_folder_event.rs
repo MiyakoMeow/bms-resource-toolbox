@@ -8,10 +8,6 @@ use crate::bms::dir::get_dir_bms_info;
 use rust_xlsxwriter::Workbook;
 
 /// Check if numbered folders exist in a BMS event directory
-///
-/// # Errors
-///
-/// Returns [`std::io::Error`] if directory operations fail.
 pub fn check_num_folder(bms_dir: &Path, max_count: i32) {
     for i in 1..=max_count {
         let folder_path = bms_dir.join(format!("{i}"));
@@ -27,23 +23,27 @@ pub fn check_num_folder(bms_dir: &Path, max_count: i32) {
 /// # Errors
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
-pub fn create_num_folders(root_dir: &Path, folder_count: i32) -> Result<(), std::io::Error> {
+pub async fn create_num_folders(root_dir: &Path, folder_count: i32) -> Result<(), std::io::Error> {
     println!("Creating {folder_count} numbered folders in {root_dir:?}");
 
     // Get existing elements to check for conflicts
-    let existing_elements: Vec<String> = std::fs::read_dir(root_dir)?
-        .filter_map(std::result::Result::ok)
-        .filter(|entry| entry.path().is_dir())
-        .filter_map(|entry| entry.file_name().into_string().ok())
-        .collect();
+    let mut existing_elements: Vec<String> = Vec::new();
+    if let Ok(mut read_dir) = tokio::fs::read_dir(root_dir).await {
+        while let Some(entry) = read_dir.next_entry().await? {
+            if !entry.path().is_dir() {
+                continue;
+            }
+            if let Ok(name) = entry.file_name().into_string() {
+                existing_elements.push(name);
+            }
+        }
+    }
 
     for i in 1..=folder_count {
         let folder_name = format!("{i}");
         let folder_path = root_dir.join(&folder_name);
 
         // Check if folder exists or conflicts with similar names
-        // Python logic: exact match OR starts with "{id}." OR starts with "{id} "
-        // This prevents "1" from matching "10" while catching "1.txt" or "1 backup"
         let id_exists = existing_elements.iter().any(|element_name| {
             element_name == &folder_name
                 || element_name.starts_with(&format!("{folder_name}."))
@@ -55,7 +55,7 @@ pub fn create_num_folders(root_dir: &Path, folder_count: i32) -> Result<(), std:
             continue;
         }
 
-        std::fs::create_dir_all(&folder_path)?;
+        tokio::fs::create_dir_all(&folder_path).await?;
         println!("  Created folder {i}");
     }
 
@@ -80,11 +80,8 @@ pub async fn generate_work_info_table(root_dir: &Path) -> anyhow::Result<()> {
     let worksheet = workbook.add_worksheet();
     worksheet.set_name("BMS List")?;
 
-    let entries: Vec<_> = std::fs::read_dir(root_dir)?
-        .filter_map(std::result::Result::ok)
-        .collect();
-
-    for entry in entries {
+    let mut read_dir = tokio::fs::read_dir(root_dir).await?;
+    while let Some(entry) = read_dir.next_entry().await? {
         let work_path = entry.path();
         if !work_path.is_dir() {
             continue;

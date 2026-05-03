@@ -162,7 +162,7 @@ pub async fn transfer_audio_by_format_in_dir(
         let presets_vec = presets.to_vec();
 
         if output.is_file()
-            && let Ok(metadata) = std::fs::metadata(&output)
+            && let Ok(metadata) = tokio::fs::metadata(&output).await
             && metadata.len() > 0
             && !options.remove_existing_target_file
         {
@@ -291,7 +291,7 @@ pub async fn transfer_audio_by_format_in_dir(
                 let presets_vec = presets.to_vec();
 
                 if output.is_file()
-                    && let Ok(metadata) = std::fs::metadata(&output)
+                    && let Ok(metadata) = tokio::fs::metadata(&output).await
                     && metadata.len() > 0
                     && !options.remove_existing_target_file
                 {

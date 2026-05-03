@@ -2,7 +2,7 @@
 //!
 //! This module provides functions for renaming and managing BMS work directories.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::bms::types::MEDIA_FILE_EXTS;
 
@@ -20,10 +20,10 @@ pub async fn append_name_by_bms(root_dir: &Path) -> Result<(), std::io::Error> {
         return Ok(());
     }
 
-    let entries = std::fs::read_dir(root_dir)?;
     let mut to_rename: Vec<(PathBuf, PathBuf)> = Vec::new();
 
-    for entry in entries.flatten() {
+    let mut read_dir = tokio::fs::read_dir(root_dir).await?;
+    while let Some(entry) = read_dir.next_entry().await? {
         let dir_path = entry.path();
         if !dir_path.is_dir() {
             continue;
@@ -31,23 +31,20 @@ pub async fn append_name_by_bms(root_dir: &Path) -> Result<(), std::io::Error> {
 
         let dir_name = dir_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
-        // Skip if already renamed (has content after the number)
         if !dir_name.trim().is_empty()
             && dir_name
                 .chars()
                 .all(|c| c.is_ascii_digit() || ('\u{FF10}'..='\u{FF19}').contains(&c))
+            && let Some(new_name) = rename_folder_by_bms(&dir_path).await
         {
-            // This is a numeric-only folder, try to rename
-            if let Some(new_name) = rename_folder_by_bms(&dir_path).await {
-                let new_path = dir_path.with_file_name(&new_name);
-                to_rename.push((dir_path, new_path));
-            }
+            let new_path = dir_path.with_file_name(&new_name);
+            to_rename.push((dir_path, new_path));
         }
     }
 
     for (from, to) in to_rename {
         println!("Renaming {:?} -> {:?}", from.file_name(), to.file_name());
-        std::fs::rename(&from, &to)?;
+        tokio::fs::rename(&from, &to).await?;
     }
 
     Ok(())
@@ -63,7 +60,6 @@ async fn rename_folder_by_bms(work_dir: &Path) -> Option<String> {
 
     let dir_name = work_dir.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
-    // Check if it's a purely numeric folder
     if !dir_name.trim().is_empty()
         && !dir_name
             .chars()
@@ -97,7 +93,7 @@ async fn rename_folder_by_bms(work_dir: &Path) -> Option<String> {
 /// # Errors
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
-pub fn copy_numbered_workdir_names(
+pub async fn copy_numbered_workdir_names(
     root_dir_from: &Path,
     root_dir_to: &Path,
 ) -> Result<(), std::io::Error> {
@@ -105,15 +101,22 @@ pub fn copy_numbered_workdir_names(
         return Ok(());
     }
 
-    // Get source directory names
-    let src_names: Vec<(String, PathBuf)> = std::fs::read_dir(root_dir_from)?
-        .filter_map(std::result::Result::ok)
-        .filter(|e| e.path().is_dir())
-        .filter_map(|e| e.file_name().to_str().map(|n| (n.to_string(), e.path())))
-        .collect();
+    let mut src_names: Vec<(String, PathBuf)> = Vec::new();
+    if let Ok(mut read_dir) = tokio::fs::read_dir(root_dir_from).await {
+        while let Some(entry) = read_dir.next_entry().await? {
+            let path = entry.path();
+            if !path.is_dir() {
+                continue;
+            }
+            let Some(name) = entry.file_name().to_str().map(String::from) else {
+                continue;
+            };
+            src_names.push((name, path));
+        }
+    }
 
-    // Iterate destination directories
-    for entry in std::fs::read_dir(root_dir_to)?.flatten() {
+    let mut dst_read_dir = tokio::fs::read_dir(root_dir_to).await?;
+    while let Some(entry) = dst_read_dir.next_entry().await? {
         let dst_path = entry.path();
         if !dst_path.is_dir() {
             continue;
@@ -121,7 +124,6 @@ pub fn copy_numbered_workdir_names(
 
         let dst_name = dst_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
-        // Extract numeric prefix
         let num_prefix = dst_name.split_whitespace().next().unwrap_or("");
         let numeric_part = num_prefix.split('.').next().unwrap_or("");
 
@@ -129,7 +131,6 @@ pub fn copy_numbered_workdir_names(
             continue;
         }
 
-        // Search for matching source folder
         for (src_name, _src_path) in &src_names {
             if src_name.starts_with(numeric_part) {
                 let target_path = dst_path.with_file_name(src_name);
@@ -139,7 +140,7 @@ pub fn copy_numbered_workdir_names(
                         dst_path.file_name(),
                         target_path.file_name()
                     );
-                    std::fs::rename(&dst_path, &target_path)?;
+                    tokio::fs::rename(&dst_path, &target_path).await?;
                 }
                 break;
             }
@@ -172,13 +173,9 @@ pub async fn append_artist_name_by_bms(root_dir: &Path) -> Result<(), std::io::E
         return Ok(());
     }
 
-    let entries: Vec<_> = std::fs::read_dir(root_dir)?
-        .filter_map(std::result::Result::ok)
-        .collect();
-
     let mut pairs: Vec<(PathBuf, PathBuf)> = Vec::new();
-
-    for entry in entries {
+    let mut read_dir = tokio::fs::read_dir(root_dir).await?;
+    while let Some(entry) = read_dir.next_entry().await? {
         let dir_path = entry.path();
         if !dir_path.is_dir() {
             continue;
@@ -186,7 +183,6 @@ pub async fn append_artist_name_by_bms(root_dir: &Path) -> Result<(), std::io::E
 
         let dir_name = dir_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
-        // Skip if already has artist suffix
         if dir_name.ends_with(']') {
             continue;
         }
@@ -218,7 +214,7 @@ pub async fn append_artist_name_by_bms(root_dir: &Path) -> Result<(), std::io::E
     }
 
     for (from, to) in pairs {
-        std::fs::rename(&from, &to)?;
+        tokio::fs::rename(&from, &to).await?;
     }
 
     Ok(())
@@ -240,11 +236,8 @@ pub async fn set_name_by_bms(root_dir: &Path) -> Result<(), std::io::Error> {
 
     let mut fail_list: Vec<String> = Vec::new();
 
-    let entries: Vec<_> = std::fs::read_dir(root_dir)?
-        .filter_map(std::result::Result::ok)
-        .collect();
-
-    for entry in entries {
+    let mut read_dir = tokio::fs::read_dir(root_dir).await?;
+    while let Some(entry) = read_dir.next_entry().await? {
         let dir_path = entry.path();
         if !dir_path.is_dir() {
             continue;
@@ -282,20 +275,21 @@ async fn set_single_folder_name_by_bms(work_dir: &Path) -> Result<bool, std::io:
 
     let mut info = get_dir_bms_info(work_dir).await;
 
-    // If no BMS info found, try to move out nested contents and retry
     while info.is_none() {
         println!(
             "{} has no bms/bmson files! Trying to move out.",
             work_dir.display()
         );
 
-        let elements: Vec<_> = std::fs::read_dir(work_dir)?
-            .filter_map(std::result::Result::ok)
-            .collect();
+        let mut elements: Vec<_> = Vec::new();
+        let mut read_dir = tokio::fs::read_dir(work_dir).await?;
+        while let Some(entry) = read_dir.next_entry().await? {
+            elements.push(entry);
+        }
 
         if elements.is_empty() {
             println!(" - Empty dir! Deleting...");
-            match std::fs::remove_dir(work_dir) {
+            match tokio::fs::remove_dir(work_dir).await {
                 Ok(()) => {}
                 Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
                     println!(" x PermissionError: {e}");
@@ -322,7 +316,8 @@ async fn set_single_folder_name_by_bms(work_dir: &Path) -> Result<bool, std::io:
             work_dir,
             MoveOptions::default(),
             &ReplaceOptions::default(),
-        )?;
+        )
+        .await?;
         info = get_dir_bms_info(work_dir).await;
     }
 
@@ -340,7 +335,6 @@ async fn set_single_folder_name_by_bms(work_dir: &Path) -> Result<bool, std::io:
         get_valid_fs_name(&info.artist)
     ));
 
-    // Same directory?
     if work_dir == new_dir_path {
         return Ok(true);
     }
@@ -353,12 +347,11 @@ async fn set_single_folder_name_by_bms(work_dir: &Path) -> Result<bool, std::io:
     );
 
     if !new_dir_path.is_dir() {
-        std::fs::rename(work_dir, &new_dir_path)?;
+        tokio::fs::rename(work_dir, &new_dir_path).await?;
         return Ok(true);
     }
 
-    // Directory already exists - check similarity
-    let similarity = bms_dir_similarity(work_dir, &new_dir_path);
+    let similarity = bms_dir_similarity(work_dir, &new_dir_path).await;
     println!(
         " - Directory {} exists! Similarity: {similarity}",
         new_dir_path.display()
@@ -375,7 +368,8 @@ async fn set_single_folder_name_by_bms(work_dir: &Path) -> Result<bool, std::io:
         &new_dir_path,
         MoveOptions::default(),
         &REPLACE_OPTION_UPDATE_PACK,
-    )?;
+    )
+    .await?;
     Ok(true)
 }
 
@@ -387,7 +381,7 @@ async fn set_single_folder_name_by_bms(work_dir: &Path) -> Result<bool, std::io:
 /// # Errors
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
-pub fn scan_folder_similar_folders(
+pub async fn scan_folder_similar_folders(
     root_dir: &Path,
     similarity_trigger: f64,
 ) -> Result<(), std::io::Error> {
@@ -395,11 +389,17 @@ pub fn scan_folder_similar_folders(
         return Ok(());
     }
 
-    let dir_names: Vec<String> = std::fs::read_dir(root_dir)?
-        .filter_map(std::result::Result::ok)
-        .filter(|e| e.path().is_dir())
-        .filter_map(|e| e.file_name().to_str().map(String::from))
-        .collect();
+    let mut dir_names: Vec<String> = Vec::new();
+    let mut read_dir = tokio::fs::read_dir(root_dir).await?;
+    while let Some(entry) = read_dir.next_entry().await? {
+        if !entry.path().is_dir() {
+            continue;
+        }
+        let Some(name) = entry.file_name().to_str().map(String::from) else {
+            continue;
+        };
+        dir_names.push(name);
+    }
 
     println!("当前目录下有{}个文件夹。", dir_names.len());
 
@@ -420,8 +420,6 @@ pub fn scan_folder_similar_folders(
     Ok(())
 }
 
-/// Calculate similarity ratio between two strings.
-/// Returns a value between 0.0 and 1.0.
 fn similar_ratio(a: &str, b: &str) -> f64 {
     sequence_matcher_ratio(a, b)
 }
@@ -482,16 +480,18 @@ fn find_longest_match(a: &[char], b: &[char]) -> usize {
 /// # Errors
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
-pub fn undo_set_name(root_dir: &Path) -> Result<(), std::io::Error> {
+pub async fn undo_set_name(root_dir: &Path) -> Result<(), std::io::Error> {
     if !root_dir.is_dir() {
         return Ok(());
     }
 
-    let entries: Vec<_> = std::fs::read_dir(root_dir)?
-        .filter_map(std::result::Result::ok)
-        .collect();
+    let mut dir_entries: Vec<tokio::fs::DirEntry> = Vec::new();
+    let mut read_dir = tokio::fs::read_dir(root_dir).await?;
+    while let Some(entry) = read_dir.next_entry().await? {
+        dir_entries.push(entry);
+    }
 
-    for entry in entries {
+    for entry in dir_entries {
         let dir_path = entry.path();
         if !dir_path.is_dir() {
             continue;
@@ -517,7 +517,7 @@ pub fn undo_set_name(root_dir: &Path) -> Result<(), std::io::Error> {
         }
 
         println!("Rename {dir_name} to {new_dir_name}");
-        std::fs::rename(&dir_path, &new_dir_path)?;
+        tokio::fs::rename(&dir_path, &new_dir_path).await?;
     }
 
     Ok(())
@@ -530,79 +530,79 @@ pub fn undo_set_name(root_dir: &Path) -> Result<(), std::io::Error> {
 /// # Errors
 ///
 /// Returns [`std::io::Error`] if directory operations fail.
-pub fn remove_zero_sized_media_files(
-    current_dir: &Path,
+pub async fn remove_zero_sized_media_files(
+    start_dir: &Path,
     print_dir: bool,
 ) -> Result<(), std::io::Error> {
-    if print_dir {
-        println!("Entering dir: {}", current_dir.display());
-    }
+    let mut dirs_to_process = vec![start_dir.to_path_buf()];
 
-    if !current_dir.is_dir() {
-        println!("Not a vaild dir! Aborting...");
-        return Ok(());
-    }
-
-    let mut next_dirs: Vec<PathBuf> = Vec::new();
-
-    let entries: Vec<_> = std::fs::read_dir(current_dir)?
-        .filter_map(std::result::Result::ok)
-        .collect();
-
-    for entry in &entries {
-        let element_path = entry.path();
-        let element_name = element_path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("");
-
-        if element_path.is_file() {
-            let is_temp_file = element_name.to_lowercase() == "desktop.ini"
-                || element_name.to_lowercase() == "thumbs.db"
-                || element_name.to_lowercase() == ".ds_store"
-                || element_name.starts_with(".trash-")
-                || element_name.starts_with("._");
-
-            if is_temp_file {
-                match std::fs::remove_file(&element_path) {
-                    Ok(()) => println!(" - Remove temp file: {}", element_path.display()),
-                    Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
-                        println!(" x PermissionError!");
-                    }
-                    Err(_) => {}
-                }
-                continue;
-            }
-
-            if !MEDIA_FILE_EXTS
-                .iter()
-                .any(|ext| element_name.ends_with(*ext))
-            {
-                continue;
-            }
-
-            match element_path.metadata() {
-                Ok(metadata) if metadata.len() == 0 => match std::fs::remove_file(&element_path) {
-                    Ok(()) => {
-                        println!(" - Remove empty file: {}", element_path.display());
-                    }
-                    Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
-                        println!(" x PermissionError!");
-                    }
-                    Err(_) => {}
-                },
-                _ => {}
-            }
-        } else if element_path.is_dir() {
-            next_dirs.push(element_path);
+    while let Some(current_dir) = dirs_to_process.pop() {
+        if print_dir {
+            println!("Entering dir: {}", current_dir.display());
         }
-    }
 
-    for next_dir in next_dirs {
-        remove_zero_sized_media_files(&next_dir, print_dir)?;
+        if !current_dir.is_dir() {
+            println!("Not a vaild dir! Aborting...");
+            continue;
+        }
+
+        let mut read_dir = tokio::fs::read_dir(&current_dir).await?;
+        let mut entries = Vec::new();
+        while let Some(entry) = read_dir.next_entry().await? {
+            entries.push(entry);
+        }
+
+        for entry in &entries {
+            let element_path = entry.path();
+            let element_name = element_path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("");
+
+            if element_path.is_file() {
+                let is_temp_file = element_name.to_lowercase() == "desktop.ini"
+                    || element_name.to_lowercase() == "thumbs.db"
+                    || element_name.to_lowercase() == ".ds_store"
+                    || element_name.starts_with(".trash-")
+                    || element_name.starts_with("._");
+
+                if is_temp_file {
+                    match tokio::fs::remove_file(&element_path).await {
+                        Ok(()) => println!(" - Remove temp file: {}", element_path.display()),
+                        Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+                            println!(" x PermissionError!");
+                        }
+                        Err(_) => {}
+                    }
+                    continue;
+                }
+
+                if !MEDIA_FILE_EXTS
+                    .iter()
+                    .any(|ext| element_name.ends_with(*ext))
+                {
+                    continue;
+                }
+
+                match tokio::fs::metadata(&element_path).await {
+                    Ok(metadata) if metadata.len() == 0 => {
+                        match tokio::fs::remove_file(&element_path).await {
+                            Ok(()) => {
+                                println!(" - Remove empty file: {}", element_path.display());
+                            }
+                            Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+                                println!(" x PermissionError!");
+                            }
+                            Err(_) => {}
+                        }
+                    }
+                    _ => {}
+                }
+            } else if element_path.is_dir() {
+                dirs_to_process.push(element_path);
+            }
+        }
     }
 
     Ok(())
 }
-
-use std::path::PathBuf;

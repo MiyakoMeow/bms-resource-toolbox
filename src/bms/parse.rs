@@ -1,10 +1,10 @@
-#![allow(clippy::cast_possible_truncation)]
 //! BMS file parsing.
 //!
 //! This module handles parsing of BMS and BMSON chart files
 //! and extracting metadata like title, artist, and difficulty.
 
 #![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
+#![allow(clippy::cast_possible_truncation)]
 
 use crate::bms::types::{BMSDifficulty, BMSInfo};
 use std::path::Path;
@@ -27,22 +27,6 @@ fn parse_fullwidth_number(s: &str) -> Option<f64> {
         })
         .collect();
     normalized.parse::<f64>().ok()
-}
-
-/// Parse a BMS file and extract metadata - 异步版本
-///
-/// `encoding` is an optional encoding override (e.g. "gbk" for BOFTT packs).
-/// When `None`, auto-detection is used via the priority encoding list.
-///
-/// # Errors
-#[allow(dead_code)]
-pub async fn parse_bms_file<P: AsRef<Path>>(
-    path: P,
-    encoding: Option<&str>,
-) -> Result<BMSInfo, std::io::Error> {
-    let bytes = tokio::fs::read(path.as_ref()).await?;
-    let content = crate::bms::encoding::get_bms_file_str(&bytes, encoding);
-    Ok(parse_bms_content(&content))
 }
 
 /// Parse BMS text content and extract metadata.
@@ -82,7 +66,8 @@ pub fn parse_bms_content(content: &str) -> BMSInfo {
                 && let Some(val) = parse_fullwidth_number(&value_str)
                 && (0.0..=5.0).contains(&val)
             {
-                difficulty = BMSDifficulty::from(val as i32);
+                let diff_val = val as i32;
+                difficulty = BMSDifficulty::from(diff_val);
             }
         } else if line.starts_with("#BMP") {
             let value_str = line.replace("#BMP", "").trim().to_string();

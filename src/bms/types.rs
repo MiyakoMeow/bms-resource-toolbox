@@ -94,18 +94,6 @@ impl BMSInfo {
     }
 }
 
-/// Audio file extensions - matches Python `AUDIO_FILE_EXTS`
-/// Reserved for API compatibility with Python version.
-#[allow(dead_code)]
-pub const AUDIO_FILE_EXTS: &[&str] = &[".flac", ".ogg", ".wav"];
-/// Video file extensions - matches Python `VIDEO_FILE_EXTS`
-/// Reserved for API compatibility with Python version.
-#[allow(dead_code)]
-pub const VIDEO_FILE_EXTS: &[&str] = &[".mp4", ".mkv", ".avi", ".wmv", ".mpg", ".mpeg"];
-/// Image file extensions - matches Python `IMAGE_FILE_EXTS`
-/// Reserved for API compatibility with Python version.
-#[allow(dead_code)]
-pub const IMAGE_FILE_EXTS: &[&str] = &[".jpg", ".png", ".bmp", ".svg"];
 /// All media file extensions (audio + video + image) - matches Python `MEDIA_FILE_EXTS`
 pub const MEDIA_FILE_EXTS: &[&str] = &[
     ".flac", ".ogg", ".wav", // audio
