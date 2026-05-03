@@ -11,9 +11,6 @@ use tokio::process::Command;
 /// Video conversion preset matching Python's `VideoPreset` field model.
 #[derive(Debug, Clone)]
 pub struct VideoPreset {
-    /// Name of the preset
-    #[allow(dead_code)]
-    pub name: String,
     /// Executable name (e.g. "ffmpeg")
     pub exec: String,
     /// Input argument (e.g. "`-hide_banner` -i")
@@ -32,7 +29,6 @@ impl VideoPreset {
     /// Create a new video preset.
     #[must_use]
     pub fn new(
-        name: &str,
         exec: &str,
         input_arg: &str,
         filter_arg: &str,
@@ -41,7 +37,6 @@ impl VideoPreset {
         arg: &str,
     ) -> Self {
         Self {
-            name: name.to_string(),
             exec: exec.to_string(),
             input_arg: input_arg.to_string(),
             filter_arg: filter_arg.to_string(),
@@ -96,7 +91,6 @@ pub const FLITER_512X512: &str = "-filter_complex \"[0:v]scale=512:512:force_ori
 #[must_use]
 pub fn video_preset_avi_512x512() -> VideoPreset {
     VideoPreset::new(
-        "AVI_512X512",
         "ffmpeg",
         "-hide_banner -i",
         FLITER_512X512,
@@ -110,7 +104,6 @@ pub fn video_preset_avi_512x512() -> VideoPreset {
 #[must_use]
 pub fn video_preset_mpeg1video_512x512() -> VideoPreset {
     VideoPreset::new(
-        "MPEG1VIDEO_512X512",
         "ffmpeg",
         "-hide_banner -i",
         FLITER_512X512,
@@ -124,7 +117,6 @@ pub fn video_preset_mpeg1video_512x512() -> VideoPreset {
 #[must_use]
 pub fn video_preset_wmv2_512x512() -> VideoPreset {
     VideoPreset::new(
-        "WMV2_512X512",
         "ffmpeg",
         "-hide_banner -i",
         FLITER_512X512,
@@ -320,7 +312,6 @@ mod tests {
     #[test]
     fn test_video_preset_avi() {
         let preset = VIDEO_PRESET_AVI_512X512.clone();
-        assert_eq!(preset.name, "AVI_512X512");
         assert_eq!(preset.output_file_ext, "avi");
         assert_eq!(preset.output_codec, "mpeg4");
     }

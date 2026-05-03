@@ -32,36 +32,6 @@ async fn execute_shell_command_with_stderr(
     Ok((success, stdout, stderr))
 }
 
-/// Convert audio file using preset.
-///
-/// # Errors
-///
-/// Returns an error if the conversion command fails or the executable is unknown.
-#[allow(dead_code)]
-pub async fn convert_audio(
-    input: &Path,
-    output: &Path,
-    preset: &AudioPreset,
-) -> Result<(), std::io::Error> {
-    let cmd_str = get_audio_process_cmd(input, output, preset);
-    if cmd_str.is_empty() {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            format!("Unknown exec: {}", preset.exec),
-        ));
-    }
-
-    info!("Running: {}", cmd_str);
-    let (success, _stdout, stderr) = execute_shell_command_with_stderr(&cmd_str).await?;
-    if success {
-        Ok(())
-    } else {
-        Err(std::io::Error::other(format!(
-            "Conversion failed: stderr={stderr}"
-        )))
-    }
-}
-
 /// Options for controlling audio transfer behavior.
 #[allow(clippy::struct_excessive_bools)]
 pub struct TransferOptions {

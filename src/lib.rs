@@ -14,7 +14,6 @@
 #![allow(clippy::unnecessary_debug_formatting)]
 
 pub mod bms;
-pub mod error;
 pub mod fs;
 pub mod media;
 pub mod options;

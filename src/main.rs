@@ -11,7 +11,6 @@ use clap::Parser;
 
 mod bms;
 mod cli;
-mod error;
 mod fs;
 mod media;
 mod options;

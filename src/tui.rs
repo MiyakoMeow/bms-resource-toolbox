@@ -211,45 +211,6 @@ fn build_menu() -> Vec<MenuItem> {
 // Interactive parameter input (inside TUI)
 // ---------------------------------------------------------------------------
 
-/// Prompt the user for a parameter inside the TUI.
-/// Returns the entered string, or `None` on Esc.
-#[expect(dead_code)]
-fn tui_input(
-    terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
-    prompt: &str,
-) -> Option<String> {
-    let mut buf = String::new();
-    loop {
-        terminal
-            .draw(|f| {
-                let area = f.area();
-                let block = Block::default()
-                    .borders(Borders::ALL)
-                    .title(format!(" {prompt} "));
-                let para = Paragraph::new(buf.as_str()).block(block);
-                f.render_widget(para, area);
-            })
-            .ok()?;
-
-        if event::poll(std::time::Duration::from_millis(50)).ok()?
-            && let Event::Key(key) = event::read().ok()?
-        {
-            if key.kind != KeyEventKind::Press {
-                continue;
-            }
-            match key.code {
-                KeyCode::Esc => return None,
-                KeyCode::Enter => return Some(buf.clone()),
-                KeyCode::Backspace => {
-                    buf.pop();
-                }
-                KeyCode::Char(c) => buf.push(c),
-                _ => {}
-            }
-        }
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Main TUI loop
 // ---------------------------------------------------------------------------

@@ -21,9 +21,6 @@ pub enum SoftSyncExec {
 #[derive(Debug, Clone)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct SoftSyncPreset {
-    /// Name of this preset (informational, not read internally).
-    #[allow(dead_code)]
-    pub name: String,
     /// File extensions (without dot) allowed for syncing.
     pub allow_src_exts: Vec<String>,
     /// File extensions (without dot) disallowed for syncing.
@@ -47,15 +44,14 @@ pub struct SoftSyncPreset {
 }
 
 impl SoftSyncPreset {
-    /// Create a new preset with the given name and sensible defaults.
+    /// Create a new preset with sensible defaults.
     ///
     /// Defaults: all extensions allowed, file size + mtime checking enabled,
     /// SHA-512 checking disabled, destination extra files removed,
     /// source same files not removed, execution mode is [`SoftSyncExec::Copy`].
     #[must_use]
-    pub fn new(name: &str) -> Self {
+    pub fn new() -> Self {
         Self {
-            name: name.to_string(),
             allow_src_exts: Vec::new(),
             disallow_src_exts: Vec::new(),
             allow_other_exts: true,
@@ -72,7 +68,7 @@ impl SoftSyncPreset {
 
 impl Default for SoftSyncPreset {
     fn default() -> Self {
-        Self::new("本地文件同步预设")
+        Self::new()
     }
 }
 
@@ -125,7 +121,6 @@ pub async fn get_file_sha512(file_path: &Path) -> String {
 /// Preset for "append" mode sync: checks size and SHA-512, skips mtime,
 /// removes source same files, preserves destination extra files, dry-run only.
 pub static SYNC_PRESET_FOR_APPEND: LazyLock<SoftSyncPreset> = LazyLock::new(|| SoftSyncPreset {
-    name: "同步预设（用于更新包）".to_string(),
     check_file_size: true,
     check_file_mtime: false,
     check_file_sha512: true,
@@ -345,7 +340,6 @@ mod tests {
     #[test]
     async fn test_sync_preset() {
         let preset = SoftSyncPreset::default();
-        assert_eq!(preset.name, "本地文件同步预设");
         assert!(preset.allow_other_exts);
         assert!(preset.check_file_size);
     }
