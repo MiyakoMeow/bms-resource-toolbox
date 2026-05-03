@@ -232,20 +232,21 @@ fn tui_input(
             .ok()?;
 
         if event::poll(std::time::Duration::from_millis(50)).ok()?
-            && let Event::Key(key) = event::read().ok()? {
-                if key.kind != KeyEventKind::Press {
-                    continue;
-                }
-                match key.code {
-                    KeyCode::Esc => return None,
-                    KeyCode::Enter => return Some(buf.clone()),
-                    KeyCode::Backspace => {
-                        buf.pop();
-                    }
-                    KeyCode::Char(c) => buf.push(c),
-                    _ => {}
-                }
+            && let Event::Key(key) = event::read().ok()?
+        {
+            if key.kind != KeyEventKind::Press {
+                continue;
             }
+            match key.code {
+                KeyCode::Esc => return None,
+                KeyCode::Enter => return Some(buf.clone()),
+                KeyCode::Backspace => {
+                    buf.pop();
+                }
+                KeyCode::Char(c) => buf.push(c),
+                _ => {}
+            }
+        }
     }
 }
 

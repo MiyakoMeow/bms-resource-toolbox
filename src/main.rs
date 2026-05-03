@@ -2,6 +2,9 @@
 //!
 //! Launches TUI by default, or dispatches CLI subcommands.
 
+// Pre-existing clippy lints — Debug formatting is intentional for logging paths.
+#![allow(clippy::unnecessary_debug_formatting)]
+
 use std::io::IsTerminal as _;
 
 use clap::Parser;

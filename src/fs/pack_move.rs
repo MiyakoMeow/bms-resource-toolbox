@@ -174,7 +174,7 @@ pub fn move_elements_across_dir(
     }
 
     for (src_path, dst_path) in next_folder_paths {
-        move_elements_across_dir(&src_path, &dst_path, options, &ReplaceOptions::default())?;
+        move_elements_across_dir(&src_path, &dst_path, options, replace_options)?;
     }
 
     let should_clean = replace_options.default != ReplaceAction::Skip || !is_dir_having_file(src);

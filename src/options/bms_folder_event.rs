@@ -101,9 +101,14 @@ pub async fn generate_work_info_table(root_dir: &Path) -> anyhow::Result<()> {
             println!("Warning: Skipping dir {work_name} - invalid id format: {id_str}");
             continue;
         }
-        let row: u32 = id_str.parse().unwrap_or(0);
+        let id_num: u32 = id_str.parse().unwrap_or(0);
+        if id_num == 0 {
+            continue;
+        }
+        // rust_xlsxwriter is 0-indexed, Python openpyxl is 1-indexed
+        let row = id_num - 1;
 
-        worksheet.write_number(row, 0, f64::from(row))?;
+        worksheet.write_number(row, 0, f64::from(id_num))?;
         worksheet.write_string(row, 1, &info.title)?;
         worksheet.write_string(row, 2, &info.artist)?;
         worksheet.write_string(row, 3, &info.genre)?;

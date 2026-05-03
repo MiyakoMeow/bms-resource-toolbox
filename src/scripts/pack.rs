@@ -200,62 +200,6 @@ pub(crate) fn pack_setup_rawpack_to_hq_check(
     Ok(())
 }
 
-/// Validate inputs for `pack_update_rawpack_to_hq`
-///
-/// This replicates Python's `_pack_update_rawpack_to_hq_check`:
-/// - Checks `pack_dir` exists
-/// - Prints numbered pack files
-/// - Checks `root_dir` does NOT exist
-/// - Checks `sync_dir` EXISTS
-///
-/// # Errors
-///
-/// Returns [`std::io::Error`] if directory operations fail.
-pub fn pack_update_rawpack_to_hq_check(
-    pack_dir: &Path,
-    root_dir: &Path,
-    sync_dir: &Path,
-) -> Result<(), std::io::Error> {
-    use crate::fs::rawpack::get_num_set_file_names;
-
-    println!(" - Input 1: Pack dir path");
-    if !pack_dir.is_dir() {
-        println!("Pack dir is not vaild dir.");
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::NotADirectory,
-            "Pack dir is not a valid directory",
-        ));
-    }
-
-    // Print packs
-    let file_names = get_num_set_file_names(pack_dir);
-    println!(" -- There are packs in pack_dir:");
-    for file_name in &file_names {
-        println!(" > {file_name}");
-    }
-
-    println!(" - Input 2: BMS Cache Folder path. (Input a dir path that NOT exists)");
-    if root_dir.is_dir() {
-        println!("Root dir is an existing dir.");
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::AlreadyExists,
-            "Root dir already exists",
-        ));
-    }
-
-    println!(" - Input 3: Already exists BMS Folder path. (Input a dir path that ALREADY exists)");
-    println!("This script will use this dir, just for name syncing and file checking.");
-    if !sync_dir.is_dir() {
-        println!("Syncing dir is not vaild dir.");
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::NotADirectory,
-            "Sync dir is not a valid directory",
-        ));
-    }
-
-    Ok(())
-}
-
 /// Setup raw pack to HQ: extract -> rename -> convert -> clean
 ///
 /// # Errors
@@ -300,7 +244,7 @@ pub async fn pack_setup_rawpack_to_hq(
         &[flac_preset, flac_ffmpeg_preset],
         &TransferOptions {
             remove_origin_on_success: true,
-            remove_origin_on_failed: false,
+            remove_origin_on_failed: true,
             remove_existing_target_file: true,
             stop_on_error: false,
         },
@@ -354,7 +298,7 @@ pub async fn pack_update_rawpack_to_hq(
         &[flac_preset, flac_ffmpeg_preset],
         &TransferOptions {
             remove_origin_on_success: true,
-            remove_origin_on_failed: false,
+            remove_origin_on_failed: true,
             remove_existing_target_file: true,
             stop_on_error: false,
         },

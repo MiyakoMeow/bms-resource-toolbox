@@ -163,7 +163,14 @@ pub fn get_bms_file_str(file_bytes: &[u8], encoding: Option<&str>) -> String {
         s
     } else {
         let (decoded, _) = encoding_rs::UTF_8.decode_without_bom_handling(file_bytes);
-        decoded.into_owned()
+        // Match Python errors="ignore" behavior: drop undecodable bytes instead
+        // of inserting U+FFFD replacement characters
+        let s = decoded.into_owned();
+        if s.contains('\u{FFFD}') {
+            s.replace('\u{FFFD}', "")
+        } else {
+            s
+        }
     }
 }
 

@@ -215,34 +215,6 @@ pub static VIDEO_PRESET_WMV2_480P: LazyLock<VideoPreset> = LazyLock::new(video_p
 pub static VIDEO_PRESET_MPEG1VIDEO_480P: LazyLock<VideoPreset> =
     LazyLock::new(video_preset_mpeg1video_480p);
 
-/// All video presets (matching Python `VIDEO_PRESETS`)
-pub static VIDEO_PRESETS: LazyLock<Vec<VideoPreset>> = LazyLock::new(|| {
-    vec![
-        video_preset_avi_512x512(),
-        video_preset_wmv2_512x512(),
-        video_preset_mpeg1video_512x512(),
-        video_preset_avi_480p(),
-        video_preset_wmv2_480p(),
-        video_preset_mpeg1video_480p(),
-    ]
-});
-
-/// Interactive video presets list (matching Python `VIDEO_PRESETS` for interactive selection)
-pub static VIDEO_PRESETS_INTERACTIVE: LazyLock<Vec<(&'static str, VideoPreset)>> =
-    LazyLock::new(|| {
-        vec![
-            ("MP4 -> AVI 512x512", video_preset_avi_512x512()),
-            ("MP4 -> WMV2 512x512", video_preset_wmv2_512x512()),
-            (
-                "MP4 -> MPEG1VIDEO 512x512",
-                video_preset_mpeg1video_512x512(),
-            ),
-            ("MP4 -> AVI 480p", video_preset_avi_480p()),
-            ("MP4 -> WMV2 480p", video_preset_wmv2_480p()),
-            ("MP4 -> MPEG1VIDEO 480p", video_preset_mpeg1video_480p()),
-        ]
-    });
-
 /// Get video info from file using ffprobe
 #[must_use]
 #[allow(dead_code)]
@@ -287,35 +259,8 @@ pub fn get_video_info(file_path: &Path) -> Option<VideoInfo> {
 #[must_use]
 #[allow(dead_code)]
 pub fn get_video_size(file_path: &Path) -> Option<(u32, u32)> {
-    let output = std::process::Command::new("ffprobe")
-        .args([
-            "-show_format",
-            "-show_streams",
-            "-print_format",
-            "json",
-            "-v",
-            "quiet",
-            &file_path.to_string_lossy(),
-        ])
-        .output()
-        .ok()?;
-
-    if !output.status.success() {
-        return None;
-    }
-
-    let json_str = String::from_utf8_lossy(&output.stdout);
-    let json: serde_json::Value = serde_json::from_str(&json_str).ok()?;
-
-    for stream in json["streams"].as_array()? {
-        if stream["codec_type"] == "video" {
-            let width = u32::try_from(stream["width"].as_u64()?).ok()?;
-            let height = u32::try_from(stream["height"].as_u64()?).ok()?;
-            return Some((width, height));
-        }
-    }
-
-    None
+    let info = get_video_info(file_path)?;
+    Some((info.width, info.height))
 }
 
 /// Get preferred preset list based on video aspect ratio

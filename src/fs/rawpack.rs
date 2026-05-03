@@ -42,11 +42,22 @@ fn safe_join(base: &Path, component: &str) -> Option<PathBuf> {
         }
     }
 
-    if current.starts_with(base) {
-        Some(current)
-    } else {
-        None
+    if !current.starts_with(base) {
+        return None;
     }
+
+    // Symlink defense: resolve the parent path (file may not exist yet) and verify
+    // it still resides within the base directory. This matches Python's use of
+    // `Path.resolve()` to prevent symlink-based path traversal.
+    if let Some(parent) = current.parent()
+        && parent.exists()
+        && let (Ok(resolved), Ok(resolved_base)) = (parent.canonicalize(), base.canonicalize())
+        && !resolved.starts_with(&resolved_base)
+    {
+        return None;
+    }
+
+    Some(current)
 }
 
 fn set_mtime(path: &Path, dt: Option<zip::DateTime>) {

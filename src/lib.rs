@@ -11,6 +11,9 @@
 //! - [`scripts`] - Pack generation scripts
 //! - [`wasted`] - One-off/legacy utilities
 
+// Pre-existing clippy lint — Debug formatting intentional for logging paths.
+#![allow(clippy::unnecessary_debug_formatting)]
+
 pub mod bms;
 pub mod error;
 pub mod fs;

@@ -14,7 +14,7 @@ use tracing::info;
 /// Execute a shell command string cross-platform, capturing stderr on failure
 async fn execute_shell_command_with_stderr(
     cmd_str: &str,
-) -> Result<Result<(), String>, std::io::Error> {
+) -> Result<(bool, String, String), std::io::Error> {
     let (shell, shell_arg) = if std::env::consts::OS == "windows" {
         ("cmd", "/C")
     } else {
@@ -28,12 +28,10 @@ async fn execute_shell_command_with_stderr(
         .output()
         .await?;
 
-    if output.status.success() {
-        Ok(Ok(()))
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-        Ok(Err(stderr))
-    }
+    let success = output.status.success();
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    Ok((success, stdout, stderr))
 }
 
 /// Convert audio file using preset
@@ -52,11 +50,13 @@ pub async fn convert_audio(
     }
 
     info!("Running: {}", cmd_str);
-    match execute_shell_command_with_stderr(&cmd_str).await? {
-        Ok(()) => Ok(()),
-        Err(stderr) => Err(std::io::Error::other(format!(
+    let (success, _stdout, stderr) = execute_shell_command_with_stderr(&cmd_str).await?;
+    if success {
+        Ok(())
+    } else {
+        Err(std::io::Error::other(format!(
             "Conversion failed: stderr={stderr}"
-        ))),
+        )))
     }
 }
 
@@ -105,6 +105,7 @@ type TaskResult = (
     usize,
     Result<String, std::io::Error>,
     Vec<AudioPreset>,
+    String,
 );
 #[allow(clippy::type_complexity)]
 type HandleEntry = (tokio::task::JoinHandle<TaskResult>, bool);
@@ -144,7 +145,7 @@ pub async fn transfer_audio_by_format_in_dir(
     let mut handles: Vec<HandleEntry> = Vec::new();
     let mut has_error = false;
     let mut err_file_path = String::new();
-    let err_stdout = String::new();
+    let mut err_stdout = String::new();
     let mut err_stderr = String::new();
     let mut fallback_file_names: Vec<(String, usize)> = Vec::new();
 
@@ -173,19 +174,25 @@ pub async fn transfer_audio_by_format_in_dir(
 
         let handle = tokio::spawn(async move {
             let cmd_str = get_audio_process_cmd(&input_clone, &output, &preset);
-            let result = if cmd_str.is_empty() {
-                Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    format!("Unknown exec: {}", preset.exec),
-                ))
+            let (result, cmd_stdout) = if cmd_str.is_empty() {
+                (
+                    Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        format!("Unknown exec: {}", preset.exec),
+                    )),
+                    String::new(),
+                )
             } else {
                 info!("Running: {}", cmd_str);
                 match execute_shell_command_with_stderr(&cmd_str).await {
-                    Ok(Ok(())) => Ok(String::new()),
-                    Ok(Err(stderr)) => Err(std::io::Error::other(format!(
-                        "Conversion failed: stderr={stderr}"
-                    ))),
-                    Err(e) => Err(e),
+                    Ok((true, stdout, _)) => (Ok(String::new()), stdout),
+                    Ok((false, stdout, stderr)) => (
+                        Err(std::io::Error::other(format!(
+                            "Conversion failed: stderr={stderr}"
+                        ))),
+                        stdout,
+                    ),
+                    Err(e) => (Err(e), String::new()),
                 }
             };
             let stderr_msg = result
@@ -198,6 +205,7 @@ pub async fn transfer_audio_by_format_in_dir(
                 preset_idx,
                 result.map(|_| stderr_msg),
                 presets_vec,
+                cmd_stdout,
             )
         });
         handles.push((handle, true));
@@ -222,7 +230,7 @@ pub async fn transfer_audio_by_format_in_dir(
                 continue;
             }
             let result = handle.await;
-            if let Ok((input, preset_idx, res, _presets_vec)) = result {
+            if let Ok((input, preset_idx, res, _presets_vec, cmd_stdout)) = result {
                 match res {
                     Ok(_stderr_msg) => {
                         if options.remove_origin_on_success
@@ -238,6 +246,7 @@ pub async fn transfer_audio_by_format_in_dir(
                         switch_next_list.push((input.clone(), preset_idx));
                         err_file_path = input.to_string_lossy().to_string();
                         err_stderr = stderr_str;
+                        err_stdout = cmd_stdout;
                     }
                 }
             }
@@ -294,19 +303,25 @@ pub async fn transfer_audio_by_format_in_dir(
 
                 let handle = tokio::spawn(async move {
                     let cmd_str = get_audio_process_cmd(&input_clone, &output, &preset);
-                    let result = if cmd_str.is_empty() {
-                        Err(std::io::Error::new(
-                            std::io::ErrorKind::InvalidInput,
-                            format!("Unknown exec: {}", preset.exec),
-                        ))
+                    let (result, cmd_stdout) = if cmd_str.is_empty() {
+                        (
+                            Err(std::io::Error::new(
+                                std::io::ErrorKind::InvalidInput,
+                                format!("Unknown exec: {}", preset.exec),
+                            )),
+                            String::new(),
+                        )
                     } else {
                         info!("Running: {}", cmd_str);
                         match execute_shell_command_with_stderr(&cmd_str).await {
-                            Ok(Ok(())) => Ok(String::new()),
-                            Ok(Err(stderr)) => Err(std::io::Error::other(format!(
-                                "Conversion failed: stderr={stderr}"
-                            ))),
-                            Err(e) => Err(e),
+                            Ok((true, stdout, _)) => (Ok(String::new()), stdout),
+                            Ok((false, stdout, stderr)) => (
+                                Err(std::io::Error::other(format!(
+                                    "Conversion failed: stderr={stderr}"
+                                ))),
+                                stdout,
+                            ),
+                            Err(e) => (Err(e), String::new()),
                         }
                     };
                     let stderr_msg = result
@@ -319,6 +334,7 @@ pub async fn transfer_audio_by_format_in_dir(
                         preset_idx,
                         result.map(|_| stderr_msg),
                         presets_vec,
+                        cmd_stdout,
                     )
                 });
                 new_handles.push((handle, true));
